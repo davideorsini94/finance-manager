@@ -1,0 +1,568 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =================== ENUMS ===================
+
+enum UserRole {
+  admin
+  user
+}
+
+enum AccountType {
+  checking
+  credit_card
+  cash
+}
+
+enum AccountMemberRole {
+  owner
+  write
+  read
+}
+
+enum AccountRole {
+  owner
+  editor
+  viewer
+}
+
+enum InviteStatus {
+  pending
+  accepted
+  rejected
+  revoked
+  expired
+}
+
+enum TransactionType {
+  income
+  expense
+  transfer
+}
+
+enum RecurrenceFreq {
+  daily
+  weekly
+  biweekly
+  monthly
+  quarterly
+  yearly
+}
+
+enum ImportBatchStatus {
+  pending
+  analyzing
+  ready
+  importing
+  completed
+  failed
+  cancelled
+}
+
+enum ImportRowStatus {
+  pending
+  ready
+  duplicate
+  imported
+  skipped
+  error
+}
+
+enum ChatRole {
+  user
+  assistant
+  tool
+  system
+}
+
+enum AuditAction {
+  create
+  update
+  delete
+}
+
+enum AuditEntity {
+  transaction
+  account
+  account_member
+  category
+  budget
+  goal
+  recurring_rule
+  attachment
+}
+
+enum NotificationType {
+  budget_threshold
+  recurring_executed
+  cc_payment_due
+  goal_reached
+  large_transaction
+  account_shared
+  import_ready
+  system
+}
+
+enum NotificationChannel {
+  in_app
+  email
+}
+
+// =================== TABELLE ===================
+
+model User {
+  id                String   @id @default(uuid()) @db.Uuid
+  email             String   @unique @db.VarChar(255)
+  passwordHash      String   @map("password_hash")
+  fullName          String?  @map("full_name") @db.VarChar(100)
+  role              UserRole @default(user)
+  locale            String   @default("it") @db.VarChar(5)
+  isActive          Boolean  @default(true) @map("is_active")
+  /// Conto preferito: pre-selezionato nel form di nuovo movimento.
+  favoriteAccountId String?  @map("favorite_account_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  favoriteAccount     Account?                 @relation("UserFavoriteAccount", fields: [favoriteAccountId], references: [id], onDelete: SetNull)
+  accountsOwned       Account[]                @relation("AccountOwner")
+  accountMembers      AccountMember[]
+  categories          Category[]
+  transactions        Transaction[]
+  attachments         Attachment[]
+  refreshTokens       RefreshToken[]
+  invitesSent         InviteToken[]            @relation("InvitedBy")
+  passwordResetTokens PasswordResetToken[]
+  recurringRules      RecurringRule[]
+  budgets             Budget[]
+  goals               Goal[]
+  importBatches       ImportBatch[]
+  importTemplates     ImportTemplate[]
+  chatSessions        ChatSession[]
+  notifications       Notification[]
+  notificationPrefs   NotificationPreference[]
+  sentAccountInvites  AccountInvite[]          @relation("AccountInviteInviter")
+
+  @@map("users")
+}
+
+model InviteToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  token     String    @unique
+  email     String    @db.VarChar(255)
+  invitedBy String    @map("invited_by") @db.Uuid
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz()
+  usedAt    DateTime? @map("used_at") @db.Timestamptz()
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+
+  invitedByUser User @relation("InvitedBy", fields: [invitedBy], references: [id], onDelete: Cascade)
+
+  @@map("invite_tokens")
+}
+
+/// Token monouso per il reset password. Storato come SHA-256 hash così
+/// un dump del solo DB non basta a usarlo. TTL breve (1h).
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash") @db.VarChar(128)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz()
+  usedAt    DateTime? @map("used_at") @db.Timestamptz()
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  family    String    @db.Uuid
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz()
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz()
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([family])
+  @@map("refresh_tokens")
+}
+
+model Account {
+  id               String      @id @default(uuid()) @db.Uuid
+  name             String      @db.VarChar(100)
+  type             AccountType
+  currency         String      @default("EUR") @db.VarChar(3)
+  balanceCents     BigInt      @default(0) @map("balance_cents")
+  ownerId          String      @map("owner_id") @db.Uuid
+  paymentAccountId String?     @map("payment_account_id") @db.Uuid
+  billingDay       Int?        @map("billing_day") @db.SmallInt
+  color            String?     @db.VarChar(7)
+  icon             String?     @db.VarChar(50)
+  archivedAt       DateTime?   @map("archived_at") @db.Timestamptz()
+  createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt        DateTime    @updatedAt @map("updated_at") @db.Timestamptz()
+
+  owner                User            @relation("AccountOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  paymentAccount       Account?        @relation("CreditCardPayment", fields: [paymentAccountId], references: [id], onDelete: SetNull)
+  chargedCards         Account[]       @relation("CreditCardPayment")
+  members              AccountMember[]
+  transactions         Transaction[]
+  recurringRules       RecurringRule[]
+  recurringRulesAsDest RecurringRule[] @relation("RecurringRuleDestAccount")
+  goals                Goal[]
+  importBatches        ImportBatch[]
+  invites              AccountInvite[]
+  favoritedByUsers     User[]          @relation("UserFavoriteAccount")
+
+  @@index([ownerId])
+  @@map("accounts")
+}
+
+model AccountMember {
+  accountId String            @map("account_id") @db.Uuid
+  userId    String            @map("user_id") @db.Uuid
+  role      AccountMemberRole
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz()
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([accountId, userId])
+  @@index([userId])
+  @@map("account_members")
+}
+
+model AccountInvite {
+  id         String       @id @default(uuid()) @db.Uuid
+  accountId  String       @map("account_id") @db.Uuid
+  invitedBy  String       @map("invited_by") @db.Uuid
+  email      String       @db.VarChar(255)
+  role       AccountRole  @default(viewer)
+  tokenHash  String       @unique @map("token_hash") @db.VarChar(128)
+  status     InviteStatus @default(pending)
+  expiresAt  DateTime     @map("expires_at") @db.Timestamptz()
+  acceptedAt DateTime?    @map("accepted_at") @db.Timestamptz()
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz()
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  inviter User    @relation("AccountInviteInviter", fields: [invitedBy], references: [id], onDelete: Cascade)
+
+  @@index([accountId, status])
+  @@index([email])
+  @@map("account_invites")
+}
+
+model Category {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  parentId  String?  @map("parent_id") @db.Uuid
+  name      String   @db.VarChar(80)
+  color     String?  @db.VarChar(7)
+  icon      String?  @db.VarChar(50)
+  isIncome  Boolean  @default(false) @map("is_income")
+  sortOrder Int      @default(0) @map("sort_order") @db.SmallInt
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent                Category?       @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children              Category[]      @relation("CategoryTree")
+  transactions          Transaction[]
+  recurringRules        RecurringRule[]
+  budgets               Budget[]
+  importRowsAsSuggested ImportRow[]     @relation("ImportRowSuggested")
+  importRowsAsFinal     ImportRow[]     @relation("ImportRowFinal")
+
+  @@index([userId])
+  @@index([parentId])
+  @@index([userId, parentId, sortOrder])
+  @@map("categories")
+}
+
+model Transaction {
+  id              String          @id @default(uuid()) @db.Uuid
+  accountId       String          @map("account_id") @db.Uuid
+  userId          String          @map("user_id") @db.Uuid
+  amountCents     BigInt          @map("amount_cents")
+  type            TransactionType
+  categoryId      String?         @map("category_id") @db.Uuid
+  description     String?
+  notes           String?
+  transactionDate DateTime        @map("transaction_date") @db.Date
+  transferPairId  String?         @map("transfer_pair_id") @db.Uuid
+  ccChargeId      String?         @map("cc_charge_id") @db.Uuid
+  recurringRuleId String?         @map("recurring_rule_id") @db.Uuid
+  importBatchId   String?         @map("import_batch_id") @db.Uuid
+  isPending       Boolean         @default(false) @map("is_pending")
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz()
+
+  account               Account        @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  user                  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category              Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  recurringRule         RecurringRule? @relation(fields: [recurringRuleId], references: [id], onDelete: SetNull)
+  importBatch           ImportBatch?   @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  attachments           Attachment[]
+  importRowsAsDuplicate ImportRow[]    @relation("ImportRowDuplicate")
+  importRowsAsCreated   ImportRow[]    @relation("ImportRowCreated")
+
+  @@index([accountId, transactionDate(sort: Desc)])
+  @@index([userId, transactionDate(sort: Desc)])
+  @@index([categoryId])
+  @@index([transferPairId])
+  @@index([ccChargeId])
+  @@map("transactions")
+}
+
+model Attachment {
+  id            String   @id @default(uuid()) @db.Uuid
+  transactionId String   @map("transaction_id") @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  minioKey      String   @map("minio_key")
+  filename      String   @db.VarChar(255)
+  mimeType      String   @map("mime_type") @db.VarChar(100)
+  sizeBytes     Int      @map("size_bytes")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([transactionId])
+  @@map("attachments")
+}
+
+model RecurringRule {
+  id          String          @id @default(uuid()) @db.Uuid
+  userId      String          @map("user_id") @db.Uuid
+  accountId   String          @map("account_id") @db.Uuid
+  /// Per i giroconti ricorrenti: conto destinazione. Null per income/expense.
+  toAccountId String?         @map("to_account_id") @db.Uuid
+  categoryId  String?         @map("category_id") @db.Uuid
+  amountCents BigInt          @map("amount_cents")
+  type        TransactionType
+  description String?
+  frequency   RecurrenceFreq
+  startDate   DateTime        @map("start_date") @db.Date
+  endDate     DateTime?       @map("end_date") @db.Date
+  nextRunDate DateTime        @map("next_run_date") @db.Date
+  isActive    Boolean         @default(true) @map("is_active")
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz()
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account      Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  toAccount    Account?      @relation("RecurringRuleDestAccount", fields: [toAccountId], references: [id], onDelete: SetNull)
+  category     Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  transactions Transaction[]
+
+  @@index([nextRunDate, isActive])
+  @@map("recurring_rules")
+}
+
+model Budget {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  categoryId String   @map("category_id") @db.Uuid
+  month      DateTime @db.Date
+  limitCents BigInt   @map("limit_cents")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, categoryId, month])
+  @@map("budgets")
+}
+
+model Goal {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  accountId    String?   @map("account_id") @db.Uuid
+  name         String    @db.VarChar(100)
+  targetCents  BigInt    @map("target_cents")
+  currentCents BigInt    @default(0) @map("current_cents")
+  deadline     DateTime? @db.Date
+  isCompleted  Boolean   @default(false) @map("is_completed")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+
+  @@map("goals")
+}
+
+model ImportTemplate {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  name       String   @db.VarChar(100)
+  bankName   String?  @map("bank_name") @db.VarChar(100)
+  delimiter  String   @default(",") @db.VarChar(2)
+  encoding   String   @default("utf-8") @db.VarChar(20)
+  hasHeader  Boolean  @default(true) @map("has_header")
+  columnMap  Json     @map("column_map")
+  dateFormat String?  @map("date_format") @db.VarChar(20)
+  decimalSep String   @default(",") @map("decimal_sep") @db.VarChar(1)
+  amountMode String   @default("single") @map("amount_mode") @db.VarChar(20)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  batches ImportBatch[]
+
+  @@unique([userId, name])
+  @@map("import_templates")
+}
+
+model ImportBatch {
+  id             String            @id @default(uuid()) @db.Uuid
+  userId         String            @map("user_id") @db.Uuid
+  accountId      String            @map("account_id") @db.Uuid
+  filename       String            @db.VarChar(255)
+  delimiter      String            @default(",") @db.VarChar(2)
+  encoding       String            @default("utf-8") @db.VarChar(20)
+  rowCount       Int               @default(0) @map("row_count")
+  importedCount  Int               @default(0) @map("imported_count")
+  duplicateCount Int               @default(0) @map("duplicate_count")
+  columnMap      Json              @map("column_map")
+  templateId     String?           @map("template_id") @db.Uuid
+  status         ImportBatchStatus @default(pending)
+  errorMessage   String?           @map("error_message")
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz()
+  completedAt    DateTime?         @map("completed_at") @db.Timestamptz()
+
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account      Account         @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  template     ImportTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  rows         ImportRow[]
+  transactions Transaction[]
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("import_batches")
+}
+
+model ImportRow {
+  id                       String          @id @default(uuid()) @db.Uuid
+  batchId                  String          @map("batch_id") @db.Uuid
+  rowIndex                 Int             @map("row_index")
+  raw                      Json
+  parsedDate               DateTime?       @map("parsed_date") @db.Date
+  parsedAmount             BigInt?         @map("parsed_amount_cents")
+  parsedDescription        String?         @map("parsed_description")
+  suggestedCategoryId      String?         @map("suggested_category_id") @db.Uuid
+  suggestedConfidence      Float?          @map("suggested_confidence")
+  finalCategoryId          String?         @map("final_category_id") @db.Uuid
+  duplicateOfTransactionId String?         @map("duplicate_of_transaction_id") @db.Uuid
+  transactionId            String?         @map("transaction_id") @db.Uuid
+  status                   ImportRowStatus @default(pending)
+  errorMessage             String?         @map("error_message")
+
+  batch             ImportBatch  @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  suggestedCategory Category?    @relation("ImportRowSuggested", fields: [suggestedCategoryId], references: [id], onDelete: SetNull)
+  finalCategory     Category?    @relation("ImportRowFinal", fields: [finalCategoryId], references: [id], onDelete: SetNull)
+  duplicateOf       Transaction? @relation("ImportRowDuplicate", fields: [duplicateOfTransactionId], references: [id], onDelete: SetNull)
+  transaction       Transaction? @relation("ImportRowCreated", fields: [transactionId], references: [id], onDelete: SetNull)
+
+  @@unique([batchId, rowIndex])
+  @@index([batchId, status])
+  @@map("import_rows")
+}
+
+model ChatSession {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  title     String?  @db.VarChar(200)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+
+  @@index([userId, updatedAt(sort: Desc)])
+  @@map("chat_sessions")
+}
+
+/// Configurazione SMTP (singleton: id = "singleton"). Modificabile solo
+/// dall'admin via Settings. La password è cifrata at-rest con AES-256-GCM
+/// (chiave derivata via scrypt dal JWT_ACCESS_SECRET): un dump del solo DB
+/// non basta a estrarla.
+model SmtpConfig {
+  id                String   @id @default("singleton") @db.VarChar(20)
+  host              String   @db.VarChar(255)
+  port              Int
+  secure            Boolean  @default(false)
+  username          String?  @db.VarChar(255)
+  passwordEncrypted String?  @map("password_encrypted")
+  fromEmail         String   @map("from_email") @db.VarChar(255)
+  fromName          String?  @map("from_name") @db.VarChar(100)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+  updatedBy         String?  @map("updated_by") @db.Uuid
+
+  @@map("smtp_config")
+}
+
+model AuditLog {
+  id        String      @id @default(uuid()) @db.Uuid
+  userId    String      @map("user_id") @db.Uuid
+  action    AuditAction
+  entity    AuditEntity
+  entityId  String      @map("entity_id") @db.Uuid
+  metadata  Json?
+  createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([entity, entityId])
+  @@map("audit_log")
+}
+
+model ChatMessage {
+  id        String   @id @default(uuid()) @db.Uuid
+  sessionId String   @map("session_id") @db.Uuid
+  role      ChatRole
+  content   String
+  toolName  String?  @map("tool_name") @db.VarChar(100)
+  toolArgs  Json?    @map("tool_args")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+  @@map("chat_messages")
+}
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  type      NotificationType
+  title     String           @db.VarChar(200)
+  body      String?
+  data      Json?
+  readAt    DateTime?        @map("read_at") @db.Timestamptz()
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  userId    String              @map("user_id") @db.Uuid
+  type      NotificationType
+  channel   NotificationChannel
+  enabled   Boolean             @default(true)
+  updatedAt DateTime            @updatedAt @map("updated_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, type, channel])
+  @@map("notification_preferences")
+}

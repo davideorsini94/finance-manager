@@ -1,0 +1,9 @@
+node_modules
+dist
+dev-dist
+.env
+.env.local
+.git
+.vscode
+.idea
+README.md

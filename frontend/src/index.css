@@ -1,0 +1,687 @@
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/inter/700.css';
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
+@import '@fontsource/fraunces/400.css';
+@import '@fontsource/fraunces/500.css';
+@import '@fontsource/fraunces/600.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* ============ THEME: LINEAR (default) ============ */
+  :root,
+  [data-theme='linear'] {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 221 83% 53%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221 83% 53%;
+    --radius: 0.625rem;
+
+    /* Finance semantici */
+    --pos: 142 71% 38%;
+    --pos-foreground: 0 0% 100%;
+    --pos-soft: 142 71% 95%;
+    --neg: 0 72% 51%;
+    --neg-foreground: 0 0% 100%;
+    --neg-soft: 0 72% 96%;
+    --warn: 38 92% 50%;
+    --warn-foreground: 222 47% 11%;
+    --warn-soft: 38 92% 95%;
+
+    --chart-1: 221 83% 53%;
+    --chart-2: 142 71% 45%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 0 84% 60%;
+    --chart-5: 271 91% 65%;
+  }
+
+  .dark,
+  .dark[data-theme='linear'] {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 47% 11.2%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 217 91% 60%;
+
+    --pos: 142 60% 50%;
+    --pos-foreground: 222 47% 11%;
+    --pos-soft: 142 50% 14%;
+    --neg: 0 70% 60%;
+    --neg-foreground: 0 0% 100%;
+    --neg-soft: 0 50% 16%;
+    --warn: 38 92% 60%;
+    --warn-foreground: 222 47% 11%;
+    --warn-soft: 38 50% 16%;
+  }
+
+  /* ============ THEME: NORDIC ============ */
+  [data-theme='nordic'] {
+    --background: 220 25% 97%;
+    --foreground: 220 30% 18%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 30% 18%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 30% 18%;
+    --primary: 200 60% 38%;
+    --primary-foreground: 220 25% 97%;
+    --secondary: 220 20% 92%;
+    --secondary-foreground: 220 30% 22%;
+    --muted: 220 20% 93%;
+    --muted-foreground: 220 15% 45%;
+    --accent: 200 50% 92%;
+    --accent-foreground: 200 60% 25%;
+    --destructive: 354 70% 48%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 18% 88%;
+    --input: 220 18% 88%;
+    --ring: 200 60% 38%;
+    --radius: 0.5rem;
+
+    --pos: 152 50% 38%;
+    --pos-foreground: 0 0% 100%;
+    --pos-soft: 152 40% 92%;
+    --neg: 354 70% 48%;
+    --neg-foreground: 0 0% 100%;
+    --neg-soft: 354 60% 95%;
+    --warn: 32 80% 50%;
+    --warn-foreground: 220 30% 18%;
+    --warn-soft: 32 80% 94%;
+
+    --chart-1: 200 60% 38%;
+    --chart-2: 152 50% 38%;
+    --chart-3: 32 80% 50%;
+    --chart-4: 354 70% 48%;
+    --chart-5: 270 35% 50%;
+  }
+
+  .dark[data-theme='nordic'] {
+    --background: 220 25% 10%;
+    --foreground: 220 20% 92%;
+    --card: 220 22% 14%;
+    --card-foreground: 220 20% 92%;
+    --popover: 220 25% 10%;
+    --popover-foreground: 220 20% 92%;
+    --primary: 200 70% 60%;
+    --primary-foreground: 220 25% 10%;
+    --secondary: 220 18% 20%;
+    --secondary-foreground: 220 20% 92%;
+    --muted: 220 18% 18%;
+    --muted-foreground: 220 15% 65%;
+    --accent: 200 35% 22%;
+    --accent-foreground: 200 70% 80%;
+    --destructive: 354 65% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 18% 22%;
+    --input: 220 18% 22%;
+    --ring: 200 70% 60%;
+
+    --pos: 152 50% 55%;
+    --pos-foreground: 220 25% 10%;
+    --pos-soft: 152 30% 18%;
+    --neg: 354 65% 60%;
+    --neg-foreground: 0 0% 100%;
+    --neg-soft: 354 30% 20%;
+    --warn: 32 80% 60%;
+    --warn-foreground: 220 25% 10%;
+    --warn-soft: 32 30% 20%;
+  }
+
+  /* ============ THEME: GLASS (default new) ============ */
+  [data-theme='glass'] {
+    --background: 220 30% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 250 84% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 25% 95%;
+    --secondary-foreground: 222 47% 14%;
+    --muted: 220 20% 95%;
+    --muted-foreground: 220 10% 45%;
+    --accent: 250 60% 95%;
+    --accent-foreground: 250 84% 35%;
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 20% 90%;
+    --input: 220 20% 90%;
+    --ring: 250 84% 60%;
+    --radius: 1rem;
+
+    --pos: 152 60% 42%;
+    --pos-foreground: 0 0% 100%;
+    --pos-soft: 152 60% 94%;
+    --neg: 0 70% 55%;
+    --neg-foreground: 0 0% 100%;
+    --neg-soft: 0 70% 95%;
+    --warn: 38 92% 50%;
+    --warn-foreground: 222 47% 11%;
+    --warn-soft: 38 92% 94%;
+
+    --chart-1: 250 84% 60%;
+    --chart-2: 200 80% 55%;
+    --chart-3: 152 60% 50%;
+    --chart-4: 38 92% 55%;
+    --chart-5: 320 70% 60%;
+
+    /* Glass-specific tokens */
+    --glass-bg: 0 0% 100%;
+    --glass-bg-alpha: 0.6;
+    --glass-border: 220 30% 100%;
+    --glass-border-alpha: 0.5;
+    --glass-shadow-alpha: 0.08;
+    --bg-blob-1: 220 90% 92%;
+    --bg-blob-2: 270 80% 92%;
+    --bg-blob-3: 200 90% 92%;
+  }
+
+  .dark[data-theme='glass'] {
+    --background: 240 30% 6%;
+    --foreground: 220 20% 96%;
+    --card: 240 25% 12%;
+    --card-foreground: 220 20% 96%;
+    --popover: 240 25% 12%;
+    --popover-foreground: 220 20% 96%;
+    --primary: 250 90% 70%;
+    --primary-foreground: 240 30% 6%;
+    --secondary: 240 20% 18%;
+    --secondary-foreground: 220 20% 96%;
+    --muted: 240 20% 16%;
+    --muted-foreground: 220 15% 65%;
+    --accent: 250 30% 20%;
+    --accent-foreground: 250 80% 85%;
+    --destructive: 0 65% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 20% 22%;
+    --input: 240 20% 22%;
+    --ring: 250 90% 70%;
+
+    --pos: 152 60% 55%;
+    --pos-foreground: 240 30% 6%;
+    --pos-soft: 152 40% 16%;
+    --neg: 0 70% 65%;
+    --neg-foreground: 0 0% 100%;
+    --neg-soft: 0 50% 18%;
+    --warn: 38 92% 60%;
+    --warn-foreground: 240 30% 6%;
+    --warn-soft: 38 50% 18%;
+
+    --glass-bg: 240 25% 14%;
+    --glass-bg-alpha: 0.5;
+    --glass-border: 240 30% 30%;
+    --glass-border-alpha: 0.4;
+    --glass-shadow-alpha: 0.4;
+    --bg-blob-1: 250 60% 14%;
+    --bg-blob-2: 270 50% 16%;
+    --bg-blob-3: 220 60% 12%;
+  }
+
+  /* ============ THEME: FINTECH (denso, terminal-style) ============ */
+  [data-theme='fintech'] {
+    --background: 220 25% 5%;
+    --foreground: 180 15% 88%;
+    --card: 220 25% 8%;
+    --card-foreground: 180 15% 88%;
+    --popover: 220 25% 10%;
+    --popover-foreground: 180 15% 88%;
+    --primary: 175 80% 50%;
+    --primary-foreground: 220 25% 5%;
+    --secondary: 220 20% 12%;
+    --secondary-foreground: 180 15% 88%;
+    --muted: 220 20% 12%;
+    --muted-foreground: 200 10% 55%;
+    --accent: 175 50% 18%;
+    --accent-foreground: 175 80% 70%;
+    --destructive: 0 80% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 25% 16%;
+    --input: 220 25% 16%;
+    --ring: 175 80% 50%;
+    --radius: 0.25rem;
+
+    --pos: 145 70% 50%;
+    --pos-foreground: 220 25% 5%;
+    --pos-soft: 145 50% 12%;
+    --neg: 0 80% 60%;
+    --neg-foreground: 0 0% 100%;
+    --neg-soft: 0 50% 14%;
+    --warn: 45 95% 55%;
+    --warn-foreground: 220 25% 5%;
+    --warn-soft: 45 50% 14%;
+
+    --chart-1: 175 80% 50%;
+    --chart-2: 145 70% 50%;
+    --chart-3: 45 95% 55%;
+    --chart-4: 0 80% 60%;
+    --chart-5: 280 60% 60%;
+  }
+
+  /* Fintech: variante light meno comune ma supportata */
+  :root[data-theme='fintech']:not(.dark) {
+    --background: 180 15% 96%;
+    --foreground: 220 25% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 25% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 25% 12%;
+    --primary: 175 75% 32%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 180 15% 92%;
+    --secondary-foreground: 220 25% 18%;
+    --muted: 180 15% 92%;
+    --muted-foreground: 200 10% 40%;
+    --accent: 175 40% 90%;
+    --accent-foreground: 175 75% 22%;
+    --border: 180 15% 86%;
+    --input: 180 15% 86%;
+    --ring: 175 75% 32%;
+
+    --pos: 145 65% 35%;
+    --pos-foreground: 0 0% 100%;
+    --pos-soft: 145 50% 92%;
+    --neg: 0 70% 48%;
+    --neg-foreground: 0 0% 100%;
+    --neg-soft: 0 60% 95%;
+    --warn: 35 85% 45%;
+    --warn-foreground: 220 25% 12%;
+    --warn-soft: 35 80% 92%;
+  }
+
+  /* ============ THEME: SUNSET ============ */
+  [data-theme='sunset'] {
+    --background: 30 30% 97%;
+    --foreground: 20 30% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 20 30% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 20 30% 15%;
+    --primary: 18 80% 55%;
+    --primary-foreground: 30 30% 97%;
+    --secondary: 30 25% 92%;
+    --secondary-foreground: 20 30% 22%;
+    --muted: 30 25% 93%;
+    --muted-foreground: 20 15% 45%;
+    --accent: 18 70% 92%;
+    --accent-foreground: 18 80% 30%;
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 30 20% 88%;
+    --input: 30 20% 88%;
+    --ring: 18 80% 55%;
+    --radius: 0.75rem;
+
+    --pos: 145 55% 40%;
+    --pos-foreground: 0 0% 100%;
+    --pos-soft: 145 50% 93%;
+    --neg: 0 70% 50%;
+    --neg-foreground: 0 0% 100%;
+    --neg-soft: 0 70% 95%;
+    --warn: 38 92% 50%;
+    --warn-foreground: 20 30% 15%;
+    --warn-soft: 38 92% 94%;
+
+    --chart-1: 18 80% 55%;
+    --chart-2: 145 55% 40%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 340 70% 55%;
+    --chart-5: 260 50% 55%;
+  }
+
+  .dark[data-theme='sunset'] {
+    --background: 20 25% 10%;
+    --foreground: 30 25% 92%;
+    --card: 20 22% 14%;
+    --card-foreground: 30 25% 92%;
+    --popover: 20 25% 10%;
+    --popover-foreground: 30 25% 92%;
+    --primary: 18 90% 65%;
+    --primary-foreground: 20 25% 10%;
+    --secondary: 20 18% 20%;
+    --secondary-foreground: 30 25% 92%;
+    --muted: 20 18% 18%;
+    --muted-foreground: 30 15% 65%;
+    --accent: 18 30% 22%;
+    --accent-foreground: 18 90% 80%;
+    --destructive: 0 65% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 20 18% 22%;
+    --input: 20 18% 22%;
+    --ring: 18 90% 65%;
+
+    --pos: 145 55% 55%;
+    --pos-foreground: 20 25% 10%;
+    --pos-soft: 145 30% 18%;
+    --neg: 0 65% 60%;
+    --neg-foreground: 0 0% 100%;
+    --neg-soft: 0 30% 20%;
+    --warn: 38 92% 60%;
+    --warn-foreground: 20 25% 10%;
+    --warn-soft: 38 30% 20%;
+  }
+
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+  }
+  html, body, #root {
+    @apply h-dvh;
+  }
+
+  /* iOS safe-area: notch (top), home indicator (bottom), landscape side
+     insets. Espongo le 4 utility come variabili così posso usarle ovunque
+     con `paddingTop: 'var(--safe-top)'` o classi tailwind `pt-[var(--safe-top)]`. */
+  :root {
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+  }
+
+  /* Numerics font families: scelta utente */
+  :root[data-num-font='sans']  { --font-num: 'Inter', system-ui, sans-serif; }
+  :root[data-num-font='mono']  { --font-num: 'JetBrains Mono', ui-monospace, monospace; }
+  :root[data-num-font='serif'] { --font-num: 'Fraunces', Georgia, serif; }
+  :root { --font-num: 'Inter', system-ui, sans-serif; }
+
+  /* `font-num` esplicito su elementi numerici. `.tabular-nums` (usato già
+     dalle pagine esistenti per gli importi) eredita la stessa famiglia
+     così il selettore "Font numeri" agisce app-wide senza dover migrare
+     ogni componente a <MoneyAmount />. */
+  .font-num,
+  .tabular-nums {
+    font-family: var(--font-num);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1, 'lnum' 1;
+  }
+
+  /* Privacy mode: blurra
+     - elementi marcati .money-blur-target (componente <MoneyAmount />)
+     - tutti gli importi nelle pagine esistenti (.tabular-nums) */
+  :root[data-privacy='on'] .money-blur-target,
+  :root[data-privacy='on'] .tabular-nums {
+    filter: blur(7px);
+    transition: filter 120ms ease;
+    user-select: none;
+  }
+  :root[data-privacy='on'] .money-blur-target:hover,
+  :root[data-privacy='on'] .money-blur-target:focus-within,
+  :root[data-privacy='on'] .tabular-nums:hover,
+  :root[data-privacy='on'] .tabular-nums:focus-within {
+    filter: blur(0);
+  }
+
+  /* Prose minimo per chat markdown */
+  .prose-sm p { @apply my-2 leading-relaxed; }
+  .prose-sm p:first-child { @apply mt-0; }
+  .prose-sm p:last-child { @apply mb-0; }
+  .prose-sm ul, .prose-sm ol { @apply my-2 ml-5; }
+  .prose-sm ul { @apply list-disc; }
+  .prose-sm ol { @apply list-decimal; }
+  .prose-sm li { @apply my-0.5; }
+  .prose-sm code { @apply rounded bg-muted px-1 py-0.5 text-xs font-mono; }
+  .prose-sm pre { @apply rounded bg-muted p-3 my-2 overflow-x-auto; }
+  .prose-sm pre code { @apply bg-transparent p-0; }
+  .prose-sm h1, .prose-sm h2, .prose-sm h3 { @apply font-semibold mt-3 mb-1.5; }
+  .prose-sm h1 { @apply text-base; }
+  .prose-sm h2 { @apply text-sm; }
+  .prose-sm h3 { @apply text-sm; }
+  .prose-sm strong { @apply font-semibold; }
+  .prose-sm a { @apply text-primary underline; }
+  .prose-sm blockquote { @apply border-l-2 border-muted-foreground pl-3 my-2 italic; }
+
+  /* ============================================================
+     GLASS / FINTECH — utility classes (decorativo + chrome)
+     ============================================================ */
+
+  /* Animated blob background. Visibile solo per Glass; vuoto altrove. */
+  .fm-bg-decor {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  [data-theme='glass'] .fm-bg-decor::before,
+  [data-theme='glass'] .fm-bg-decor::after,
+  [data-theme='glass'] .fm-bg-decor > .fm-blob-3 {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+    opacity: 0.55;
+  }
+  [data-theme='glass'] .fm-bg-decor::before {
+    content: '';
+    width: 600px; height: 600px;
+    top: -200px; left: -100px;
+    background: hsl(var(--bg-blob-1));
+    animation: fm-blob 22s ease-in-out infinite;
+  }
+  [data-theme='glass'] .fm-bg-decor::after {
+    content: '';
+    width: 700px; height: 700px;
+    bottom: -300px; right: -200px;
+    background: hsl(var(--bg-blob-2));
+    animation: fm-blob 22s ease-in-out -7s infinite;
+  }
+  [data-theme='glass'] .fm-bg-decor > .fm-blob-3 {
+    width: 400px; height: 400px;
+    top: 30%; left: 40%;
+    background: hsl(var(--bg-blob-3));
+    opacity: 0.4;
+    animation: fm-blob 18s ease-in-out infinite reverse;
+  }
+
+  /* Fintech: subtle terminal grid */
+  [data-theme='fintech'] .fm-bg-decor {
+    background-image:
+      linear-gradient(hsl(var(--border) / 0.25) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--border) / 0.25) 1px, transparent 1px);
+    background-size: 32px 32px;
+    background-position: -1px -1px;
+  }
+
+  @keyframes fm-blob {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33%      { transform: translate(60px, -40px) scale(1.1); }
+    66%      { transform: translate(-50px, 50px) scale(0.95); }
+  }
+
+  /* Glass card surface (additivo a <Card>). Applicato via classe `fm-glass`. */
+  [data-theme='glass'] .fm-glass {
+    background: hsl(var(--glass-bg) / var(--glass-bg-alpha));
+    border: 1px solid hsl(var(--glass-border) / var(--glass-border-alpha));
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    box-shadow: 0 30px 80px hsl(220 30% 10% / var(--glass-shadow-alpha));
+  }
+
+  /* Hero glow utility — radiale primario in alto a destra del card/area. */
+  .fm-hero-glow {
+    position: absolute;
+    top: 0; right: 0;
+    width: 320px; height: 320px;
+    background: radial-gradient(circle, hsl(var(--primary) / 0.18), transparent 70%);
+    pointer-events: none;
+    animation: fm-pulse-glow 4s ease-in-out infinite;
+  }
+  @keyframes fm-pulse-glow {
+    0%, 100% { opacity: 0.6; transform: scale(1); }
+    50%      { opacity: 1;   transform: scale(1.1); }
+  }
+
+  /* Shimmer skeleton (sostituisce animate-pulse "grezzo"). */
+  .fm-shimmer {
+    position: relative;
+    overflow: hidden;
+    background: hsl(var(--muted) / 0.5);
+  }
+  .fm-shimmer::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(var(--foreground) / 0.06),
+      transparent
+    );
+    transform: translateX(-100%);
+    animation: fm-shimmer 1.6s ease-in-out infinite;
+  }
+  @keyframes fm-shimmer { to { transform: translateX(100%); } }
+
+  /* Stagger entrance — card fade+lift. Aggiungere classe `fm-card-in` ai
+     children e parent `.fm-stagger` per i delay incrementali. */
+  .fm-card-in {
+    opacity: 0;
+    transform: translateY(12px);
+    animation: fm-card-in 700ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  @keyframes fm-card-in {
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .fm-stagger > *:nth-child(1) { animation-delay:  50ms; }
+  .fm-stagger > *:nth-child(2) { animation-delay: 120ms; }
+  .fm-stagger > *:nth-child(3) { animation-delay: 190ms; }
+  .fm-stagger > *:nth-child(4) { animation-delay: 260ms; }
+  .fm-stagger > *:nth-child(5) { animation-delay: 330ms; }
+  .fm-stagger > *:nth-child(6) { animation-delay: 400ms; }
+  .fm-stagger > *:nth-child(7) { animation-delay: 470ms; }
+  .fm-stagger > *:nth-child(8) { animation-delay: 540ms; }
+
+  /* Reveal on scroll (toggled via IntersectionObserver: classe `is-visible`). */
+  .fm-reveal {
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 600ms cubic-bezier(0.16, 1, 0.3, 1),
+                transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .fm-reveal.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Sparkline draw-in */
+  .fm-spark-path {
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 200;
+    stroke-dashoffset: 200;
+    animation: fm-draw 1400ms cubic-bezier(0.4, 0, 0.2, 1) 200ms forwards;
+  }
+  @keyframes fm-draw { to { stroke-dashoffset: 0; } }
+
+  /* TopBar / Sidebar — vetro acidato per Glass. */
+  [data-theme='glass'] .fm-chrome {
+    background: hsl(var(--card) / 0.65);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .fm-bg-decor::before,
+    .fm-bg-decor::after,
+    .fm-bg-decor > .fm-blob-3,
+    .fm-hero-glow,
+    .fm-shimmer::after,
+    .fm-spark-path {
+      animation: none !important;
+    }
+    .fm-card-in,
+    .fm-reveal {
+      opacity: 1 !important;
+      transform: none !important;
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+
+  /* Recharts tooltip — usa i token di tema così è leggibile in dark mode.
+     Recharts setta colori inline e per il PieChart eredita dal colore della
+     slice (spesso poco leggibile su dark). Selettori che NON richiedono
+     `.recharts-default-tooltip` come ancestor (il PieChart non lo ha). */
+  .recharts-tooltip-wrapper {
+    outline: none !important;
+  }
+  .recharts-tooltip-wrapper > div,
+  .recharts-default-tooltip {
+    background-color: hsl(var(--popover)) !important;
+    border: 1px solid hsl(var(--border)) !important;
+    border-radius: var(--radius) !important;
+    color: hsl(var(--popover-foreground)) !important;
+    box-shadow: 0 4px 12px hsl(var(--foreground) / 0.08) !important;
+    padding: 8px 12px !important;
+  }
+  .recharts-tooltip-label {
+    color: hsl(var(--popover-foreground)) !important;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .recharts-tooltip-item,
+  .recharts-tooltip-item-name,
+  .recharts-tooltip-item-value,
+  .recharts-tooltip-item-separator,
+  .recharts-tooltip-item-unit {
+    color: hsl(var(--popover-foreground)) !important;
+  }
+  .recharts-tooltip-item-list {
+    margin: 0;
+    padding: 0;
+  }
+  /* Cursor (linea verticale/sfondo barra) più tenue in dark mode */
+  .recharts-tooltip-cursor {
+    fill: hsl(var(--muted) / 0.5) !important;
+    stroke: hsl(var(--muted-foreground) / 0.3) !important;
+  }
+  /* Legend testo */
+  .recharts-legend-item-text {
+    color: hsl(var(--foreground)) !important;
+  }
+  /* Cartesian grid più tenue */
+  .recharts-cartesian-grid line {
+    stroke: hsl(var(--border)) !important;
+  }
+  .recharts-cartesian-axis-tick-value {
+    fill: hsl(var(--muted-foreground)) !important;
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "app": {
+    "name": "Finance Manager",
+    "tagline": "Gestione contabilità famigliare"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "accounts": "Conti",
+    "transactions": "Movimenti",
+    "categories": "Categorie",
+    "reports": "Report",
+    "budget": "Budget",
+    "recurring": "Ricorrenze",
+    "goals": "Obiettivi",
+    "import": "Importa",
+    "importWizard": "Importa CSV (wizard)",
+    "importTemplates": "Template CSV",
+    "reportsAdvanced": "Report avanzati",
+    "chat": "Chat",
+    "settings": "Impostazioni",
+    "logout": "Esci",
+    "section": {
+      "overview": "Panoramica",
+      "finance": "Finanze",
+      "planning": "Pianificazione",
+      "tools": "Strumenti",
+      "system": "Sistema"
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "Accedi",
+      "subtitle": "Entra nel tuo account",
+      "email": "Email",
+      "password": "Password",
+      "submit": "Accedi",
+      "submitting": "Accesso in corso...",
+      "invalid": "Credenziali non valide",
+      "forgotPassword": "Password dimenticata?"
+    },
+    "invite": {
+      "title": "Completa la registrazione",
+      "subtitle": "Imposta la tua password per attivare l'account",
+      "fullName": "Nome completo",
+      "password": "Password",
+      "submit": "Crea account",
+      "invalidToken": "Invito non valido o scaduto"
+    }
+  },
+  "common": {
+    "save": "Salva",
+    "cancel": "Annulla",
+    "delete": "Elimina",
+    "edit": "Modifica",
+    "loading": "Caricamento...",
+    "search": "Cerca",
+    "language": "Lingua",
+    "add": "Aggiungi",
+    "notifications": "Notifiche",
+    "theme": {
+      "light": "Chiaro",
+      "dark": "Scuro",
+      "toggle": "Cambia tema",
+      "system": "Sistema",
+      "palette": "Palette",
+      "linear": "Linear",
+      "nordic": "Nordic",
+      "sunset": "Sunset",
+      "glass": "Glass",
+      "fintech": "Fintech",
+      "numFont": "Font numeri",
+      "fontSans": "Sans",
+      "fontMono": "Mono",
+      "fontSerif": "Serif"
+    },
+    "privacy": {
+      "label": "Modalità privacy",
+      "show": "Mostra importi",
+      "hide": "Nascondi importi",
+      "description": "Sfoca gli importi monetari nell'interfaccia"
+    },
+    "demo": {
+      "label": "Dati demo",
+      "description": "Mostra dati fittizi al posto di quelli reali"
+    }
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "app": {
+    "name": "Finance Manager",
+    "tagline": "Family finances at a glance"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "accounts": "Accounts",
+    "transactions": "Transactions",
+    "categories": "Categories",
+    "reports": "Reports",
+    "budget": "Budget",
+    "recurring": "Recurring",
+    "goals": "Goals",
+    "import": "Import",
+    "importWizard": "Import CSV (wizard)",
+    "importTemplates": "CSV templates",
+    "reportsAdvanced": "Advanced reports",
+    "chat": "Chat",
+    "settings": "Settings",
+    "logout": "Sign out",
+    "section": {
+      "overview": "Overview",
+      "finance": "Finance",
+      "planning": "Planning",
+      "tools": "Tools",
+      "system": "System"
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "Sign in",
+      "subtitle": "Access your account",
+      "email": "Email",
+      "password": "Password",
+      "submit": "Sign in",
+      "submitting": "Signing in...",
+      "invalid": "Invalid credentials",
+      "forgotPassword": "Forgot password?"
+    },
+    "invite": {
+      "title": "Complete registration",
+      "subtitle": "Set a password to activate your account",
+      "fullName": "Full name",
+      "password": "Password",
+      "submit": "Create account",
+      "invalidToken": "Invite invalid or expired"
+    }
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "loading": "Loading...",
+    "search": "Search",
+    "language": "Language",
+    "add": "Add",
+    "notifications": "Notifications",
+    "theme": {
+      "light": "Light",
+      "dark": "Dark",
+      "toggle": "Toggle theme",
+      "system": "System",
+      "palette": "Palette",
+      "linear": "Linear",
+      "nordic": "Nordic",
+      "sunset": "Sunset",
+      "glass": "Glass",
+      "fintech": "Fintech",
+      "numFont": "Number font",
+      "fontSans": "Sans",
+      "fontMono": "Mono",
+      "fontSerif": "Serif"
+    },
+    "privacy": {
+      "label": "Privacy mode",
+      "show": "Show amounts",
+      "hide": "Hide amounts",
+      "description": "Blur monetary amounts in the UI"
+    },
+    "demo": {
+      "label": "Demo data",
+      "description": "Show fake data instead of real data"
+    }
+  }
+}
