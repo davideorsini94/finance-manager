@@ -16,6 +16,21 @@ export interface CategoryBreakdownItem {
   count: number;
 }
 
+/**
+ * Nodo gerarchico della spesa per categoria: categorie padre al primo livello,
+ * sottocategorie nei `children`. Un nodo senza `children` con `categoryId`
+ * valorizzato è drillabile fino alle singole transazioni.
+ */
+export interface CategoryNode {
+  /** ID delle categorie unificate sotto questo nodo (per il drill-down). Vuoto per "Senza categoria". */
+  categoryIds: string[];
+  categoryName: string;
+  color: string | null;
+  amountCents: string;
+  count: number;
+  children: CategoryNode[];
+}
+
 export interface DailyPoint {
   date: string;
   incomeCents: string;
@@ -45,6 +60,16 @@ export interface AnnualReport {
   totals: PeriodTotals;
   byMonth: MonthlyAggregate[];
   byCategory: CategoryBreakdownItem[];
+  byCategoryTree: CategoryNode[];
+}
+
+export interface MonthlyReport {
+  from: string;
+  to: string;
+  totals: PeriodTotals;
+  byCategory: CategoryBreakdownItem[];
+  byCategoryTree: CategoryNode[];
+  daily: DailyPoint[];
 }
 
 export interface CustomReport {
@@ -72,6 +97,13 @@ export const reportsApi = {
         searchParams: buildParams({ year: String(year), accountIds }),
       })
       .json<AnnualReport>(),
+
+  monthly: (year: number, month: number, accountIds?: string[]) =>
+    api
+      .get('reports/monthly', {
+        searchParams: buildParams({ year: String(year), month: String(month), accountIds }),
+      })
+      .json<MonthlyReport>(),
 
   custom: (from: string, to: string, accountIds?: string[]) =>
     api

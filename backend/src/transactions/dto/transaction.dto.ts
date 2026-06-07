@@ -1,6 +1,7 @@
 import { TransactionType } from '@prisma/client';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
+  IsArray,
   IsDateString,
   IsEnum,
   IsInt,
@@ -10,6 +11,13 @@ import {
   Min,
   MaxLength,
 } from 'class-validator';
+
+/** Espone una query string `?accountIds=...` sia come singolo valore sia come array. */
+const ToStringArray = () =>
+  Transform(({ value }) => {
+    if (value === undefined || value === null || value === '') return undefined;
+    return Array.isArray(value) ? value : [value];
+  });
 
 export class CreateTransactionDto {
   @IsUUID()
@@ -78,8 +86,20 @@ export class ListTransactionsQuery {
   accountId?: string;
 
   @IsOptional()
+  @ToStringArray()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  accountIds?: string[];
+
+  @IsOptional()
   @IsUUID()
   categoryId?: string;
+
+  @IsOptional()
+  @ToStringArray()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  categoryIds?: string[];
 
   @IsOptional()
   @IsEnum(TransactionType)

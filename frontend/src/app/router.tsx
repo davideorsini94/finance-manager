@@ -18,6 +18,7 @@ import { RecurringPage } from '@/features/recurring/RecurringPage';
 import { GoalsPage } from '@/features/goals/GoalsPage';
 import { ReportsPage } from '@/features/reports/ReportsPage';
 import { AdvancedReports } from '@/features/reports/AdvancedReports';
+import { ProjectionsPage } from '@/features/projections/ProjectionsPage';
 import { ChatPage } from '@/features/chat/ChatPage';
 import { ImportPage } from '@/features/import/ImportPage';
 import { ImportWizard } from '@/features/import/ImportWizard';
@@ -129,6 +130,12 @@ const advancedReportsRoute = createRoute({
   component: AdvancedReports,
 });
 
+const projectionsRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/projections',
+  component: ProjectionsPage,
+});
+
 const chatRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/chat',
@@ -174,6 +181,7 @@ const routeTree = rootRoute.addChildren([
     goalsRoute,
     reportsRoute,
     advancedReportsRoute,
+    projectionsRoute,
     chatRoute,
     importRoute,
     importWizardRoute,

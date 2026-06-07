@@ -312,6 +312,9 @@ export function TransactionsPage() {
           if (!open) setEditing(null);
         }}
         transaction={editing}
+        // Se è attivo un filtro per conto, in creazione propongo quel conto
+        // (scavalca il conto preferito dell'utente).
+        defaultAccountId={filters.accountId ?? null}
       />
     </div>
   );

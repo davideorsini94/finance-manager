@@ -22,24 +22,26 @@ export class ReportsController {
   async monthly(@CurrentUser() user: AuthUser, @Query() query: MonthlyReportQueryDto) {
     const from = new Date(Date.UTC(query.year, query.month - 1, 1));
     const to = new Date(Date.UTC(query.year, query.month, 0));
-    const [totals, breakdown, daily] = await Promise.all([
+    const [totals, breakdown, tree, daily] = await Promise.all([
       this.reportsService.periodTotals(user.id, from, to, query.accountIds),
       this.reportsService.categoryBreakdown(user.id, from, to, query.accountIds),
+      this.reportsService.categoryBreakdownTree(user.id, from, to, query.accountIds),
       this.reportsService.dailyTimeSeries(user.id, from, to, query.accountIds),
     ]);
-    return { from, to, totals, byCategory: breakdown, daily };
+    return { from, to, totals, byCategory: breakdown, byCategoryTree: tree, daily };
   }
 
   @Get('annual')
   async annual(@CurrentUser() user: AuthUser, @Query() query: AnnualReportQueryDto) {
     const from = new Date(Date.UTC(query.year, 0, 1));
     const to = new Date(Date.UTC(query.year, 11, 31));
-    const [totals, byMonth, breakdown] = await Promise.all([
+    const [totals, byMonth, breakdown, tree] = await Promise.all([
       this.reportsService.periodTotals(user.id, from, to, query.accountIds),
       this.reportsService.monthlyAggregates(user.id, query.year, query.accountIds),
       this.reportsService.categoryBreakdown(user.id, from, to, query.accountIds),
+      this.reportsService.categoryBreakdownTree(user.id, from, to, query.accountIds),
     ]);
-    return { year: query.year, totals, byMonth, byCategory: breakdown };
+    return { year: query.year, totals, byMonth, byCategory: breakdown, byCategoryTree: tree };
   }
 
   @Get('custom')

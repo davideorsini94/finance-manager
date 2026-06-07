@@ -5,6 +5,7 @@ import {
   Tags,
   PieChart,
   TrendingUp,
+  LineChart,
   Target,
   Repeat,
   FileUp,
@@ -37,6 +38,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/transactions', labelKey: 'nav.transactions', icon: Receipt, primary: true },
   { to: '/reports', labelKey: 'nav.reports', icon: PieChart, primary: true },
   { to: '/reports/advanced', labelKey: 'nav.reportsAdvanced', icon: TrendingUp, primary: false },
+  { to: '/projections', labelKey: 'nav.projections', icon: LineChart, primary: false },
   { to: '/chat', labelKey: 'nav.chat', icon: MessageSquare, primary: true },
   { to: '/categories', labelKey: 'nav.categories', icon: Tags, primary: false },
   { to: '/budget', labelKey: 'nav.budget', icon: Target, primary: false },
@@ -56,6 +58,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { to: '/', labelKey: 'nav.dashboard', icon: LayoutDashboard, primary: true },
       { to: '/reports', labelKey: 'nav.reports', icon: PieChart, primary: true },
       { to: '/reports/advanced', labelKey: 'nav.reportsAdvanced', icon: TrendingUp, primary: false },
+      { to: '/projections', labelKey: 'nav.projections', icon: LineChart, primary: false },
     ],
   },
   {

@@ -3,7 +3,9 @@ import type { PageResult, Transaction, TransactionType } from '@/types/domain';
 
 export interface ListTransactionsParams {
   accountId?: string;
+  accountIds?: string[];
   categoryId?: string;
+  categoryIds?: string[];
   type?: TransactionType;
   from?: string;
   to?: string;
@@ -63,10 +65,18 @@ export const transactionsApi = {
   removeTransfer: (id: string) => api.delete(`transfers/${id}`),
 };
 
-function cleanParams(params: ListTransactionsParams): Record<string, string> {
-  const out: Record<string, string> = {};
+function cleanParams(params: ListTransactionsParams): URLSearchParams {
+  const sp = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
-    if (v !== undefined && v !== null && v !== '') out[k] = String(v);
+    if (v === undefined || v === null || v === '') continue;
+    if (Array.isArray(v)) {
+      // Valori multipli (es. accountIds) → `?accountIds=a&accountIds=b`
+      for (const item of v) {
+        if (item !== undefined && item !== null && item !== '') sp.append(k, String(item));
+      }
+    } else {
+      sp.append(k, String(v));
+    }
   }
-  return out;
+  return sp;
 }

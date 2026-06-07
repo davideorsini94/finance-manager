@@ -23,6 +23,37 @@ export interface CashflowResult {
   cumulativeBalance: { month: string; balance: number; isForecast: boolean }[];
 }
 
+export interface ProjectionPoint {
+  /** Data di fine mese del punto, in formato YYYY-MM-DD. */
+  date: string;
+  /** Saldo proiettato a fine mese (in centesimi, stringa). */
+  balanceCents: string;
+  /** true se il punto cade a dicembre (fine anno). */
+  isYearEnd: boolean;
+}
+
+export interface ProjectionAccount {
+  accountId: string;
+  name: string;
+  type: string;
+  color: string | null;
+  /** Saldo "a oggi" derivato dai movimenti effettivi (esclusi quelli futuri già salvati). */
+  currentBalanceCents: string;
+  points: ProjectionPoint[];
+}
+
+export interface ProjectionResult {
+  today: string;
+  horizonYears: number;
+  /** Etichette YYYY-MM dei punti della timeline (fine mese). */
+  months: string[];
+  accounts: ProjectionAccount[];
+  total: {
+    currentBalanceCents: string;
+    points: ProjectionPoint[];
+  };
+}
+
 @Injectable()
 export class AdvancedReportsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -125,6 +156,163 @@ export class AdvancedReportsService {
     return { history, forecast, cumulativeBalance };
   }
 
+  /**
+   * Proiezione del saldo di ciascun conto accessibile fino a fine anno corrente
+   * e per gli anni successivi (`yearsAhead`). Parte dal saldo attuale "a oggi" e
+   * vi aggiunge, mese per mese: i movimenti futuri già salvati (data > oggi) e le
+   * occorrenze future delle regole ricorrenti (entrate, uscite e giroconti).
+   *
+   * Nota: `account.balanceCents` include già eventuali movimenti con data futura
+   * (il saldo viene aggiornato alla creazione, a prescindere dalla data); per non
+   * contarli due volte, il saldo "a oggi" li sottrae e vengono poi ri-aggiunti al
+   * mese di competenza lungo la timeline.
+   */
+  async projectBalances(
+    userId: string,
+    yearsAhead: number,
+    accountIds?: string[],
+  ): Promise<ProjectionResult> {
+    const horizon = Math.max(0, Math.min(10, Math.floor(yearsAhead)));
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const isoDate = (d: Date) => d.toISOString().slice(0, 10);
+
+    const accounts = await this.prisma.account.findMany({
+      where: {
+        OR: [{ ownerId: userId }, { members: { some: { userId } } }],
+        archivedAt: null,
+        ...(accountIds && accountIds.length > 0 ? { id: { in: accountIds } } : {}),
+      },
+      select: { id: true, name: true, type: true, color: true, balanceCents: true },
+      orderBy: { name: 'asc' },
+    });
+    const scopedIds = accounts.map((a) => a.id);
+    if (scopedIds.length === 0) {
+      return {
+        today: isoDate(today),
+        horizonYears: horizon,
+        months: [],
+        accounts: [],
+        total: { currentBalanceCents: '0', points: [] },
+      };
+    }
+
+    // Timeline: punti a fine mese dal mese corrente a dicembre dell'ultimo anno.
+    const endYear = today.getUTCFullYear() + horizon;
+    const lastBucket = new Date(Date.UTC(endYear, 11, 1));
+    const months: string[] = [];
+    for (let c = monthStart(today); c <= lastBucket; c = addMonths(c, 1)) {
+      months.push(ymKey(c));
+    }
+
+    // delta[accountId][ym] = variazione in centesimi (segnata) attribuita al mese.
+    const delta = new Map<string, Map<string, number>>();
+    for (const id of scopedIds) delta.set(id, new Map());
+    const addDelta = (accId: string | null, ym: string, cents: number) => {
+      if (!accId) return;
+      const m = delta.get(accId);
+      if (!m) return; // conto fuori scope (es. lato giroconto non selezionato)
+      m.set(ym, (m.get(ym) ?? 0) + cents);
+    };
+
+    // 1) Movimenti futuri già salvati (data > oggi).
+    const futureTx = await this.prisma.transaction.findMany({
+      where: { accountId: { in: scopedIds }, transactionDate: { gt: today } },
+      select: { accountId: true, amountCents: true, transactionDate: true },
+    });
+    const futureSum = new Map<string, number>(); // per conto, centesimi segnati
+    for (const t of futureTx) {
+      const cents = Number(t.amountCents);
+      futureSum.set(t.accountId, (futureSum.get(t.accountId) ?? 0) + cents);
+      addDelta(t.accountId, ymKey(t.transactionDate), cents);
+    }
+
+    // 2) Occorrenze future delle regole ricorrenti (scoping per conto, così sono
+    //    incluse anche le regole su conti condivisi di altri utenti).
+    const horizonEnd = new Date(Date.UTC(endYear, 11, 31));
+    const rules = await this.prisma.recurringRule.findMany({
+      where: {
+        isActive: true,
+        OR: [{ accountId: { in: scopedIds } }, { toAccountId: { in: scopedIds } }],
+      },
+      select: {
+        accountId: true,
+        toAccountId: true,
+        amountCents: true,
+        type: true,
+        frequency: true,
+        nextRunDate: true,
+        endDate: true,
+      },
+    });
+    for (const r of rules) {
+      const mag = Number(r.amountCents); // magnitudine in centesimi
+      let cursor = new Date(r.nextRunDate);
+      let guard = 0;
+      // Allinea alla prima occorrenza > oggi (evita iterazioni dal passato).
+      while (cursor <= today && guard++ < 6000) cursor = bumpDate(cursor, r.frequency);
+      guard = 0;
+      while (cursor <= horizonEnd && guard++ < 6000) {
+        if (r.endDate && cursor > r.endDate) break;
+        const ym = ymKey(cursor);
+        if (r.type === TransactionType.income) {
+          addDelta(r.accountId, ym, mag);
+        } else if (r.type === TransactionType.expense) {
+          addDelta(r.accountId, ym, -mag);
+        } else {
+          // giroconto: esce dal conto sorgente, entra in quello di destinazione
+          addDelta(r.accountId, ym, -mag);
+          addDelta(r.toAccountId, ym, mag);
+        }
+        cursor = bumpDate(cursor, r.frequency);
+      }
+    }
+
+    // 3) Costruzione dei punti per conto.
+    const projAccounts: ProjectionAccount[] = accounts.map((a) => {
+      const startCents = Number(a.balanceCents) - (futureSum.get(a.id) ?? 0);
+      const d = delta.get(a.id)!;
+      let running = startCents;
+      const points: ProjectionPoint[] = months.map((ym) => {
+        running += d.get(ym) ?? 0;
+        const [y, mo] = ym.split('-').map(Number);
+        return {
+          date: isoDate(new Date(Date.UTC(y, mo, 0))), // ultimo giorno del mese
+          balanceCents: Math.round(running).toString(),
+          isYearEnd: mo === 12,
+        };
+      });
+      return {
+        accountId: a.id,
+        name: a.name,
+        type: String(a.type),
+        color: a.color,
+        currentBalanceCents: Math.round(startCents).toString(),
+        points,
+      };
+    });
+
+    // 4) Totale aggregato sui conti selezionati.
+    const totalStart = projAccounts.reduce((s, a) => s + Number(a.currentBalanceCents), 0);
+    const totalPoints: ProjectionPoint[] = months.map((ym, i) => {
+      const sum = projAccounts.reduce((s, a) => s + Number(a.points[i].balanceCents), 0);
+      const [y, mo] = ym.split('-').map(Number);
+      return {
+        date: isoDate(new Date(Date.UTC(y, mo, 0))),
+        balanceCents: Math.round(sum).toString(),
+        isYearEnd: mo === 12,
+      };
+    });
+
+    return {
+      today: isoDate(today),
+      horizonYears: horizon,
+      months,
+      accounts: projAccounts,
+      total: { currentBalanceCents: Math.round(totalStart).toString(), points: totalPoints },
+    };
+  }
+
   async comparePeriods(
     userId: string,
     mode: 'mom' | 'yoy',
@@ -142,18 +330,28 @@ export class AdvancedReportsService {
     const allCats = new Set<string>([...curr.keys(), ...prevAgg.keys()]);
     const rows = Array.from(allCats)
       .map((catId) => {
-        const c = curr.get(catId) ?? { name: 'Senza categoria', income: 0, expense: 0 };
-        const p = prevAgg.get(catId) ?? { name: c.name, income: 0, expense: 0 };
+        const c = curr.get(catId);
+        const p = prevAgg.get(catId);
+        // Il nome va preso da qualunque periodo lo contenga: una categoria può
+        // esistere solo nel periodo precedente (tipico a inizio mese, quando il
+        // periodo corrente è ancora vuoto) — in quel caso il nome è in `p`.
+        const name = c?.name ?? p?.name ?? 'Senza categoria';
+        const currentExpense = c?.expense ?? 0;
+        const previousExpense = p?.expense ?? 0;
+        const currentIncome = c?.income ?? 0;
+        const previousIncome = p?.income ?? 0;
         return {
           categoryId: catId,
-          categoryName: c.name,
-          currentExpense: c.expense,
-          previousExpense: p.expense,
-          currentIncome: c.income,
-          previousIncome: p.income,
-          deltaExpense: c.expense - p.expense,
+          categoryName: name,
+          currentExpense,
+          previousExpense,
+          currentIncome,
+          previousIncome,
+          deltaExpense: currentExpense - previousExpense,
           deltaPctExpense:
-            p.expense > 0 ? ((c.expense - p.expense) / p.expense) * 100 : null,
+            previousExpense > 0
+              ? ((currentExpense - previousExpense) / previousExpense) * 100
+              : null,
         };
       })
       .sort((a, b) => b.currentExpense - a.currentExpense);

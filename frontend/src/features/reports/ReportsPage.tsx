@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
+import { ChevronRight, Loader2 } from 'lucide-react';
 import {
   Bar,
   BarChart,
@@ -26,10 +27,24 @@ import {
 import { AccountMultiSelect } from '@/components/shared/AccountMultiSelect';
 import { accountsApi } from '@/features/accounts/accountsApi';
 import { sortByName } from '@/lib/utils/sort';
-import { reportsApi, type CategoryBreakdownItem } from '@/features/dashboard/dashboardApi';
+import {
+  reportsApi,
+  type CategoryBreakdownItem,
+  type CategoryNode,
+} from '@/features/dashboard/dashboardApi';
+import { transactionsApi } from '@/features/transactions/transactionsApi';
 import { formatCents } from '@/lib/utils/currency';
+import type { PageResult, Transaction } from '@/types/domain';
 
-type Mode = 'annual' | 'compare';
+type Mode = 'annual' | 'monthly' | 'compare';
+
+/** Contesto periodo/conti propagato al drill-down delle singole spese. */
+interface DrillContext {
+  from: string;
+  to: string;
+  accountIds: string[];
+  accountIdsKey: string[];
+}
 
 const PALETTE = [
   'hsl(var(--chart-1))',
@@ -42,6 +57,7 @@ const PALETTE = [
 export function ReportsPage() {
   const [mode, setMode] = useState<Mode>('annual');
   const [year, setYear] = useState(new Date().getFullYear());
+  const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [accountIds, setAccountIds] = useState<string[]>([]);
 
   const today = new Date().toISOString().slice(0, 10);
@@ -70,6 +86,27 @@ export function ReportsPage() {
       reportsApi.annual(year, accountIds.length > 0 ? accountIds : undefined),
     enabled: mode === 'annual',
   });
+
+  const monthlyQuery = useQuery({
+    queryKey: ['report', 'monthly', year, month, accountIdsKey],
+    queryFn: () =>
+      reportsApi.monthly(year, month, accountIds.length > 0 ? accountIds : undefined),
+    enabled: mode === 'monthly',
+  });
+
+  // Periodo/conti propagati ai drill-down per filtrare le singole transazioni.
+  const annualCtx: DrillContext = {
+    from: `${year}-01-01`,
+    to: `${year}-12-31`,
+    accountIds,
+    accountIdsKey,
+  };
+  const monthlyCtx: DrillContext = {
+    from: `${year}-${String(month).padStart(2, '0')}-01`,
+    to: monthlyQuery.data?.to?.slice(0, 10) ?? lastDayOfMonth(year, month),
+    accountIds,
+    accountIdsKey,
+  };
 
   const compareQuery = useQuery({
     queryKey: ['report', 'compare', p1From, p1To, p2From, p2To, accountIdsKey],
@@ -100,13 +137,14 @@ export function ReportsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="annual">Riepilogo annuale</SelectItem>
+              <SelectItem value="monthly">Riepilogo mensile</SelectItem>
               <SelectItem value="compare">Confronto periodi</SelectItem>
             </SelectContent>
           </Select>
         </div>
       </div>
 
-      {mode === 'annual' ? (
+      {mode === 'annual' && (
         <>
           <div className="flex items-center gap-2">
             <Label htmlFor="year">Anno</Label>
@@ -169,15 +207,108 @@ export function ReportsPage() {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base">Top categorie</CardTitle>
+                  <CardDescription>
+                    Clicca una categoria per espandere le sottocategorie e le singole spese
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <CategoryList data={annualQuery.data.byCategory} />
+                  <CategoryTree data={annualQuery.data.byCategoryTree} ctx={annualCtx} />
                 </CardContent>
               </Card>
             </div>
           )}
         </>
-      ) : (
+      )}
+
+      {mode === 'monthly' && (
+        <>
+          <div className="flex flex-wrap items-center gap-2">
+            <Label htmlFor="m-year">Anno</Label>
+            <Input
+              id="m-year"
+              type="number"
+              min={2000}
+              max={2100}
+              value={year}
+              onChange={(e) => setYear(Number(e.target.value) || year)}
+              className="w-28"
+            />
+            <Label htmlFor="m-month">Mese</Label>
+            <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
+              <SelectTrigger id="m-month" className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                  <SelectItem key={m} value={String(m)}>
+                    {monthName(m)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {monthlyQuery.data && (
+            <div className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-3">
+                <KpiCard label="Entrate" value={monthlyQuery.data.totals.incomeCents} tone="emerald" />
+                <KpiCard label="Uscite" value={monthlyQuery.data.totals.expenseCents} tone="red" />
+                <KpiCard label="Netto" value={monthlyQuery.data.totals.netCents} tone="primary" />
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Andamento giornaliero</CardTitle>
+                  <CardDescription>Entrate e uscite per ogni giorno del mese</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={260}>
+                    <BarChart
+                      data={monthlyQuery.data.daily.map((d) => ({
+                        day: d.date.slice(8, 10),
+                        Entrate: Number(d.incomeCents) / 100,
+                        Uscite: Number(d.expenseCents) / 100,
+                      }))}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="day" fontSize={12} stroke="hsl(var(--muted-foreground))" />
+                      <YAxis fontSize={12} stroke="hsl(var(--muted-foreground))" />
+                      <Tooltip
+                        contentStyle={{
+                          background: 'hsl(var(--popover))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: 'var(--radius)',
+                          color: 'hsl(var(--popover-foreground))',
+                        }}
+                        itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                        labelStyle={{ color: 'hsl(var(--popover-foreground))', fontWeight: 600 }}
+                        formatter={(value: number) => formatCents(value * 100)}
+                      />
+                      <Legend wrapperStyle={{ fontSize: 12 }} />
+                      <Bar dataKey="Entrate" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="Uscite" fill="hsl(var(--chart-4))" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Top categorie</CardTitle>
+                  <CardDescription>
+                    Clicca una categoria per espandere le sottocategorie e le singole spese
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <CategoryTree data={monthlyQuery.data.byCategoryTree} ctx={monthlyCtx} />
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </>
+      )}
+
+      {mode === 'compare' && (
         <>
           <div className="grid gap-3 md:grid-cols-2">
             <Card>
@@ -336,27 +467,153 @@ function ComparisonColumn({
   );
 }
 
-function CategoryList({ data }: { data: CategoryBreakdownItem[] }) {
+/**
+ * Lista gerarchica delle categorie di spesa: categorie padre → sottocategorie →
+ * singole transazioni. Ogni livello si espande al click.
+ */
+function CategoryTree({ data, ctx }: { data: CategoryNode[]; ctx: DrillContext }) {
   if (data.length === 0) return <p className="text-sm text-muted-foreground">Nessun dato.</p>;
   const total = data.reduce((acc, c) => acc + Number(c.amountCents), 0);
   return (
-    <ul className="space-y-2">
-      {data.slice(0, 10).map((c) => {
-        const pct = total > 0 ? (Number(c.amountCents) / total) * 100 : 0;
-        return (
-          <li key={c.categoryId ?? 'none'} className="flex items-center gap-3">
-            <span
-              className="h-3 w-3 rounded-full shrink-0"
-              style={{ backgroundColor: c.color ?? 'hsl(var(--muted-foreground))' }}
+    <ul className="space-y-1">
+      {data.map((node, i) => (
+        <CategoryRow
+          key={node.categoryIds[0] ?? `${node.categoryName}-${i}`}
+          node={node}
+          total={total}
+          ctx={ctx}
+        />
+      ))}
+    </ul>
+  );
+}
+
+function CategoryRow({
+  node,
+  total,
+  ctx,
+}: {
+  node: CategoryNode;
+  total: number;
+  ctx: DrillContext;
+}) {
+  const [open, setOpen] = useState(false);
+  const hasChildren = node.children.length > 0;
+  // Foglia drillabile fino alle singole spese (la voce "Senza categoria" senza
+  // figli non è drillabile perché non filtrabile per categoria nulla).
+  const isDrillable = !hasChildren && node.categoryIds.length > 0;
+  const canExpand = hasChildren || isDrillable;
+  const pct = total > 0 ? (Number(node.amountCents) / total) * 100 : 0;
+
+  const txQuery = useQuery({
+    queryKey: ['report-tx', node.categoryIds, ctx.from, ctx.to, ctx.accountIdsKey],
+    queryFn: () =>
+      transactionsApi.list({
+        categoryIds: node.categoryIds,
+        type: 'expense',
+        from: ctx.from,
+        to: ctx.to,
+        accountIds: ctx.accountIds.length > 0 ? ctx.accountIds : undefined,
+        limit: 100,
+      }),
+    enabled: open && isDrillable,
+  });
+
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => canExpand && setOpen((o) => !o)}
+        className={`flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left ${
+          canExpand ? 'hover:bg-muted/60 cursor-pointer' : 'cursor-default'
+        }`}
+        aria-expanded={canExpand ? open : undefined}
+      >
+        <ChevronRight
+          className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
+            canExpand ? '' : 'opacity-0'
+          } ${open ? 'rotate-90' : ''}`}
+        />
+        <span
+          className="h-3 w-3 rounded-full shrink-0"
+          style={{ backgroundColor: node.color ?? 'hsl(var(--muted-foreground))' }}
+        />
+        <span className="flex-1 truncate text-sm">{node.categoryName}</span>
+        <span className="text-xs text-muted-foreground tabular-nums">{pct.toFixed(0)}%</span>
+        <span className="font-medium tabular-nums w-24 text-right">
+          {formatCents(node.amountCents)}
+        </span>
+      </button>
+
+      {open && hasChildren && (
+        <ul className="ml-4 border-l pl-2 space-y-1">
+          {node.children.map((child, i) => (
+            <CategoryRow
+              key={child.categoryIds[0] ?? `${node.categoryName}-direct-${i}`}
+              node={child}
+              total={Number(node.amountCents)}
+              ctx={ctx}
             />
-            <span className="flex-1 truncate text-sm">{c.categoryName}</span>
-            <span className="text-xs text-muted-foreground tabular-nums">{pct.toFixed(0)}%</span>
-            <span className="font-medium tabular-nums w-24 text-right">
-              {formatCents(c.amountCents)}
-            </span>
-          </li>
-        );
-      })}
+          ))}
+        </ul>
+      )}
+
+      {open && isDrillable && (
+        <div className="ml-4 border-l pl-2">
+          <TransactionRows query={txQuery} />
+        </div>
+      )}
+    </li>
+  );
+}
+
+function TransactionRows({
+  query,
+}: {
+  query: UseQueryResult<PageResult<Transaction>>;
+}) {
+  if (query.isLoading) {
+    return (
+      <div className="flex items-center gap-2 px-2 py-2 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Caricamento spese…
+      </div>
+    );
+  }
+  if (query.isError) {
+    return <p className="px-2 py-2 text-sm text-red-600 dark:text-red-400">Errore nel caricamento.</p>;
+  }
+  const items = query.data?.items ?? [];
+  if (items.length === 0) {
+    return <p className="px-2 py-2 text-sm text-muted-foreground">Nessuna spesa.</p>;
+  }
+  const total = query.data?.total ?? items.length;
+  return (
+    <ul className="py-1">
+      {items.map((tx) => (
+        <li
+          key={tx.id}
+          className="flex items-center gap-3 px-2 py-1.5 text-sm border-b last:border-0"
+        >
+          <span className="text-xs text-muted-foreground tabular-nums w-20 shrink-0">
+            {formatDate(tx.transactionDate)}
+          </span>
+          <span className="flex-1 truncate">
+            {tx.description || <span className="text-muted-foreground">—</span>}
+          </span>
+          <span className="text-xs text-muted-foreground truncate max-w-[8rem] hidden sm:inline">
+            {tx.account?.name}
+          </span>
+          <span className="font-medium tabular-nums w-24 text-right">
+            {formatCents(String(Math.abs(Number(tx.amountCents))))}
+          </span>
+        </li>
+      ))}
+      {total > items.length && (
+        <li className="px-2 py-1.5 text-xs text-muted-foreground">
+          …e altre {total - items.length} spese (mostrate le {items.length} più recenti)
+        </li>
+      )}
     </ul>
   );
 }
@@ -380,4 +637,35 @@ function DeltaRow({ label, a, b }: { label: string; a: string; b: string }) {
 
 function monthLabel(m: number): string {
   return ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'][m - 1];
+}
+
+function monthName(m: number): string {
+  return [
+    'Gennaio',
+    'Febbraio',
+    'Marzo',
+    'Aprile',
+    'Maggio',
+    'Giugno',
+    'Luglio',
+    'Agosto',
+    'Settembre',
+    'Ottobre',
+    'Novembre',
+    'Dicembre',
+  ][m - 1];
+}
+
+/** Ultimo giorno del mese in formato ISO `YYYY-MM-DD`. */
+function lastDayOfMonth(year: number, month: number): string {
+  const day = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('it-IT', {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+  });
 }

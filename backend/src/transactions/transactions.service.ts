@@ -108,8 +108,15 @@ export class TransactionsService {
     if (query.accountId) {
       await this.policy.assertRead(userId, query.accountId);
       where.accountId = query.accountId;
+    } else if (query.accountIds && query.accountIds.length > 0) {
+      // Restringe ai conti selezionati; quelli non accessibili non rientrano
+      // comunque nel filtro `accessible` → nessun dato trapelato.
+      where.accountId = { in: query.accountIds };
     }
     if (query.categoryId) where.categoryId = query.categoryId;
+    else if (query.categoryIds && query.categoryIds.length > 0) {
+      where.categoryId = { in: query.categoryIds };
+    }
     if (query.type) where.type = query.type;
     if (query.from || query.to) {
       where.transactionDate = {

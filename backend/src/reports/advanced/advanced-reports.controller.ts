@@ -57,6 +57,20 @@ class SankeyQuery {
   accountIds?: string[];
 }
 
+class ProjectionsQuery {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  yearsAhead?: number;
+
+  @IsOptional()
+  @ToStringArray()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  accountIds?: string[];
+}
+
 @Controller('reports/advanced')
 export class AdvancedReportsController {
   constructor(private readonly service: AdvancedReportsService) {}
@@ -74,6 +88,11 @@ export class AdvancedReportsController {
   @Get('sankey')
   sankey(@CurrentUser() u: AuthUser, @Query() q: SankeyQuery) {
     return this.service.sankey(u.id, q.from, q.to, q.accountIds);
+  }
+
+  @Get('projections')
+  projections(@CurrentUser() u: AuthUser, @Query() q: ProjectionsQuery) {
+    return this.service.projectBalances(u.id, q.yearsAhead ?? 3, q.accountIds);
   }
 
   @Get('export')

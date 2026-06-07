@@ -59,9 +59,12 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   transaction?: Transaction | null;
+  /** Conto da preselezionare in creazione (es. filtro conto attivo nella
+   *  lista movimenti). Ha priorità sul conto preferito dell'utente. */
+  defaultAccountId?: string | null;
 }
 
-export function TransactionForm({ open, onOpenChange, transaction }: Props) {
+export function TransactionForm({ open, onOpenChange, transaction, defaultAccountId }: Props) {
   const isEdit = !!transaction;
   const isTransfer = transaction?.type === 'transfer' || !!transaction?.transferPairId;
   const queryClient = useQueryClient();
@@ -129,17 +132,22 @@ export function TransactionForm({ open, onOpenChange, transaction }: Props) {
         });
         setCreatedId(transaction.id);
       } else {
-        // In creazione preferisco il "conto preferito" dell'utente loggato
-        // (campo `favoriteAccountId` su /users/me). Se non è settato o non è
-        // più accessibile (es. archiviato), cado sul primo conto disponibile.
+        // In creazione la priorità è: 1) conto passato dal chiamante (es.
+        // filtro conto attivo nella lista movimenti), 2) "conto preferito"
+        // dell'utente loggato (campo `favoriteAccountId` su /users/me),
+        // 3) primo conto disponibile. I primi due valgono solo se il conto
+        // è ancora accessibile (es. non archiviato).
+        const isAccessible = (id?: string | null): id is string =>
+          !!id && accounts.some((a) => a.id === id);
         const fav = currentUser?.favoriteAccountId;
-        const favIsAccessible = !!fav && accounts.some((a) => a.id === fav);
-        const defaultAccountId = favIsAccessible
-          ? (fav as string)
-          : (accounts[0]?.id ?? '');
+        const initialAccountId = isAccessible(defaultAccountId)
+          ? defaultAccountId
+          : isAccessible(fav)
+            ? fav
+            : (accounts[0]?.id ?? '');
         reset({
           type: 'expense',
-          accountId: defaultAccountId,
+          accountId: initialAccountId,
           amount: '' as unknown as number,
           transactionDate: todayIso(),
           categoryId: null,
@@ -149,7 +157,7 @@ export function TransactionForm({ open, onOpenChange, transaction }: Props) {
         setCreatedId(null);
       }
     }
-  }, [open, transaction, reset, accounts, currentUser?.favoriteAccountId]);
+  }, [open, transaction, reset, accounts, currentUser?.favoriteAccountId, defaultAccountId]);
 
   const type = watch('type');
   const accountId = watch('accountId');

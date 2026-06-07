@@ -357,6 +357,15 @@ function QuickCreateDialog({
     [allCategories],
   );
 
+  // Quando l'utente seleziona/cambia il parent, eredita il colore del padre
+  // come default (allineato a CategoryForm — l'utente può sovrascriverlo).
+  useEffect(() => {
+    if (!parentId) return;
+    const parent = allCategories.find((c) => c.id === parentId);
+    if (parent?.color) setColor(parent.color);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parentId]);
+
   const create = useMutation({
     mutationFn: () =>
       categoriesApi.create({
