@@ -15,7 +15,13 @@ export class ReportsController {
 
   @Get('dashboard')
   dashboard(@CurrentUser() user: AuthUser, @Query() query: DashboardQueryDto) {
-    return this.reportsService.dashboard(user.id, query.from, query.to, query.accountIds);
+    return this.reportsService.dashboard(
+      user.id,
+      query.from,
+      query.to,
+      query.accountIds,
+      query.categoryIds,
+    );
   }
 
   @Get('monthly')

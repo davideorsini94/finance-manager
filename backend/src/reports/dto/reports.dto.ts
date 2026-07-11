@@ -22,6 +22,12 @@ export class DashboardQueryDto {
   @IsArray()
   @IsUUID('4', { each: true })
   accountIds?: string[];
+
+  @IsOptional()
+  @ToStringArray()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  categoryIds?: string[];
 }
 
 export class CustomReportQueryDto {

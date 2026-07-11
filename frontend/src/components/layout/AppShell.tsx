@@ -14,7 +14,8 @@ import { useQuickAdd } from '@/store/quickAddStore';
 function GlobalQuickAdd() {
   const open = useQuickAdd((s) => s.open);
   const setOpen = useQuickAdd((s) => s.set);
-  return <TransactionForm open={open} onOpenChange={setOpen} />;
+  const defaultAccountId = useQuickAdd((s) => s.defaultAccountId);
+  return <TransactionForm open={open} onOpenChange={setOpen} defaultAccountId={defaultAccountId} />;
 }
 
 export function AppShell({ children }: { children: ReactNode }) {

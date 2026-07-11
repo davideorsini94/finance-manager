@@ -43,6 +43,17 @@ export interface CreateTransferInput {
   categoryId?: string;
 }
 
+export interface UpdateTransferInput {
+  fromAccountId?: string;
+  toAccountId?: string;
+  amountCents?: number;
+  date?: string;
+  arrivalDate?: string;
+  description?: string;
+  /** null = sgancia la categoria. */
+  categoryId?: string | null;
+}
+
 export const transactionsApi = {
   list: (params: ListTransactionsParams) =>
     api
@@ -61,6 +72,9 @@ export const transactionsApi = {
 
   createTransfer: (data: CreateTransferInput) =>
     api.post('transfers', { json: data }).json<{ from: Transaction; to: Transaction }>(),
+
+  updateTransfer: (id: string, data: UpdateTransferInput) =>
+    api.patch(`transfers/${id}`, { json: data }).json<{ from: Transaction; to: Transaction }>(),
 
   removeTransfer: (id: string) => api.delete(`transfers/${id}`),
 };

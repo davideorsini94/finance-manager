@@ -42,8 +42,12 @@ export interface DashboardData {
   from: string;
   to: string;
   accountIds: string[] | null;
+  categoryIds: string[] | null;
   totals: PeriodTotals;
   byCategory: CategoryBreakdownItem[];
+  /** Spesa per categoria in forma gerarchica (padre → figli) per il toggle
+   *  "categorie padre / dettaglio sottocategorie" sulla dashboard. */
+  byCategoryTree: CategoryNode[];
   daily: DailyPoint[];
   recent: Transaction[];
 }
@@ -86,9 +90,11 @@ export interface CompareReport {
 }
 
 export const reportsApi = {
-  dashboard: (from?: string, to?: string, accountIds?: string[]) =>
+  dashboard: (from?: string, to?: string, accountIds?: string[], categoryIds?: string[]) =>
     api
-      .get('reports/dashboard', { searchParams: buildParams({ from, to, accountIds }) })
+      .get('reports/dashboard', {
+        searchParams: buildParams({ from, to, accountIds, categoryIds }),
+      })
       .json<DashboardData>(),
 
   annual: (year: number, accountIds?: string[]) =>

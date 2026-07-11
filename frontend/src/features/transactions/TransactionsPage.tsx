@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Plus,
@@ -37,6 +37,7 @@ import { categoriesApi } from '@/features/categories/categoriesApi';
 import { transactionsApi, type ListTransactionsParams } from './transactionsApi';
 import { TransactionForm } from './TransactionForm';
 import { useConfirm } from '@/components/shared/confirm';
+import { useQuickAdd } from '@/store/quickAddStore';
 
 const TYPE_LABEL: Record<TransactionType, string> = {
   income: 'Entrata',
@@ -76,6 +77,14 @@ export function TransactionsPage() {
     queryFn: () => transactionsApi.list(filters),
   });
 
+  // Propaga il filtro conto al quick-add globale (FAB mobile), così anche da
+  // lì viene proposto il conto filtrato. Azzerato quando si lascia la pagina.
+  const setQuickAddAccount = useQuickAdd((s) => s.setDefaultAccountId);
+  useEffect(() => {
+    setQuickAddAccount(filters.accountId ?? null);
+    return () => setQuickAddAccount(null);
+  }, [filters.accountId, setQuickAddAccount]);
+
   const remove = useMutation({
     mutationFn: async (tx: Transaction) => {
       if (tx.type === 'transfer' || tx.transferPairId) {
@@ -102,13 +111,10 @@ export function TransactionsPage() {
   const limit = filters.limit ?? 10;
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
-  // Card riepilogo conti in alto: se è attivo un filtro per conto mostriamo
-  // solo quel conto; altrimenti tutti i conti dell'utente.
-  const accountsForSummary = sortByName(
-    (accountsQuery.data ?? []).filter((a) =>
-      filters.accountId ? a.id === filters.accountId : true,
-    ),
-  );
+  // Card riepilogo conti in alto: cliccabili per filtrare i movimenti.
+  // Restano tutte visibili anche con un filtro attivo, così cambiare conto
+  // è un solo click; la card selezionata è evidenziata.
+  const accountsForSummary = sortByName(accountsQuery.data ?? []);
 
   // Cambio filtro: torna a pagina 1 per coerenza con i risultati
   const updateFilter = (patch: Partial<ListTransactionsParams>) =>
@@ -120,7 +126,7 @@ export function TransactionsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">Movimenti</h1>
         <Button
           onClick={() => {
@@ -140,7 +146,17 @@ export function TransactionsPage() {
                 key={account.id}
                 className="w-[260px] shrink-0 snap-start sm:w-[280px]"
               >
-                <AccountSummaryCard account={account} />
+                <AccountSummaryCard
+                  account={account}
+                  selected={filters.accountId === account.id}
+                  dimmed={!!filters.accountId && filters.accountId !== account.id}
+                  onClick={() =>
+                    updateFilter({
+                      accountId:
+                        filters.accountId === account.id ? undefined : account.id,
+                    })
+                  }
+                />
               </div>
             ))}
           </div>
@@ -159,7 +175,14 @@ export function TransactionsPage() {
             onValueChange={(v) => updateFilter({ accountId: v === 'all' ? undefined : v })}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Conto" />
+              {/* Label esplicita: la SelectValue di Radix non risolve il nome
+                  se il menu non è mai stato aperto (es. filtro impostato
+                  cliccando una card conto). */}
+              <SelectValue placeholder="Conto">
+                {filters.accountId
+                  ? (accountsQuery.data ?? []).find((a) => a.id === filters.accountId)?.name
+                  : 'Tutti i conti'}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tutti i conti</SelectItem>
@@ -338,7 +361,7 @@ function TransactionRow({ tx, onEdit, onDelete }: RowProps) {
       : 'text-red-600 dark:text-red-400';
 
   return (
-    <li className="flex items-center gap-3 p-3 sm:px-4">
+    <li className="flex items-center gap-2 p-3 sm:gap-3 sm:px-4">
       <div className={`shrink-0 rounded-full p-2 bg-muted ${tone}`}>
         <Icon className="h-4 w-4" />
       </div>
@@ -360,16 +383,31 @@ function TransactionRow({ tx, onEdit, onDelete }: RowProps) {
           )}
           {tx.isPending && <Badge variant="secondary">Pending</Badge>}
         </div>
-        <p className="text-xs text-muted-foreground">
+        <p className="truncate text-xs text-muted-foreground">
           {formatDate(tx.transactionDate)} · {tx.account.name}
         </p>
       </div>
-      <p className={`shrink-0 font-semibold tabular-nums ${tone}`}>{formatCents(cents)}</p>
-      <div className="hidden sm:flex items-center gap-1">
-        <Button size="icon" variant="ghost" onClick={onEdit} aria-label="Modifica">
+      <p className={`shrink-0 text-right text-sm font-semibold tabular-nums sm:text-base ${tone}`}>
+        {formatCents(cents)}
+      </p>
+      {/* Azioni sempre accessibili, anche su mobile (prima erano hidden sm:flex). */}
+      <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-9 w-9 sm:h-10 sm:w-10"
+          onClick={onEdit}
+          aria-label="Modifica"
+        >
           <Pencil className="h-4 w-4" />
         </Button>
-        <Button size="icon" variant="ghost" onClick={onDelete} aria-label="Elimina">
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-9 w-9 sm:h-10 sm:w-10"
+          onClick={onDelete}
+          aria-label="Elimina"
+        >
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
@@ -377,34 +415,64 @@ function TransactionRow({ tx, onEdit, onDelete }: RowProps) {
   );
 }
 
-function AccountSummaryCard({ account }: { account: Account }) {
+function AccountSummaryCard({
+  account,
+  selected,
+  dimmed,
+  onClick,
+}: {
+  account: Account;
+  selected: boolean;
+  dimmed: boolean;
+  onClick: () => void;
+}) {
   const Icon = account.icon ? getIcon(account.icon) : ACCOUNT_TYPE_FALLBACK_ICON[account.type];
   const tint = account.color ?? undefined;
   const cardStyle = tint
     ? { backgroundColor: `${tint}24`, borderColor: `${tint}80` }
     : undefined;
   return (
-    <Card className="border-l-4 transition-colors" style={cardStyle}>
-      <CardContent className="flex items-center gap-3 p-3">
-        <div
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-          style={{
-            backgroundColor: tint ? `${tint}33` : 'hsl(var(--muted))',
-            color: tint ?? 'hsl(var(--foreground))',
-          }}
-        >
-          <Icon className="h-4 w-4" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium">{account.name}</p>
-          <p className="truncate text-[11px] text-muted-foreground">
-            {ACCOUNT_TYPE_LABEL[account.type]}
+    // Click sulla card = filtro per conto (toggle: un secondo click lo toglie).
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      className="block w-full rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      {/* Evidenziazione con outline (non ring/box-shadow: nel tema glass
+          fm-glass sovrascrive il box-shadow e l'anello sparirebbe).
+          Con filtro attivo le altre card sono attenuate. */}
+      <Card
+        className={`border-l-4 cursor-pointer transition-all hover:shadow-md ${
+          selected
+            ? 'outline outline-2 outline-offset-2 outline-primary'
+            : dimmed
+              ? 'opacity-50 saturate-50'
+              : ''
+        }`}
+        style={cardStyle}
+      >
+        <CardContent className="flex items-center gap-3 p-3">
+          <div
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+            style={{
+              backgroundColor: tint ? `${tint}33` : 'hsl(var(--muted))',
+              color: tint ?? 'hsl(var(--foreground))',
+            }}
+          >
+            <Icon className="h-4 w-4" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium">{account.name}</p>
+            <p className="truncate text-[11px] text-muted-foreground">
+              {ACCOUNT_TYPE_LABEL[account.type]}
+            </p>
+          </div>
+          <p className="shrink-0 text-base font-semibold tabular-nums">
+            {formatCents(account.balanceCents)}
           </p>
-        </div>
-        <p className="shrink-0 text-base font-semibold tabular-nums">
-          {formatCents(account.balanceCents)}
-        </p>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </button>
   );
 }

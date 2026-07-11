@@ -42,6 +42,13 @@ interface Props {
    * che apre un mini-dialog inline. Disabilitabile nei filtri di ricerca.
    */
   allowCreate?: boolean;
+  /**
+   * Notifica apertura/chiusura del dialog di creazione categoria. Serve al
+   * contenitore (es. TransactionForm) per evitare che la chiusura del dialog
+   * annidato chiuda anche la modale padre (problema noto dei Radix Dialog
+   * annidati).
+   */
+  onCreateOpenChange?: (open: boolean) => void;
 }
 
 /**
@@ -59,10 +66,15 @@ export function CategoryPicker({
   categories,
   placeholder,
   allowCreate = true,
+  onCreateOpenChange,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [createOpen, setCreateOpen] = useState(false);
+  const [createOpen, setCreateOpenState] = useState(false);
+  const setCreateOpen = (next: boolean) => {
+    setCreateOpenState(next);
+    onCreateOpenChange?.(next);
+  };
   const [createInitialName, setCreateInitialName] = useState('');
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -384,6 +396,11 @@ function QuickCreateDialog({
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // CRUCIALE: ferma la propagazione. In React gli eventi risalgono l'albero
+    // dei componenti anche attraverso i portal: senza questo, il submit di
+    // questo form (creazione categoria) risalirebbe fino al <form> del
+    // movimento che lo contiene, inviandolo e chiudendone la modale.
+    e.stopPropagation();
     setError(null);
     if (!name.trim()) {
       setError('Il nome è obbligatorio');

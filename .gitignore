@@ -41,3 +41,7 @@ frontend/dev-dist/
 
 # Docker volumes (local)
 .docker-data/
+
+# Immagini Docker esportate e backup locali (workflow rilascio)
+docker-images-amd64/
+finance-manager-backup-*.zip

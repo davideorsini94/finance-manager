@@ -33,6 +33,16 @@ export class CreateTransferDto {
 }
 
 export class UpdateTransferDto {
+  /** Nuovo conto sorgente. Se cambia, il movimento viene spostato sul nuovo conto. */
+  @IsOptional()
+  @IsUUID()
+  fromAccountId?: string;
+
+  /** Nuovo conto destinazione. Se cambia, il movimento viene spostato sul nuovo conto. */
+  @IsOptional()
+  @IsUUID()
+  toAccountId?: string;
+
   @Type(() => Number)
   @IsOptional()
   @IsInt()

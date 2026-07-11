@@ -405,6 +405,50 @@
     @apply h-dvh;
   }
 
+  /* App-shell: tutto lo scroll avviene dentro <main> (AppShell). Il documento
+     non deve mai scrollare: su iOS standalone (PWA) restava "pannato" verso
+     l'alto dopo tastiera/riapertura — BottomNav shiftata con banda nera
+     sotto, da sistemare trascinando con un dito. Vedi anche ios-viewport.ts. */
+  html, body {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  /* Eventuali aree scoperte durante i pan di iOS mostrano lo sfondo dell'app
+     invece del nero di sistema. */
+  html {
+    @apply bg-background;
+  }
+
+  /* iOS standalone: se il layout viewport termina sopra l'home indicator
+     (bug/snapshot d'installazione della PWA), sotto la BottomNav resta una
+     striscia scoperta. Questo ::after estende lo sfondo della barra oltre il
+     bordo inferiore dello schermo, così la striscia non è mai visibile. */
+  .fm-bottomnav::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    height: 3rem;
+    background: hsl(var(--card));
+    pointer-events: none;
+  }
+
+  /* iOS: i campi data hanno larghezza minima intrinseca (in flex/grid non si
+     restringono e si sovrappongono ai campi vicini) e valore centrato.
+     Normalizzo per farli comportare come input di testo. */
+  input[type='date'],
+  input[type='time'],
+  input[type='datetime-local'],
+  input[type='month'] {
+    min-width: 0;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  input::-webkit-date-and-time-value {
+    text-align: left;
+  }
+
   /* iOS safe-area: notch (top), home indicator (bottom), landscape side
      insets. Espongo le 4 utility come variabili così posso usarle ovunque
      con `paddingTop: 'var(--safe-top)'` o classi tailwind `pt-[var(--safe-top)]`. */

@@ -70,6 +70,20 @@ export class TransfersService {
     const { src, dst } = await this.loadPair(userId, transferId);
     if (dto.categoryId) await this.assertCategoryOwned(userId, dto.categoryId);
 
+    // Conti di destinazione finali: se non passati, restano quelli attuali.
+    const newFromAccountId = dto.fromAccountId ?? src.accountId;
+    const newToAccountId = dto.toAccountId ?? dst.accountId;
+    if (newFromAccountId === newToAccountId) {
+      throw new BadRequestException('Source and destination accounts must differ');
+    }
+    // Se i conti cambiano, l'utente deve avere write sui nuovi conti.
+    if (newFromAccountId !== src.accountId) {
+      await this.policy.assertWrite(userId, newFromAccountId);
+    }
+    if (newToAccountId !== dst.accountId) {
+      await this.policy.assertWrite(userId, newToAccountId);
+    }
+
     const newAmountAbs = dto.amountCents ?? Number(-src.amountCents);
     const newDateOut = dto.date ? new Date(dto.date) : src.transactionDate;
     const newDateIn = dto.arrivalDate
@@ -80,17 +94,29 @@ export class TransfersService {
 
     const newOut = BigInt(-newAmountAbs);
     const newIn = BigInt(newAmountAbs);
-    const deltaSrc = newOut - src.amountCents;
-    const deltaDst = newIn - dst.amountCents;
 
     // Categoria: undefined = non toccare, null = sgancia, uuid = imposta
     const nextCategoryId =
       dto.categoryId === undefined ? undefined : dto.categoryId === null ? null : dto.categoryId;
 
+    // Bookkeeping dei saldi: stornare i vecchi importi dai conti originali e
+    // riapplicare i nuovi sui conti finali (che possono essere cambiati).
+    // Accumuliamo per conto perché i conti possono coincidere/sovrapporsi
+    // (es. sorgente invariata) — così ogni conto riceve un solo update netto.
+    const deltas = new Map<string, bigint>();
+    const addDelta = (accountId: string, amount: bigint) => {
+      deltas.set(accountId, (deltas.get(accountId) ?? 0n) + amount);
+    };
+    addDelta(src.accountId, -src.amountCents); // storno vecchia gamba sorgente
+    addDelta(dst.accountId, -dst.amountCents); // storno vecchia gamba destinazione
+    addDelta(newFromAccountId, newOut); // nuova gamba sorgente
+    addDelta(newToAccountId, newIn); // nuova gamba destinazione
+
     return this.prisma.$transaction(async (tx) => {
       const updatedSrc = await tx.transaction.update({
         where: { id: src.id },
         data: {
+          accountId: newFromAccountId,
           amountCents: newOut,
           transactionDate: newDateOut,
           description: dto.description ?? src.description,
@@ -100,23 +126,20 @@ export class TransfersService {
       const updatedDst = await tx.transaction.update({
         where: { id: dst.id },
         data: {
+          accountId: newToAccountId,
           amountCents: newIn,
           transactionDate: newDateIn,
           description: dto.description ?? dst.description,
           ...(nextCategoryId !== undefined ? { categoryId: nextCategoryId } : {}),
         },
       });
-      if (deltaSrc !== 0n) {
-        await tx.account.update({
-          where: { id: src.accountId },
-          data: { balanceCents: { increment: deltaSrc } },
-        });
-      }
-      if (deltaDst !== 0n) {
-        await tx.account.update({
-          where: { id: dst.accountId },
-          data: { balanceCents: { increment: deltaDst } },
-        });
+      for (const [accountId, delta] of deltas) {
+        if (delta !== 0n) {
+          await tx.account.update({
+            where: { id: accountId },
+            data: { balanceCents: { increment: delta } },
+          });
+        }
       }
       return { from: updatedSrc, to: updatedDst };
     });

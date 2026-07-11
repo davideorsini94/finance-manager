@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { File as FileIcon, ImageIcon, FileText, Trash2, Upload } from 'lucide-react';
 import { useForm } from 'react-hook-form';
@@ -74,11 +74,32 @@ export function TransactionForm({ open, onOpenChange, transaction, defaultAccoun
    *  transazione è stata creata e ne abbiamo l'id. */
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [pendingError, setPendingError] = useState<string | null>(null);
+  // Guardia anti-chiusura: quando si crea una categoria al volo (Radix Dialog
+  // annidato), la sua chiusura generava un evento che chiudeva anche questa
+  // modale. Tracciamo se quel dialog è aperto e una breve finestra dopo la sua
+  // chiusura per ignorare le richieste di chiusura "spurie".
+  const [categoryCreateOpen, setCategoryCreateOpen] = useState(false);
+  const blockCloseUntil = useRef(0);
+
+  const handleDialogOpenChange = (next: boolean) => {
+    if (!next && (categoryCreateOpen || Date.now() < blockCloseUntil.current)) return;
+    onOpenChange(next);
+  };
 
   const accountsQuery = useQuery({ queryKey: ['accounts'], queryFn: () => accountsApi.list() });
   const categoriesQuery = useQuery({
     queryKey: ['categories'],
     queryFn: () => categoriesApi.list(),
+  });
+
+  // In modifica di un giroconto carichiamo l'altra gamba (la coppia) per poter
+  // mostrare e modificare il conto destinazione. `transaction` è una sola delle
+  // due gambe; la coppia ci dà l'altro conto coinvolto.
+  const pairId = transaction?.transferPairId ?? null;
+  const pairQuery = useQuery({
+    queryKey: ['transaction', pairId],
+    queryFn: () => transactionsApi.get(pairId!),
+    enabled: open && !!pairId,
   });
 
   // NB: useMemo OBBLIGATORIO. `accounts` è nelle deps del useEffect sotto:
@@ -115,21 +136,41 @@ export function TransactionForm({ open, onOpenChange, transaction, defaultAccoun
       setPendingError(null);
       if (transaction) {
         const absCents = Math.abs(Number(transaction.amountCents));
-        const inferredType =
-          transaction.type === 'transfer'
-            ? 'transfer'
-            : Number(transaction.amountCents) >= 0
-              ? 'income'
-              : 'expense';
-        reset({
-          type: inferredType,
-          accountId: transaction.accountId,
-          amount: absCents / 100,
-          transactionDate: transaction.transactionDate.slice(0, 10),
-          categoryId: transaction.categoryId,
-          description: transaction.description ?? '',
-          notes: transaction.notes ?? '',
-        });
+        const isTransferTx =
+          transaction.type === 'transfer' || !!transaction.transferPairId;
+        if (isTransferTx) {
+          // Normalizziamo sempre a sorgente (gamba negativa) e destinazione
+          // (gamba positiva), a prescindere da quale gamba l'utente ha cliccato.
+          const pair = pairQuery.data ?? null;
+          const clickedIsSource = Number(transaction.amountCents) < 0;
+          const sourceLeg = clickedIsSource ? transaction : pair;
+          const destLeg = clickedIsSource ? pair : transaction;
+          const sourceDate = (sourceLeg ?? transaction).transactionDate.slice(0, 10);
+          const destDate = destLeg?.transactionDate.slice(0, 10);
+          reset({
+            type: 'transfer',
+            accountId: sourceLeg?.accountId ?? transaction.accountId,
+            toAccountId: destLeg?.accountId,
+            amount: absCents / 100,
+            transactionDate: sourceDate,
+            // Mostriamo la data arrivo solo se diversa dalla data di partenza.
+            arrivalDate: destDate && destDate !== sourceDate ? destDate : undefined,
+            categoryId: transaction.categoryId,
+            description: transaction.description ?? '',
+            notes: '',
+          });
+        } else {
+          const inferredType = Number(transaction.amountCents) >= 0 ? 'income' : 'expense';
+          reset({
+            type: inferredType,
+            accountId: transaction.accountId,
+            amount: absCents / 100,
+            transactionDate: transaction.transactionDate.slice(0, 10),
+            categoryId: transaction.categoryId,
+            description: transaction.description ?? '',
+            notes: transaction.notes ?? '',
+          });
+        }
         setCreatedId(transaction.id);
       } else {
         // In creazione la priorità è: 1) conto passato dal chiamante (es.
@@ -157,7 +198,15 @@ export function TransactionForm({ open, onOpenChange, transaction, defaultAccoun
         setCreatedId(null);
       }
     }
-  }, [open, transaction, reset, accounts, currentUser?.favoriteAccountId, defaultAccountId]);
+  }, [
+    open,
+    transaction,
+    pairQuery.data,
+    reset,
+    accounts,
+    currentUser?.favoriteAccountId,
+    defaultAccountId,
+  ]);
 
   const type = watch('type');
   const accountId = watch('accountId');
@@ -167,7 +216,18 @@ export function TransactionForm({ open, onOpenChange, transaction, defaultAccoun
     mutationFn: async (values: FormValues) => {
       const cents = eurosToCents(Number(values.amount));
       if (values.type === 'transfer') {
-        if (isEdit) throw new Error('Edit transfer not yet supported, please delete and recreate.');
+        if (isEdit && transaction) {
+          const result = await transactionsApi.updateTransfer(transaction.id, {
+            fromAccountId: values.accountId,
+            toAccountId: values.toAccountId!,
+            amountCents: cents,
+            date: values.transactionDate,
+            arrivalDate: values.arrivalDate || undefined,
+            description: values.description || undefined,
+            categoryId: values.categoryId ?? null,
+          });
+          return result.from;
+        }
         const result = await transactionsApi.createTransfer({
           fromAccountId: values.accountId,
           toAccountId: values.toAccountId!,
@@ -228,8 +288,16 @@ export function TransactionForm({ open, onOpenChange, transaction, defaultAccoun
   const onSubmit = handleSubmit((values) => mutation.mutate(values));
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90dvh] w-full max-w-xl flex-col gap-0 p-0">
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
+      <DialogContent
+        className="flex max-h-[90dvh] w-full max-w-xl flex-col gap-0 p-0"
+        // Non chiudere la modale su click/focus esterno: evita di perdere il
+        // movimento a metà compilazione. In particolare, quando si crea una
+        // categoria al volo (dialog annidato), la sua chiusura generava un
+        // evento "interact outside" che chiudeva anche questa modale. Si chiude
+        // solo con "Chiudi", Esc o al salvataggio andato a buon fine.
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader className="border-b px-6 py-4">
           <DialogTitle>{isEdit ? 'Modifica movimento' : 'Nuovo movimento'}</DialogTitle>
           <DialogDescription>
@@ -255,20 +323,17 @@ export function TransactionForm({ open, onOpenChange, transaction, defaultAccoun
                 <SelectItem value="transfer">Giroconto</SelectItem>
               </SelectContent>
             </Select>
-            {isTransfer && isEdit && (
-              <p className="text-xs text-muted-foreground">
-                I giroconti vanno eliminati e ricreati per modifiche.
-              </p>
-            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Conto {type === 'transfer' ? 'sorgente' : ''}</Label>
+              {/* In modifica i movimenti normali non possono cambiare conto
+                  (endpoint /transactions), ma i giroconti sì (endpoint /transfers). */}
               <Select
                 value={accountId}
                 onValueChange={(v) => setValue('accountId', v)}
-                disabled={isEdit}
+                disabled={isEdit && !isTransfer}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Seleziona conto" />
@@ -346,6 +411,12 @@ export function TransactionForm({ open, onOpenChange, transaction, defaultAccoun
                 value={watch('categoryId') ?? null}
                 onChange={(v) => setValue('categoryId', v)}
                 categories={categories}
+                onCreateOpenChange={(o) => {
+                  setCategoryCreateOpen(o);
+                  // Alla chiusura apriamo una finestra di guardia: la chiusura
+                  // "spuria" della modale padre arriva subito dopo.
+                  if (!o) blockCloseUntil.current = Date.now() + 600;
+                }}
               />
             </div>
           </div>

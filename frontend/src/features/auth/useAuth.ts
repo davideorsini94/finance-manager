@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { AuthUser } from '@/types/domain';
+import { queryClient } from '@/lib/api/queryClient';
 import { fetchMe, loginRequest, logoutRequest } from './authApi';
 
 export type AuthStatus = 'unknown' | 'authenticated' | 'unauthenticated';
@@ -28,6 +29,11 @@ export const useAuth = create<AuthState>((set) => ({
 
   async login(email, password) {
     await loginRequest(email, password);
+    // Svuota la cache delle query: dati di un eventuale utente precedente
+    // (es. lista conti) non devono trapelare nella nuova sessione. Senza
+    // questo, con `staleTime` attivo il nuovo utente vedrebbe conti altrui
+    // omonimi e i giroconti fallirebbero con 403 "Insufficient access".
+    queryClient.clear();
     const user = await fetchMe();
     set({ status: 'authenticated', user });
   },
@@ -36,6 +42,8 @@ export const useAuth = create<AuthState>((set) => ({
     try {
       await logoutRequest();
     } finally {
+      // Rimuove ogni dato cachato così il prossimo login parte pulito.
+      queryClient.clear();
       set({ status: 'unauthenticated', user: null });
     }
   },
