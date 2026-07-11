@@ -56,4 +56,55 @@ export function initIosViewportFix() {
     if (!document.hidden) resetSoon();
   });
   reset();
+  // Nudge all'avvio: alcune versioni di iOS ripartono col viewport "pannato"
+  // e serve uno scroll (anche no-op) per forzarne il ricalcolo.
+  window.scrollTo(0, 1);
+  window.scrollTo(0, 0);
+
+  /**
+   * 3. BottomNav "incollata" al fondo realmente visibile (solo standalone).
+   *
+   * Gli elementi position:fixed sono ancorati al LAYOUT viewport; quando il
+   * VISUAL viewport resta pannato/accorciato (bug standalone dopo tastiera o
+   * riapertura) la barra resta sospesa sopra il fondo dello schermo con una
+   * banda scoperta sotto — e con lo scroll del documento bloccato non è più
+   * nemmeno sistemabile trascinando. `scrollTo(0,0)` non aiuta perché lo
+   * scroll È già 0: l'offset vive nel visual viewport. Qui misuriamo la
+   * differenza tra il fondo del visual viewport e quello del layout viewport
+   * e la compensiamo con un translateY. In condizioni normali l'offset è 0 e
+   * il transform viene rimosso. Con la tastiera aperta non tocchiamo nulla.
+   */
+  const vv = window.visualViewport;
+  const isStandalone =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (navigator as unknown as { standalone?: boolean }).standalone === true;
+  if (isStandalone && vv) {
+    let raf = 0;
+    const glue = () => {
+      raf = 0;
+      const nav = document.querySelector<HTMLElement>('.fm-bottomnav');
+      if (!nav) return;
+      if (isEditing()) {
+        nav.style.transform = '';
+        return;
+      }
+      const offset = vv.offsetTop + vv.height - window.innerHeight;
+      nav.style.transform = Math.abs(offset) > 1 ? `translateY(${offset}px)` : '';
+    };
+    const schedule = () => {
+      if (!raf) raf = requestAnimationFrame(glue);
+    };
+    vv.addEventListener('resize', schedule);
+    vv.addEventListener('scroll', schedule);
+    window.addEventListener('pageshow', schedule);
+    window.addEventListener('orientationchange', () => setTimeout(schedule, 150));
+    window.addEventListener('focusout', () => setTimeout(schedule, 150));
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) schedule();
+    });
+    schedule();
+    // Ripassa dopo l'assestamento del layout post-lancio.
+    setTimeout(schedule, 600);
+    setTimeout(schedule, 1800);
+  }
 }

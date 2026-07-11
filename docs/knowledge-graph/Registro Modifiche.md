@@ -4,6 +4,8 @@ Log cronologico (più recente in alto) delle modifiche al progetto. Una riga per
 
 ## 2026-07-11
 
+- **Rilascio v0.2.5**: BottomNav agganciata al fondo del *visual viewport* su iOS standalone (compensazione translateY del pan residuo — il vero colpevole della barra shiftata) + nudge viewport all'avvio → dettagli in [[PWA e Mobile]] — `frontend/src/lib/ios-viewport.ts`. Deploy verificato (bundle servito contiene il fix), rollback: `0.2.4`.
+
 - **Rilascio v0.2.4**: evidenziazione persistente card conto selezionata (outline + attenuazione delle altre) e dropdown conto sincronizzata con label esplicita ([[Pagina Movimenti]]) — `TransactionsPage.tsx`; copertura striscia nera sotto la BottomNav ([[PWA e Mobile]]) — `BottomNav.tsx`, `index.css`. Workflow [[Deploy e Versioning]] completo, health OK, rollback: `0.2.3`.
 - **Repo git ricostruito e push completato**: `.git` era corrotto (solo `config` e oggetti vuoti, senza HEAD/refs) — oggetti rimossi, storia ri-scaricata da GitHub, working tree committato sopra `origin/develop` (commit `e74726f`, 40 file) e pushato. Remote `git@github-personale:davideorsini94/finance-manager.git` con chiave dedicata `~/.ssh/id_ed25519_github_fm` (alias in `~/.ssh/config`). Ripristinati `.gitignore`/`.env.example` persi nella corruzione; aggiunti a `.gitignore` `docker-images-amd64/` e i backup zip.
 
