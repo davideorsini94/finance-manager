@@ -5,7 +5,7 @@ Log cronologico (più recente in alto) delle modifiche al progetto. Una riga per
 ## 2026-07-11
 
 - **Rilascio v0.2.4**: evidenziazione persistente card conto selezionata (outline + attenuazione delle altre) e dropdown conto sincronizzata con label esplicita ([[Pagina Movimenti]]) — `TransactionsPage.tsx`; copertura striscia nera sotto la BottomNav ([[PWA e Mobile]]) — `BottomNav.tsx`, `index.css`. Workflow [[Deploy e Versioning]] completo, health OK, rollback: `0.2.3`.
-- **Repo git ricostruito parzialmente**: `.git` era corrotto (solo `config` e `objects`, senza HEAD/refs) — ripristinato HEAD su `develop`; remote `git@github-personale:davideorsini94/finance-manager.git` (alias SSH in `~/.ssh/config`, chiave dedicata `~/.ssh/id_ed25519_github_fm`). Push in attesa che la chiave pubblica venga abilitata su GitHub.
+- **Repo git ricostruito e push completato**: `.git` era corrotto (solo `config` e oggetti vuoti, senza HEAD/refs) — oggetti rimossi, storia ri-scaricata da GitHub, working tree committato sopra `origin/develop` (commit `e74726f`, 40 file) e pushato. Remote `git@github-personale:davideorsini94/finance-manager.git` con chiave dedicata `~/.ssh/id_ed25519_github_fm` (alias in `~/.ssh/config`). Ripristinati `.gitignore`/`.env.example` persi nella corruzione; aggiunti a `.gitignore` `docker-images-amd64/` e i backup zip.
 
 - **Rilascio v0.2.3** secondo il workflow di [[Deploy e Versioning]]: bump `version` in entrambi i package.json, rebuild backend+frontend, tag `0.2.3`, `docker compose up -d`, export `.tar` in `docker-images-amd64/`. Health check OK (API e frontend HTTP 200). Rollback disponibile: immagini `0.2.2`.
 
