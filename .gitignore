@@ -48,3 +48,4 @@ finance-manager-backup-*.zip
 
 # Chiavi private Enable Banking (mai committare)
 *.pem
+.playwright-mcp/

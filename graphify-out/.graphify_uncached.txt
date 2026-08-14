@@ -1,0 +1,12 @@
+/Users/davideorsini/workspace/finance-manager/docs/MANUALE.md
+/Users/davideorsini/workspace/finance-manager/docs/knowledge-graph/API.md
+/Users/davideorsini/workspace/finance-manager/docs/knowledge-graph/Autenticazione e Sicurezza.md
+/Users/davideorsini/workspace/finance-manager/docs/knowledge-graph/Chat LLM.md
+/Users/davideorsini/workspace/finance-manager/docs/knowledge-graph/Database.md
+/Users/davideorsini/workspace/finance-manager/docs/knowledge-graph/Finance Manager.md
+/Users/davideorsini/workspace/finance-manager/docs/knowledge-graph/Import CSV-OFX.md
+/Users/davideorsini/workspace/finance-manager/docs/knowledge-graph/PWA e Mobile.md
+/Users/davideorsini/workspace/finance-manager/docs/knowledge-graph/Registro Modifiche.md
+/Users/davideorsini/workspace/finance-manager/docs/knowledge-graph/Sync Bancario (Piano).md
+/Users/davideorsini/workspace/finance-manager/docs/knowledge-graph/Sync Bancario.md
+/Users/davideorsini/workspace/finance-manager/frontend/public/offline.html
