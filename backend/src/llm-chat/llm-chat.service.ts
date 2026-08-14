@@ -1,25 +1,32 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ChatRole } from '@prisma/client';
 import { Ollama, type Message, type ToolCall } from 'ollama';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccountPolicyService } from '../common/services/account-policy.service';
+import { LlmConfigService } from './llm-config.service';
 import { ToolRegistry } from './tools/tool-registry';
 
 @Injectable()
 export class LlmChatService {
   private readonly logger = new Logger(LlmChatService.name);
   private readonly ollama: Ollama;
-  private readonly model: string;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly toolRegistry: ToolRegistry,
     private readonly policy: AccountPolicyService,
+    private readonly llmConfig: LlmConfigService,
   ) {
+    // L'host resta fisso (topologia docker); il modello no: è scelto a runtime
+    // dalle impostazioni ed è quindi risolto a ogni richiesta.
     this.ollama = new Ollama({ host: this.config.getOrThrow<string>('OLLAMA_BASE_URL') });
-    this.model = this.config.getOrThrow<string>('OLLAMA_MODEL');
   }
 
   async listSessions(userId: string) {
@@ -140,6 +147,13 @@ Esempi:
   ): AsyncGenerator<{ delta: string; done: boolean }> {
     const session = await this.getSession(userId, sessionId);
 
+    const { model } = await this.llmConfig.getActiveModel();
+    if (!model) {
+      throw new ServiceUnavailableException(
+        'Nessun modello LLM configurato: selezionane uno in Impostazioni.',
+      );
+    }
+
     // Salva subito il messaggio utente
     await this.prisma.chatMessage.create({
       data: { sessionId, role: ChatRole.user, content: userMessage },
@@ -173,7 +187,7 @@ Esempi:
 
     for (let round = 0; round < MAX_ROUNDS; round++) {
       const stream = await this.ollama.chat({
-        model: this.model,
+        model,
         messages: history,
         tools,
         stream: true,

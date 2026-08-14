@@ -5,6 +5,7 @@ import * as yauzl from 'yauzl';
 import { Readable, PassThrough } from 'stream';
 import { PrismaService } from '../prisma/prisma.service';
 import { MinioService } from '../minio/minio.service';
+import { LlmConfigService } from '../llm-chat/llm-config.service';
 
 const BACKUP_VERSION = 1;
 
@@ -14,7 +15,22 @@ const TABLES = [
   'account',
   'accountMember',
   'category',
+  // Memoria delle categorie della revisione bancaria: dipende da user e
+  // category, quindi subito dopo `category`. È il "vissuto" dell'utente
+  // (quali movimenti vanno in quale categoria): perderlo significherebbe
+  // ricominciare da capo con i suggerimenti.
+  'categoryMemory',
   'transaction',
+  // Sync bancario (Fase 2): dipendono da user/account/category/transaction,
+  // già creati sopra. `bankSyncConfig` (credenziali cifrate) resta FUORI dal
+  // backup, come `smtpConfig`: sono segreti legati alla chiave dell'istanza,
+  // vanno reinseriti a mano dopo un restore su un'altra installazione.
+  'bankConnection',
+  'bankAccountLink',
+  'bankStagedTransaction',
+  // Storico dei run di sync (Fase 3): dipende solo da user. Serve anche a
+  // conservare la quota manuale consumata nella giornata del backup.
+  'bankSyncRun',
   'attachment',
   'recurringRule',
   'budget',
@@ -23,6 +39,10 @@ const TABLES = [
   'chatSession',
   'chatMessage',
   'auditLog',
+  // Singleton senza FK: nessun vincolo di ordine. Incluso nel backup perché
+  // non contiene segreti (a differenza di smtp_config, cifrato e legato alla
+  // chiave dell'istanza) e la scelta del modello va conservata.
+  'llmConfig',
 ] as const;
 
 type TableName = (typeof TABLES)[number];
@@ -35,6 +55,7 @@ export class BackupService {
     private readonly prisma: PrismaService,
     private readonly minio: MinioService,
     private readonly config: ConfigService,
+    private readonly llmConfig: LlmConfigService,
   ) {}
 
   /**
@@ -144,6 +165,10 @@ export class BackupService {
       blobs++;
     }
 
+    // Il restore ha riscritto llm_config sotto il naso della cache in-process:
+    // senza invalidazione la chat resterebbe sul modello pre-restore.
+    this.llmConfig.invalidate();
+
     return { restored, blobs };
   }
 
@@ -155,12 +180,21 @@ export class BackupService {
       this.prisma.chatMessage.deleteMany({}),
       this.prisma.chatSession.deleteMany({}),
       this.prisma.auditLog.deleteMany({}),
+      this.prisma.llmConfig.deleteMany({}),
       this.prisma.importBatch.deleteMany({}),
       this.prisma.budget.deleteMany({}),
       this.prisma.goal.deleteMany({}),
       this.prisma.recurringRule.deleteMany({}),
       this.prisma.transaction.deleteMany({}),
+      // Prima delle categorie: la FK è in cascata, ma il wipe resta esplicito.
+      this.prisma.categoryMemory.deleteMany({}),
       this.prisma.category.deleteMany({}),
+      // Sync bancario: link/staged prima dei conti, connessioni e run prima
+      // degli utenti.
+      this.prisma.bankStagedTransaction.deleteMany({}),
+      this.prisma.bankAccountLink.deleteMany({}),
+      this.prisma.bankConnection.deleteMany({}),
+      this.prisma.bankSyncRun.deleteMany({}),
       this.prisma.accountMember.deleteMany({}),
       this.prisma.account.deleteMany({}),
       this.prisma.refreshToken.deleteMany({}),
@@ -202,6 +236,8 @@ const BIGINT_FIELDS: Partial<Record<TableName, Set<string>>> = {
   recurringRule: new Set(['amountCents']),
   budget: new Set(['limitCents']),
   goal: new Set(['targetCents', 'currentCents']),
+  bankAccountLink: new Set(['lastBalanceCents']),
+  bankStagedTransaction: new Set(['amountCents']),
 };
 
 const DATE_FIELDS: Partial<Record<TableName, Set<string>>> = {
@@ -210,6 +246,7 @@ const DATE_FIELDS: Partial<Record<TableName, Set<string>>> = {
   account: new Set(['archivedAt', 'createdAt', 'updatedAt']),
   accountMember: new Set(['createdAt']),
   category: new Set(['createdAt']),
+  categoryMemory: new Set(['lastUsedAt', 'createdAt']),
   transaction: new Set(['transactionDate', 'createdAt', 'updatedAt']),
   attachment: new Set(['createdAt']),
   recurringRule: new Set(['startDate', 'endDate', 'nextRunDate', 'createdAt']),
@@ -219,6 +256,11 @@ const DATE_FIELDS: Partial<Record<TableName, Set<string>>> = {
   chatSession: new Set(['createdAt', 'updatedAt']),
   chatMessage: new Set(['createdAt']),
   auditLog: new Set(['createdAt']),
+  llmConfig: new Set(['updatedAt']),
+  bankConnection: new Set(['consentExpiresAt', 'createdAt', 'updatedAt']),
+  bankAccountLink: new Set(['lastSyncAt', 'lastBookedDate', 'lastBalanceAt', 'createdAt']),
+  bankStagedTransaction: new Set(['bookingDate', 'valueDate', 'effectiveDate', 'createdAt']),
+  bankSyncRun: new Set(['startedAt', 'finishedAt']),
 };
 
 function readZipEntries(buffer: Buffer): Promise<Map<string, Buffer>> {

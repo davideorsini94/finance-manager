@@ -51,6 +51,11 @@ function extractHref(data: NotificationData | null): string | null {
       return base ? `${base}/accounts` : null;
     case 'import_ready':
       return base ? `${base}/import` : null;
+    case 'bank_sync_review':
+      return base ? `${base}/bank-review` : null;
+    case 'bank_sync_consent':
+      // Il rinnovo del consenso si fa dalla card dei collegamenti bancari.
+      return base ? `${base}/settings` : null;
     case 'system':
       return data.href ?? null;
     default:

@@ -35,15 +35,26 @@ export function setUnauthorizedHandler(handler: (() => void) | null): void {
  * la UI può comunque invalidare le query (refetch ricarica i dati demo
  * statici), così l'esperienza non si rompe.
  */
-function maybeDemoResponse(request: Request): Response | null {
+async function maybeDemoResponse(request: Request): Promise<Response | null> {
   const isDemo = useUIStore.getState().demoData;
   if (!isDemo) return null;
 
   const url = new URL(request.url, window.location.origin);
+  // Alcuni handler demo (es. selezione/download modello LLM) hanno bisogno
+  // del body per sapere *cosa* è stato richiesto, non solo l'URL/metodo.
+  let requestBody: unknown;
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    try {
+      requestBody = await request.clone().json();
+    } catch {
+      requestBody = undefined;
+    }
+  }
   const data = demoHandle({
     pathname: url.pathname,
     search: url.searchParams,
     method: request.method.toUpperCase(),
+    body: requestBody,
   });
 
   // Le richieste streaming/binarie (SSE notifiche, attachments, backup) non
@@ -68,8 +79,8 @@ export const api: KyInstance = ky.create({
   cache: 'no-store',
   hooks: {
     beforeRequest: [
-      (request) => {
-        const demo = maybeDemoResponse(request);
+      async (request) => {
+        const demo = await maybeDemoResponse(request);
         if (demo) return demo;
       },
     ],

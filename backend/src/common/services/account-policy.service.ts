@@ -23,6 +23,21 @@ export class AccountPolicyService {
     };
   }
 
+  /**
+   * Filtro Prisma riusabile: "conti su cui userId può scrivere" (proprietario o
+   * membro con ruolo write/owner, non archiviati). Stessa semantica di
+   * `assertWrite`, in forma di `where` — serve ai conteggi aggregati.
+   */
+  writableAccountsWhere(userId: string): Prisma.AccountWhereInput {
+    return {
+      archivedAt: null,
+      OR: [
+        { ownerId: userId },
+        { members: { some: { userId, role: { in: WRITE_ROLES } } } },
+      ],
+    };
+  }
+
   async canRead(userId: string, accountId: string): Promise<boolean> {
     return this.hasAccess(userId, accountId, READ_ROLES);
   }

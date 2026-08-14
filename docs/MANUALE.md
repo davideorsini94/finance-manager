@@ -24,11 +24,13 @@
 14. [Report e confronti](#14-report-e-confronti)
 15. [Chat con l'AI](#15-chat-con-lai)
 16. [Importare un estratto conto (CSV / OFX)](#16-importare-un-estratto-conto)
-17. [Impostazioni](#17-impostazioni)
-18. [Configurazione email (SMTP, solo admin)](#18-smtp-solo-admin)
-19. [Backup e ripristino (solo admin)](#19-backup-e-ripristino-solo-admin)
-20. [Installare l'app sul telefono](#20-installare-lapp-sul-telefono)
-21. [Domande frequenti](#21-faq)
+17. [Collegamento banca (sincronizzazione automatica)](#17-collegamento-banca)
+18. [Modelli AI (Ollama)](#18-modelli-ai-ollama)
+19. [Impostazioni](#19-impostazioni)
+20. [Configurazione email (SMTP, solo admin)](#20-smtp-solo-admin)
+21. [Backup e ripristino (solo admin)](#21-backup-e-ripristino-solo-admin)
+22. [Installare l'app sul telefono](#22-installare-lapp-sul-telefono)
+23. [Domande frequenti](#23-faq)
 
 ---
 
@@ -45,7 +47,8 @@ account o invitando altri membri puoi:
 - Definire **budget per categoria** e **obiettivi di risparmio**
 - Automatizzare i movimenti **ricorrenti** (stipendio, affitto, abbonamenti)
 - Chiedere consigli a un'**AI locale** che vede solo i tuoi dati
-- Importare **estratti conto in CSV o OFX** dalla banca
+- Importare **estratti conto in CSV o OFX** dalla banca, oppure **collegare
+  direttamente il conto** per uno scarico automatico ogni notte
 - **Condividere conti** con altri membri della famiglia
 - Funziona sul telefono come **app installabile**
 
@@ -79,7 +82,7 @@ solo le funzioni "di sistema" (inviti, SMTP, backup) sono riservate all'admin.
 Sulla pagina di login c'è il link **"Password dimenticata?"**:
 
 1. Inserisci la tua email
-2. Ricevi un link di reset (richiede SMTP configurato — sezione 18)
+2. Ricevi un link di reset (richiede SMTP configurato — sezione 20)
 3. Il link è valido **1 ora** ed è monouso
 4. Clicca, scegli una nuova password, e sei subito loggato
 
@@ -98,7 +101,7 @@ registrazione libera, per protezione).
 2. Crea un invito tramite l'endpoint admin (al momento l'azione è nelle
    pagine di amministrazione: vedi *FAQ* per i dettagli).
 3. Il sistema invia un'email contenente un link `/accept-invite?token=...`
-   valido **48 ore**. Se non hai ancora configurato SMTP (vedi sezione 18)
+   valido **48 ore**. Se non hai ancora configurato SMTP (vedi sezione 20)
    il link viene comunque generato e l'admin può copiarlo a mano.
 4. L'invitato apre il link, sceglie nome completo e password, e l'account
    viene creato.
@@ -527,7 +530,154 @@ badge **Possibile duplicato** e di default deselezionati.
 
 ---
 
-## 17. Impostazioni
+## 17. Collegamento banca
+
+Oltre all'import manuale di CSV/OFX (sezione 16), puoi collegare direttamente
+il conto corrente alla tua banca: i movimenti vengono scaricati da soli ogni
+notte, categorizzati da un'AI e proposti in una coda di revisione prima di
+diventare movimenti veri.
+
+### Cosa serve
+
+- Un **account gratuito su enablebanking.com** (a carico dell'admin
+  dell'installazione, non di ogni utente): registrazione self-service, "modalità
+  personale" per collegare i propri conti, nessun contratto commerciale.
+- L'admin registra un'**applicazione** nel Control Panel di Enable Banking:
+  ottiene un **Application ID** e scarica una volta sola una **chiave privata
+  RS256 (.pem)**.
+- L'admin inserisce questi due valori in **Impostazioni → Credenziali Enable
+  Banking** (sezione admin-only). Una volta configurate, **tutti gli utenti**
+  possono collegare le proprie banche: ogni utente gestisce solo i propri
+  collegamenti.
+
+> 💡 La chiave privata non è mai più visibile dopo il salvataggio (è cifrata
+> nel database): se la perdi, rigenerala dal portale Enable Banking e
+> reinseriscila.
+
+### Collegare una banca
+
+1. In **Impostazioni → Collegamenti bancari**, premi **+ Collega banca**.
+2. **Cerca la tua banca** nell'elenco (logo + nome).
+3. Premi **Apri il sito della banca**: si apre una nuova scheda dove accedi
+   con le tue credenziali bancarie e confermi l'accesso **in sola lettura**.
+   La finestra del wizard resta aperta e controlla da sola quando hai finito
+   (nessun bisogno di incollare codici).
+4. **Nota iPhone**: sull'app installata (PWA) l'autorizzazione si apre in
+   **Safari**, fuori dall'app. È normale: completa il consenso in Safari e poi
+   torna a Finance Manager, il wizard si aggiorna automaticamente (o riaprilo
+   dall'app se lo avevi chiuso — il collegamento resta comunque salvato "in
+   attesa").
+5. **Abbina i conti**: la banca ti restituisce i conti che hai autorizzato;
+   per ciascuno scegli se collegarlo a un conto Finance Manager già esistente
+   o crearne uno nuovo (oppure "non collegare"). Vengono proposti solo i tuoi
+   **conti correnti** in EUR non già collegati a un'altra banca.
+6. Premi **Collega N conti**. Fatto: la prima sincronizzazione parte da sola
+   in background.
+
+### Sincronizzazione
+
+- **Automatica**: ogni notte alle **06:00** il sistema scarica i movimenti
+  nuovi di tutti i collegamenti attivi.
+- **Manuale**: dalla card del collegamento c'è **"Sincronizza ora"** (su
+  tutti i conti collegati o su un singolo conto). Limite: **4 sincronizzazioni
+  manuali al giorno per utente** (è un limite imposto anche dalle banche
+  stesse); superato il limite, il pulsante avvisa e bisogna aspettare il giorno
+  dopo — il sync automatico notturno continua comunque a funzionare.
+- Ogni sync mostra un riepilogo: quanti movimenti nuovi, quanti duplicati
+  scartati, eventuali valute non gestite.
+
+### Pagina "Da confermare"
+
+I movimenti scaricati dalla banca **non diventano subito veri movimenti**:
+finiscono in una coda di revisione, raggiungibile dal menu **"Da confermare"**
+(anche dal badge sulla card del collegamento e dalla notifica in campanella).
+
+Per ogni riga:
+
+- Un'**AI locale** (la stessa dell'import CSV, sezione 16) propone una
+  categoria, modificabile prima di confermare.
+- Le **coppie di giroconto** (es. bonifico da un conto collegato a un altro
+  conto collegato) vengono riconosciute automaticamente e mostrate come riga
+  unica con la freccia "Conto A → Conto B"; puoi accoppiare o separare a mano
+  se il sistema non è sicuro.
+- I **probabili duplicati** (un movimento che sembra già inserito a mano)
+  finiscono in una sezione a parte, non confermabili finché non li ripristini
+  tu esplicitamente.
+- Puoi selezionare più righe insieme (barra di azioni in fondo allo schermo,
+  ottimizzata anche per il pollice su telefono) e **confermare in blocco**:
+  le righe selezionate diventano movimenti reali (o giroconti, per le coppie),
+  con saldo dei conti aggiornato.
+
+### Rinnovo del consenso
+
+Le banche richiedono di **rinnovare l'autorizzazione periodicamente**, in
+genere ogni **~90 giorni** (la durata esatta dipende dalla banca). Ricevi una
+**notifica circa 7 giorni prima** della scadenza; se il consenso scade senza
+rinnovo, la sincronizzazione di quel collegamento si ferma finché non lo
+rinnovi.
+
+Per rinnovare: dalla card del collegamento premi **Rinnova**, ripeti
+l'autorizzazione sul sito della banca come al primo collegamento. I conti
+vengono **ri-agganciati automaticamente tramite IBAN** — non devi rifare il
+mapping. Se un conto non viene ritrovato, resta in pausa e va ricollegato a
+mano.
+
+### Riconciliazione saldi
+
+Sulla card di ogni conto collegato vedi anche il **saldo dichiarato dalla
+banca** (rilevato all'ultima sincronizzazione) a confronto con il saldo
+calcolato da Finance Manager. Se combaciano vedi un segno di spunta; se ci
+sono differenze, vedi l'importo dello scostamento — utile per accorgerti di
+un movimento mancante o inserito due volte a mano.
+
+### Limiti
+
+- Si collegano solo **conti correnti** (niente carte di credito o conti in
+  valuta diversa dall'euro in questa versione).
+- **Un solo consenso attivo per banca**: molte banche italiane non permettono
+  due autorizzazioni contemporanee per lo stesso istituto — un nuovo
+  consenso (es. il rinnovo) sostituisce automaticamente il precedente.
+- Se la tua banca non è ancora supportata, resta disponibile l'import
+  manuale CSV/OFX (sezione 16).
+
+> 💡 **Sicurezza**: il consenso che dai alla banca è di **sola lettura**
+> (accesso "AIS", solo consultazione movimenti e saldi). Nessuna operazione
+> di pagamento è possibile tramite questo collegamento, né da Finance Manager
+> né in caso di compromissione del server: la banca stessa non accetterebbe
+> un ordine di pagamento senza un consenso separato con doppia
+> autenticazione, che questa integrazione non richiede né supporta.
+
+---
+
+## 18. Modelli AI (Ollama)
+
+L'AI locale (usata per la chat, sezione 15, e per suggerire le categorie
+nell'import CSV/OFX e nella coda "Da confermare") gira su **Ollama**, con il
+modello scelto dall'admin in **Impostazioni → Modello AI locale**.
+
+- **Modello attivo**: mostrato in cima alla card, con lo stato del server
+  Ollama (raggiungibile o no).
+- **Modelli installati**: elenco con dimensione su disco; puoi impostarne uno
+  come attivo ("Usa questo") o eliminarlo (non è possibile eliminare quello
+  attivo).
+- **Catalogo modelli disponibili**: lista curata di modelli compatibili
+  (dimensione di download, RAM richiesta, descrizione). Premi **Scarica** per
+  avviare il download: prosegue **sul server** anche se chiudi la pagina o
+  l'app (utile da telefono, dove la scheda del browser può "morire" in
+  background), con una barra di avanzamento in tempo reale. Un download alla
+  volta.
+- I modelli più pesanti mostrano un avviso se superano il limite di RAM del
+  container (8 GB) o se ci si avvicinano.
+
+> 💡 Cambiare modello ha effetto sia sulla **chat** sia sulla
+> **categorizzazione automatica** (import CSV/OFX e sync bancario): un
+> modello più grande è in genere più preciso ma più lento e più pesante in
+> RAM. Download e cambio modello sono riservati agli amministratori; tutti
+> gli utenti vedono qual è il modello attivo.
+
+---
+
+## 19. Impostazioni
 
 Pagina **Impostazioni** (icona ingranaggio nella nav).
 
@@ -570,12 +720,12 @@ demo solo sul telefono mentre il PC continua a vedere i dati reali.
 
 Se sei admin vedi anche:
 
-- **Server SMTP** → vedi sezione 18
-- **Backup &amp; Restore** → vedi sezione 19
+- **Server SMTP** → vedi sezione 20
+- **Backup &amp; Restore** → vedi sezione 21
 
 ---
 
-## 18. SMTP (solo admin)
+## 20. SMTP (solo admin)
 
 Per inviare email di invito serve un server SMTP. La configurazione si
 gestisce dall'app, **non** dal file `.env`.
@@ -620,7 +770,7 @@ manualmente il link `/accept-invite?token=...` all'invitato.
 
 ---
 
-## 19. Backup e ripristino (solo admin)
+## 21. Backup e ripristino (solo admin)
 
 In **Impostazioni → Backup &amp; Restore**.
 
@@ -654,7 +804,7 @@ diventano invalide e dovrai rifare login.
 
 ---
 
-## 20. Installare l'app sul telefono
+## 22. Installare l'app sul telefono
 
 Finance Manager è una **PWA**: si installa sulla schermata Home come una
 vera app, senza passare dagli store.
@@ -686,7 +836,7 @@ menu in alto. Tutto è ottimizzato per pollice.
 
 ---
 
-## 21. FAQ
+## 23. FAQ
 
 ### Posso registrarmi senza invito?
 No, di proposito. È pensata per famiglia/gruppo chiuso: solo l'admin invita.
@@ -713,7 +863,7 @@ restano completamente privati. Anche le **categorie**, i **budget**, gli
 No. Gira interamente in locale (Ollama). Non manda nulla all'esterno.
 
 ### Posso esportare singoli movimenti?
-Per ora puoi solo fare il backup completo (sezione 19). Esportazione
+Per ora puoi solo fare il backup completo (sezione 21). Esportazione
 selettiva CSV/Excel è una feature da aggiungere.
 
 ### Quanto spazio serve?
@@ -722,9 +872,17 @@ selettiva CSV/Excel è una feature da aggiungere.
 - Modello AI: ~4.5 GB di disco una tantum
 
 ### Posso cambiare il modello AI?
-Sì: l'admin del server modifica `OLLAMA_MODEL` in `.env` e riavvia il
-container. Modelli compatibili: tutti quelli supportati da Ollama con tool
-calling (es. `qwen2.5:7b`, `llama3.1:8b`).
+Sì, senza toccare `.env` né riavviare nulla: l'admin va in **Impostazioni →
+Modello AI locale** (sezione 18), scarica un modello dal catalogo e lo
+seleziona come attivo. Il cambio vale subito per chat e categorizzazione.
+`OLLAMA_MODEL` in `.env` resta come fallback iniziale se non è mai stato
+scelto un modello dall'app.
+
+### La mia banca non è nell'elenco, cosa faccio?
+Puoi comunque importare l'estratto conto manualmente in CSV/OFX (sezione
+16). Se la tua banca compare in un secondo momento nell'elenco di "Collega
+banca" (sezione 17), potrai passare al collegamento automatico senza perdere
+lo storico già importato.
 
 ### Posso usarlo da più dispositivi contemporaneamente?
 Sì. Login da PC + telefono + tablet, tutto in tempo reale.
@@ -777,6 +935,8 @@ quando sei senza rete. Per **scrivere** serve connessione al backend.
 | **PWA** | Progressive Web App: si installa sul telefono come un'app |
 | **Admin** | Utente con permessi extra (inviti, SMTP, backup) |
 | **Modalità Demo** | Toggle che mostra dati finti realistici senza toccare il DB reale |
+| **Consenso (bancario)** | Autorizzazione data alla banca per leggere (sola lettura) i movimenti di un conto |
+| **Da confermare** | Coda di revisione dei movimenti scaricati dalla banca, in attesa di conferma |
 | **Privacy mode** | Maschera tutti gli importi con pallini, utile in pubblico |
 
 ---

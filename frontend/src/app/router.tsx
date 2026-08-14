@@ -24,6 +24,8 @@ import { ImportPage } from '@/features/import/ImportPage';
 import { ImportWizard } from '@/features/import/ImportWizard';
 import { ImportTemplatesPage } from '@/features/import/ImportTemplatesPage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
+import { BankReviewPage } from '@/features/bank-review/BankReviewPage';
+import { BankCallbackPage } from '@/features/settings/BankCallbackPage';
 import { AcceptInvitePage } from '@/features/sharing/AcceptInvitePage';
 import { useAuth } from '@/features/auth/useAuth';
 
@@ -60,6 +62,19 @@ const resetPasswordRoute = createRoute({
     token: typeof search.token === 'string' ? search.token : undefined,
   }),
   component: ResetPasswordPage,
+});
+
+// Ritorno dal consenso bancario: rotta PUBBLICA. Su iOS il redirect della
+// banca atterra in Safari fuori dalla PWA, senza sessione autenticata.
+const bankCallbackRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/bank-sync/callback',
+  validateSearch: (search: Record<string, unknown>) => ({
+    code: typeof search.code === 'string' ? search.code : undefined,
+    state: typeof search.state === 'string' ? search.state : undefined,
+    error: typeof search.error === 'string' ? search.error : undefined,
+  }),
+  component: BankCallbackPage,
 });
 
 const protectedRoute = createRoute({
@@ -160,6 +175,13 @@ const importTemplatesRoute = createRoute({
   component: ImportTemplatesPage,
 });
 
+// Coda di revisione dei movimenti importati dalla banca (Fase 4).
+const bankReviewRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/bank-review',
+  component: BankReviewPage,
+});
+
 const settingsRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/settings',
@@ -171,6 +193,7 @@ const routeTree = rootRoute.addChildren([
   inviteRoute,
   accountInviteRoute,
   resetPasswordRoute,
+  bankCallbackRoute,
   protectedRoute.addChildren([
     dashboardRoute,
     accountsRoute,
@@ -186,6 +209,7 @@ const routeTree = rootRoute.addChildren([
     importRoute,
     importWizardRoute,
     importTemplatesRoute,
+    bankReviewRoute,
     settingsRoute,
   ]),
 ]);

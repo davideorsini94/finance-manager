@@ -18,8 +18,15 @@ PostgreSQL 16, schema gestito con Prisma: `backend/prisma/schema.prisma`. Migraz
 - **ChatSession / ChatMessage** → [[Chat LLM]]
 - **RefreshToken** (rotation + family detection), **InviteToken**, **PasswordResetToken** → [[Autenticazione e Sicurezza]]
 - **SmtpConfig** — singleton, password cifrata AES-256-GCM
+- **LlmConfig** — singleton (`id: "singleton"`), `model` nullable (NULL = usa `OLLAMA_MODEL` d'ambiente) → [[Chat LLM]]
+- **BankSyncConfig** — singleton, credenziali Enable Banking (`appId` + chiave privata PEM cifrata AES-256-GCM, contesto dedicato `fm-banksync-v1`); esclusa dal backup come `SmtpConfig`
+- **BankConnection** — un consenso PSD2 per utente (`userId`, istituto, `reference` = state anti-CSRF monouso, `status`: pending/linked/expired/suspended/revoked/error, `consentExpiresAt`)
+- **BankAccountLink** — mappatura 1:1 conto app ↔ conto banca (`accountId` unique, solo `type=checking`), `syncEnabled`, cursore `lastBookedDate` per il sync incrementale, `lastBalanceCents`/`lastBalanceAt` (Fase 5: ultimo saldo dichiarato dalla banca, per la riconciliazione visiva col saldo dell'`Account`)
+- **BankStagedTransaction** — movimento scaricato dalla banca in attesa di revisione (staging, popolato dal motore di sync Fase 3): `dedupHash` unico per link (`@@unique([linkId, dedupHash])`), `amountCents` firmato (BigInt), `status` (`StagedTxStatus`). Fase 4: `suggestedCategoryId`/`suggestedConfidence`/`suggestedType` (proposta LLM + matcher), **`finalCategoryId`** = categoria scelta per la conferma — prefillata col suggerimento ma solo se l'utente non ha già scelto, stesso ruolo di `ImportRow.finalCategoryId`; `matchedStagedId` = pairing **reciproco** dei giroconti (colonna semplice, nessuna FK → va azzerata a mano prima di ignore/delete); `duplicateOfTransactionId` e `transactionId` (movimento creato alla conferma, `SetNull`)
+- **BankSyncRun** — una riga per ogni esecuzione del motore di sync (Fase 3): `userId`, `trigger` (`cron`/`manual`/`auto`, solo `manual` consuma la quota giornaliera per-utente), `startedAt`/`finishedAt` (chiuso anche sugli errori), `stats` (Json: conteggi ed errori per link)
+- → dettagli modulo in [[Sync Bancario]]
 - **AuditLog** — azioni su transazioni (create/update/delete)
-- **Notification / NotificationPreference**
+- **Notification / NotificationPreference** — `NotificationType` include (Fase 3) `bank_sync_review` (nuovi movimenti bancari in coda) e `bank_sync_consent` (consenso PSD2 in scadenza/scaduto), oltre a `budget_threshold`, `recurring_executed`, `cc_payment_due`, `goal_reached`, `large_transaction`, `account_shared`, `import_ready`, `system`; idempotenza via `dedupKey` (`Notification.data.dedupKey`, finestra 24h in `NotificationsService.create`)
 
 ## Convenzioni
 

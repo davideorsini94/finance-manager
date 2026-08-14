@@ -10,8 +10,8 @@
     .icon { width: 64px; height: 64px; margin: 0 auto 1.5rem; background: #334155; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 28px; }
     h1 { font-size: 1.25rem; margin: 0 0 0.5rem; }
     p { color: #94a3b8; margin: 0 0 1.5rem; line-height: 1.5; font-size: 0.9rem; }
-    button { background: #3b82f6; color: white; border: none; padding: 0.625rem 1.25rem; border-radius: 8px; font-size: 0.875rem; font-weight: 500; cursor: pointer; }
-    button:hover { background: #2563eb; }
+    .retry { display: inline-block; background: #3b82f6; color: white; border: none; padding: 0.625rem 1.25rem; border-radius: 8px; font-size: 0.875rem; font-weight: 500; cursor: pointer; text-decoration: none; }
+    .retry:hover { background: #2563eb; }
   </style>
 </head>
 <body>
@@ -19,7 +19,8 @@
     <div class="icon">📡</div>
     <h1>Sei offline</h1>
     <p>Non riusciamo a raggiungere il server. Riproviamo automaticamente quando torna la connessione. Le modifiche fatte ora verranno salvate e sincronizzate.</p>
-    <button onclick="location.reload()">Riprova</button>
+    <!-- Link e non <button onclick>: la CSP (script-src 'self') blocca gli handler inline -->
+    <a class="retry" href="/">Riprova</a>
   </div>
 </body>
 </html>

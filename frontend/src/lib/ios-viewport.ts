@@ -82,14 +82,20 @@ export function initIosViewportFix() {
     let raf = 0;
     const glue = () => {
       raf = 0;
-      const nav = document.querySelector<HTMLElement>('.fm-bottomnav');
-      if (!nav) return;
-      if (isEditing()) {
-        nav.style.transform = '';
-        return;
-      }
-      const offset = vv.offsetTop + vv.height - window.innerHeight;
-      nav.style.transform = Math.abs(offset) > 1 ? `translateY(${offset}px)` : '';
+      // `.fm-actionbar` = barre di azioni fisse delle pagine (es. conferma
+      // bulk della revisione bancaria): stesso ancoraggio della BottomNav,
+      // quindi stessa compensazione.
+      const bars = document.querySelectorAll<HTMLElement>('.fm-bottomnav, .fm-actionbar');
+      if (bars.length === 0) return;
+      const value = isEditing()
+        ? ''
+        : (() => {
+            const offset = vv.offsetTop + vv.height - window.innerHeight;
+            return Math.abs(offset) > 1 ? `translateY(${offset}px)` : '';
+          })();
+      bars.forEach((bar) => {
+        bar.style.transform = value;
+      });
     };
     const schedule = () => {
       if (!raf) raf = requestAnimationFrame(glue);

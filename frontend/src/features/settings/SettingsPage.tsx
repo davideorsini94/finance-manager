@@ -23,6 +23,9 @@ import { applyTheme, useUIStore, type Theme } from '@/store/uiStore';
 import { PasswordInput } from '@/components/shared/PasswordInput';
 import { settingsApi } from './settingsApi';
 import { SmtpSettingsCard } from './SmtpSettingsCard';
+import { LlmSettingsCard } from './LlmSettingsCard';
+import { BankSyncCredentialsCard } from './BankSyncCredentialsCard';
+import { BankConnectionsCard } from './BankConnectionsCard';
 import { InviteUsersCard } from './InviteUsersCard';
 import { useConfirm } from '@/components/shared/confirm';
 
@@ -256,11 +259,20 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
+      {/* Collegamenti bancari (tutti gli utenti: ognuno gestisce i propri) */}
+      <BankConnectionsCard />
+
       {/* Inviti utenti (solo admin) */}
       {isAdmin && <InviteUsersCard />}
 
       {/* SMTP (solo admin) */}
       {isAdmin && <SmtpSettingsCard />}
+
+      {/* LLM / Ollama (solo admin) */}
+      {isAdmin && <LlmSettingsCard />}
+
+      {/* Credenziali Enable Banking (solo admin) */}
+      {isAdmin && <BankSyncCredentialsCard />}
 
       {/* Backup / Restore (solo admin) */}
       {isAdmin && (

@@ -21,6 +21,7 @@ import { GoalsModule } from './goals/goals.module';
 import { ReportsModule } from './reports/reports.module';
 import { LlmChatModule } from './llm-chat/llm-chat.module';
 import { ImportsModule } from './imports/imports.module';
+import { BankSyncModule } from './bank-sync/bank-sync.module';
 import { BackupModule } from './backup/backup.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SharingModule } from './sharing/sharing.module';
@@ -52,6 +53,7 @@ import { RolesGuard } from './common/guards/roles.guard';
     ReportsModule,
     LlmChatModule,
     ImportsModule,
+    BankSyncModule,
     BackupModule,
     SharingModule,
   ],

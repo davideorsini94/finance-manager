@@ -25,5 +25,13 @@ Problemi osservati su iPhone 16 Pro (PWA standalone) e relativi rimedi:
 
 `initIosViewportFix()` è chiamato in `frontend/src/main.tsx`.
 
+## Consenso bancario: atterraggio fuori app su iOS
+
+Il consenso PSD2 di [[Sync Bancario]] segue lo stesso vincolo standalone: la banca reindirizza l'utente su `/bank-sync/callback`, che su iPhone **apre in Safari**, non nella PWA installata (il flusso OAuth-like non può restare dentro la webview standalone). La pagina pubblica scambia subito `code`+`state` col backend e mostra un messaggio statico ("torna all'app"), **senza redirect automatico** verso la PWA (iOS non offre un modo affidabile per farlo). Il rientro nell'app è manuale; il wizard (`BankLinkWizard.tsx`) copre l'assenza di un evento di ritorno facendo **polling** su `GET bank-sync/connections/:id` ogni 2s finché lo stato non è più `pending`.
+
+## Barra azioni fissa (`fm-actionbar`)
+
+Pattern introdotto dalla pagina "Da confermare" di [[Sync Bancario]] per la selezione multipla (prima non esisteva un bulk-action bar nel repo): una barra `position: fixed` ancorata sopra la `fm-bottomnav`, agganciata al *visual viewport* dallo stesso glue di `lib/ios-viewport.ts` che compensa il pan residuo della BottomNav (punto 5 sopra) — stessa classe di problema (iOS standalone, tastiera/pan), stessa soluzione (`translateY` sul visual viewport invece che sul layout viewport). Rispetta le safe-area iOS come la BottomNav.
+
 4. **Striscia nera residua sotto la BottomNav** (barra stabile ma sopra l'home indicator): se il layout viewport standalone termina sopra l'home indicator (config del viewport "fotografata" da iOS all'installazione della PWA), resta una fascia scoperta. Mitigazione CSS: `.fm-bottomnav::after` in `index.css` estende lo sfondo della barra 3rem oltre il bordo inferiore. Se la fascia è disegnata dal sistema FUORI dalla webview, il CSS non può coprirla: la soluzione è **rimuovere e reinstallare la PWA** dalla home screen (iOS ri-legge viewport-fit/status-bar all'installazione).
 5. **BottomNav "incollata" al fondo visibile (v0.2.5)**: gli elementi `position: fixed` sono ancorati al *layout* viewport, ma su iOS standalone il *visual* viewport può restare pannato/accorciato dopo tastiera o riapertura → barra sospesa sopra il fondo (e con lo scroll bloccato non era più sistemabile trascinando; `scrollTo(0,0)` non aiuta perché lo scroll è già 0). Fix in `ios-viewport.ts`: misura `visualViewport.offsetTop + height − innerHeight` e compensa con `translateY` sulla `.fm-bottomnav` (rimosso quando l'offset è 0; sospeso durante l'editing per non interferire con la tastiera). Listener su resize/scroll del visualViewport, pageshow, orientationchange, focusout, visibilitychange + nudge `scrollTo(0,1)→(0,0)` all'avvio.

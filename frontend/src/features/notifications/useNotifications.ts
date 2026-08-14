@@ -9,6 +9,8 @@ export type NotificationType =
   | 'large_transaction'
   | 'account_shared'
   | 'import_ready'
+  | 'bank_sync_review'
+  | 'bank_sync_consent'
   | 'system';
 
 export interface Notification {

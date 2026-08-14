@@ -1,7 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, TransactionType } from '@prisma/client';
+import { AuditAction, AuditEntity, Prisma, TransactionType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccountPolicyService } from '../common/services/account-policy.service';
+import { AuditService } from '../common/services/audit.service';
 import { CreateTransferDto, UpdateTransferDto } from './dto/transfer.dto';
 
 @Injectable()
@@ -9,6 +10,7 @@ export class TransfersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly policy: AccountPolicyService,
+    private readonly audit: AuditService,
   ) {}
 
   async create(userId: string, dto: CreateTransferDto) {
@@ -60,6 +62,14 @@ export class TransfersService {
       await tx.account.update({
         where: { id: dto.toAccountId },
         data: { balanceCents: { increment: inc } },
+      });
+
+      // Audit sull'id della gamba in uscita (è quello usato come transferId dalle API)
+      void this.audit.log(userId, AuditAction.create, AuditEntity.transfer, txOut.id, {
+        fromAccountId: dto.fromAccountId,
+        toAccountId: dto.toAccountId,
+        amountCents: inc.toString(),
+        pairId: txIn.id,
       });
 
       return { from: linkedOut, to: txIn };
@@ -141,6 +151,16 @@ export class TransfersService {
           });
         }
       }
+
+      void this.audit.log(userId, AuditAction.update, AuditEntity.transfer, src.id, {
+        fromAccountId: newFromAccountId,
+        toAccountId: newToAccountId,
+        amountCents: newIn.toString(),
+        previousFromAccountId: src.accountId,
+        previousToAccountId: dst.accountId,
+        previousAmountCents: (-src.amountCents).toString(),
+      });
+
       return { from: updatedSrc, to: updatedDst };
     });
   }
@@ -167,6 +187,13 @@ export class TransfersService {
         where: { id: dst.accountId },
         data: { balanceCents: { decrement: dst.amountCents } },
       });
+    });
+
+    void this.audit.log(userId, AuditAction.delete, AuditEntity.transfer, src.id, {
+      fromAccountId: src.accountId,
+      toAccountId: dst.accountId,
+      amountCents: dst.amountCents.toString(),
+      pairId: dst.id,
     });
   }
 

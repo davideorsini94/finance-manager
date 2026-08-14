@@ -89,6 +89,7 @@ enum AuditAction {
 
 enum AuditEntity {
   transaction
+  transfer
   account
   account_member
   category
@@ -96,6 +97,36 @@ enum AuditEntity {
   goal
   recurring_rule
   attachment
+  bank_connection
+  bank_account_link
+}
+
+/// Stato del consenso PSD2 presso la banca (mappato da `GET /sessions/{id}`
+/// del provider + scadenza locale `consentExpiresAt`).
+enum BankConnectionStatus {
+  pending
+  linked
+  expired
+  suspended
+  revoked
+  error
+}
+
+/// Stato di una riga in staging prima di diventare una Transaction reale.
+enum StagedTxStatus {
+  pending_review
+  confirmed
+  ignored
+  duplicate
+  error
+}
+
+/// Da cosa è partita un'esecuzione del sync bancario. Solo `manual` consuma la
+/// quota giornaliera per-utente (vedi `SyncEngineService`).
+enum BankSyncTrigger {
+  cron
+  manual
+  auto
 }
 
 enum NotificationType {
@@ -106,6 +137,8 @@ enum NotificationType {
   large_transaction
   account_shared
   import_ready
+  bank_sync_review
+  bank_sync_consent
   system
 }
 
@@ -147,6 +180,9 @@ model User {
   notifications       Notification[]
   notificationPrefs   NotificationPreference[]
   sentAccountInvites  AccountInvite[]          @relation("AccountInviteInviter")
+  bankConnections     BankConnection[]
+  bankSyncRuns        BankSyncRun[]
+  categoryMemories    CategoryMemory[]
 
   @@map("users")
 }
@@ -212,17 +248,19 @@ model Account {
   createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt        DateTime    @updatedAt @map("updated_at") @db.Timestamptz()
 
-  owner                User            @relation("AccountOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  paymentAccount       Account?        @relation("CreditCardPayment", fields: [paymentAccountId], references: [id], onDelete: SetNull)
-  chargedCards         Account[]       @relation("CreditCardPayment")
+  owner                User             @relation("AccountOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  paymentAccount       Account?         @relation("CreditCardPayment", fields: [paymentAccountId], references: [id], onDelete: SetNull)
+  chargedCards         Account[]        @relation("CreditCardPayment")
   members              AccountMember[]
   transactions         Transaction[]
   recurringRules       RecurringRule[]
-  recurringRulesAsDest RecurringRule[] @relation("RecurringRuleDestAccount")
+  recurringRulesAsDest RecurringRule[]  @relation("RecurringRuleDestAccount")
   goals                Goal[]
   importBatches        ImportBatch[]
   invites              AccountInvite[]
-  favoritedByUsers     User[]          @relation("UserFavoriteAccount")
+  favoritedByUsers     User[]           @relation("UserFavoriteAccount")
+  /// Al massimo un conto banca collegato per conto app (v1).
+  bankLink             BankAccountLink?
 
   @@index([ownerId])
   @@map("accounts")
@@ -273,19 +311,51 @@ model Category {
   sortOrder Int      @default(0) @map("sort_order") @db.SmallInt
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
 
-  user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  parent                Category?       @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
-  children              Category[]      @relation("CategoryTree")
+  user                  User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent                Category?               @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children              Category[]              @relation("CategoryTree")
   transactions          Transaction[]
   recurringRules        RecurringRule[]
   budgets               Budget[]
-  importRowsAsSuggested ImportRow[]     @relation("ImportRowSuggested")
-  importRowsAsFinal     ImportRow[]     @relation("ImportRowFinal")
+  importRowsAsSuggested ImportRow[]             @relation("ImportRowSuggested")
+  importRowsAsFinal     ImportRow[]             @relation("ImportRowFinal")
+  bankStagedAsSuggested BankStagedTransaction[] @relation("BankStagedSuggested")
+  bankStagedAsFinal     BankStagedTransaction[] @relation("BankStagedFinal")
+  categoryMemories      CategoryMemory[]
 
   @@index([userId])
   @@index([parentId])
   @@index([userId, parentId, sortOrder])
   @@map("categories")
+}
+
+/// Memoria delle categorie scelte a mano nella coda di revisione bancaria: la
+/// volta successiva lo stesso tipo di movimento riceve la categoria senza
+/// passare dall'LLM (che su CPU costa minuti).
+///
+/// `matchKey` è la chiave normalizzata del movimento (controparte, o causale
+/// ripulita dai prefissi bancari), calcolata da `buildCategoryMatchKey`
+/// (`src/bank-sync/category-match-key.ts`) — stessa lunghezza massima del nome
+/// di una categoria, 80 caratteri.
+///
+/// Cascade su entrambe le FK: senza l'utente la memoria non ha proprietario,
+/// senza la categoria non ha più niente da suggerire.
+model CategoryMemory {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  matchKey   String   @map("match_key") @db.VarChar(80)
+  categoryId String   @map("category_id") @db.Uuid
+  /// Quante volte l'utente ha riconfermato questa associazione.
+  timesUsed  Int      @default(1) @map("times_used")
+  lastUsedAt DateTime @default(now()) @map("last_used_at") @db.Timestamptz()
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, matchKey])
+  @@index([categoryId])
+  @@map("category_memories")
 }
 
 model Transaction {
@@ -302,24 +372,30 @@ model Transaction {
   ccChargeId      String?         @map("cc_charge_id") @db.Uuid
   recurringRuleId String?         @map("recurring_rule_id") @db.Uuid
   importBatchId   String?         @map("import_batch_id") @db.Uuid
+  /// `dedupHash` della riga bancaria da cui nasce il movimento: rende la
+  /// deduplica durabile anche se link/connessione vengono cancellati.
+  bankTxId        String?         @map("bank_tx_id")
   isPending       Boolean         @default(false) @map("is_pending")
   createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz()
 
-  account               Account        @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  user                  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  category              Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  recurringRule         RecurringRule? @relation(fields: [recurringRuleId], references: [id], onDelete: SetNull)
-  importBatch           ImportBatch?   @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  account               Account                 @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  user                  User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category              Category?               @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  recurringRule         RecurringRule?          @relation(fields: [recurringRuleId], references: [id], onDelete: SetNull)
+  importBatch           ImportBatch?            @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
   attachments           Attachment[]
-  importRowsAsDuplicate ImportRow[]    @relation("ImportRowDuplicate")
-  importRowsAsCreated   ImportRow[]    @relation("ImportRowCreated")
+  importRowsAsDuplicate ImportRow[]             @relation("ImportRowDuplicate")
+  importRowsAsCreated   ImportRow[]             @relation("ImportRowCreated")
+  bankStagedAsDuplicate BankStagedTransaction[] @relation("BankStagedDuplicate")
+  bankStagedAsCreated   BankStagedTransaction[] @relation("BankStagedCreated")
 
   @@index([accountId, transactionDate(sort: Desc)])
   @@index([userId, transactionDate(sort: Desc)])
   @@index([categoryId])
   @@index([transferPairId])
   @@index([ccChargeId])
+  @@index([accountId, bankTxId])
   @@map("transactions")
 }
 
@@ -506,6 +582,156 @@ model SmtpConfig {
   updatedBy         String?  @map("updated_by") @db.Uuid
 
   @@map("smtp_config")
+}
+
+/// Modello Ollama attivo (singleton: id = "singleton"). Selezionabile solo
+/// dall'admin via Settings. `model` a NULL significa "usa la variabile
+/// d'ambiente OLLAMA_MODEL": così un'installazione che non ha mai toccato le
+/// impostazioni continua a funzionare con il default del compose.
+model LlmConfig {
+  id        String   @id @default("singleton")
+  model     String?
+  updatedBy String?  @map("updated_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  @@map("llm_config")
+}
+
+/// Credenziali dell'applicazione Enable Banking (singleton: id = "singleton").
+/// Modificabili solo dall'admin via Settings. La chiave privata RS256 è cifrata
+/// at-rest con AES-256-GCM (contesto `fm-banksync-v1`, chiave derivata dal
+/// JWT_ACCESS_SECRET): un dump del solo DB non basta a firmare richieste.
+/// NB: ruotare JWT_ACCESS_SECRET invalida il payload cifrato → reinserire le
+/// credenziali dalle impostazioni.
+model BankSyncConfig {
+  id                  String   @id @default("singleton")
+  /// Application ID Enable Banking (usato come `kid` nel JWT di firma).
+  appId               String?  @map("app_id")
+  privateKeyEncrypted String?  @map("private_key_encrypted")
+  updatedBy           String?  @map("updated_by") @db.Uuid
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  @@map("bank_sync_config")
+}
+
+/// Un consenso PSD2 (solo AIS/lettura) verso una banca, di proprietà di un utente.
+model BankConnection {
+  id                String               @id @default(uuid()) @db.Uuid
+  userId            String               @map("user_id") @db.Uuid
+  /// Identificativo istituto lato provider. Enable Banking identifica le banche
+  /// con la coppia nome+paese: qui la conserviamo come "<country>:<name>".
+  institutionId     String               @map("institution_id")
+  institutionName   String               @map("institution_name")
+  institutionLogo   String?              @map("institution_logo")
+  provider          String               @default("enablebanking")
+  /// `session_id` Enable Banking, disponibile solo dopo lo scambio del code.
+  providerConsentId String?              @unique @map("provider_consent_id")
+  /// Lista grezza dei conti restituita dallo scambio sessione: serve al mapping
+  /// senza dover richiamare il provider a ogni schermata.
+  providerAccounts  Json?                @map("provider_accounts")
+  /// "state" anti-CSRF: random 128-bit, monouso, scade 15 minuti dopo `updatedAt`
+  /// (che coincide con `createdAt` alla prima creazione e si sposta al rinnovo).
+  reference         String               @unique
+  status            BankConnectionStatus @default(pending)
+  consentExpiresAt  DateTime?            @map("consent_expires_at") @db.Timestamptz()
+  createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt         DateTime             @updatedAt @map("updated_at") @db.Timestamptz()
+
+  user  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  links BankAccountLink[]
+
+  @@index([userId])
+  @@map("bank_connections")
+}
+
+/// Mappatura 1:1 tra un conto dell'app e un conto della banca (solo `checking` in v1).
+model BankAccountLink {
+  id                String    @id @default(uuid()) @db.Uuid
+  connectionId      String    @map("connection_id") @db.Uuid
+  accountId         String    @unique @map("account_id") @db.Uuid
+  providerAccountId String    @map("provider_account_id")
+  iban              String?
+  ownerName         String?   @map("owner_name")
+  currency          String    @default("EUR")
+  syncEnabled       Boolean   @default(true) @map("sync_enabled")
+  lastSyncAt        DateTime? @map("last_sync_at") @db.Timestamptz()
+  /// Cursore incrementale del sync (Fase 3).
+  lastBookedDate    DateTime? @map("last_booked_date") @db.Date
+  /// Saldo dichiarato dalla banca all'ultimo sync riuscito (riconciliazione):
+  /// serve solo a confrontarlo con quello dell'app, non lo sovrascrive mai.
+  lastBalanceCents  BigInt?   @map("last_balance_cents")
+  lastBalanceAt     DateTime? @map("last_balance_at") @db.Timestamptz()
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+
+  connection BankConnection          @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  account    Account                 @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  staged     BankStagedTransaction[]
+
+  @@unique([connectionId, providerAccountId])
+  @@map("bank_account_links")
+}
+
+/// Movimento scaricato dalla banca, in attesa di revisione (Fase 3/4).
+model BankStagedTransaction {
+  id                       String           @id @default(uuid()) @db.Uuid
+  linkId                   String           @map("link_id") @db.Uuid
+  /// `entry_reference` Enable Banking: opzionale nello spec Berlin Group.
+  providerTxId             String?          @map("provider_tx_id")
+  /// entry_reference ∥ hash(campi normalizzati): chiave di deduplica.
+  dedupHash                String           @map("dedup_hash")
+  bookingDate              DateTime?        @map("booking_date") @db.Date
+  valueDate                DateTime?        @map("value_date") @db.Date
+  /// bookingDate ?? valueDate — sempre valorizzata.
+  effectiveDate            DateTime         @map("effective_date") @db.Date
+  /// Firmato; parsing dalla stringa decimale del provider, mai via float.
+  amountCents              BigInt           @map("amount_cents")
+  currency                 String
+  /// Testo di terzi: sanificato all'ingestione (sanitizeExternalText).
+  description              String?
+  counterparty             String?
+  rawJson                  Json             @map("raw_json")
+  status                   StagedTxStatus   @default(pending_review)
+  suggestedCategoryId      String?          @map("suggested_category_id") @db.Uuid
+  suggestedConfidence      Float?           @map("suggested_confidence")
+  suggestedType            TransactionType? @map("suggested_type")
+  /// Categoria scelta per la conferma: prefillata col suggerimento AI e
+  /// modificabile dalla coda di revisione (stesso ruolo di `ImportRow.finalCategoryId`).
+  finalCategoryId          String?          @map("final_category_id") @db.Uuid
+  /// Pairing reciproco dei giroconti: azzerare prima delle delete.
+  matchedStagedId          String?          @map("matched_staged_id") @db.Uuid
+  duplicateOfTransactionId String?          @map("duplicate_of_transaction_id") @db.Uuid
+  transactionId            String?          @map("transaction_id") @db.Uuid
+  createdAt                DateTime         @default(now()) @map("created_at") @db.Timestamptz()
+
+  link              BankAccountLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  suggestedCategory Category?       @relation("BankStagedSuggested", fields: [suggestedCategoryId], references: [id], onDelete: SetNull)
+  finalCategory     Category?       @relation("BankStagedFinal", fields: [finalCategoryId], references: [id], onDelete: SetNull)
+  duplicateOf       Transaction?    @relation("BankStagedDuplicate", fields: [duplicateOfTransactionId], references: [id], onDelete: SetNull)
+  transaction       Transaction?    @relation("BankStagedCreated", fields: [transactionId], references: [id], onDelete: SetNull)
+
+  @@unique([linkId, dedupHash])
+  @@index([status, effectiveDate])
+  @@map("bank_staged_transactions")
+}
+
+/// Una esecuzione del motore di sincronizzazione, per utente. Serve a due cose:
+/// tracciare l'esito (`stats`) e far rispettare la **quota manuale giornaliera**
+/// in DB — l'IP-based throttling non basta dietro il Funnel (X-Forwarded-For è
+/// spoofabile). Solo le righe con `trigger = manual` consumano quota.
+model BankSyncRun {
+  id         String          @id @default(uuid()) @db.Uuid
+  userId     String          @map("user_id") @db.Uuid
+  trigger    BankSyncTrigger
+  startedAt  DateTime        @default(now()) @map("started_at") @db.Timestamptz()
+  /// `null` finché il run è in corso (o se il processo è morto a metà).
+  finishedAt DateTime?       @map("finished_at") @db.Timestamptz()
+  /// Riepilogo dell'esecuzione: conteggi per link + eventuali errori.
+  stats      Json?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, startedAt])
+  @@map("bank_sync_runs")
 }
 
 model AuditLog {

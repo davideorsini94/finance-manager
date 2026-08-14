@@ -29,10 +29,11 @@ Questa è la nota-hub del grafo di conoscenza: da qui si raggiunge tutto il rest
 - [[Condivisione Conti]] — membri, inviti, ruoli
 - [[Chat LLM]] — Ollama + tool calling
 - [[Import CSV-OFX]] — wizard di importazione con suggerimenti AI
+- [[Sync Bancario]] — collegamento conti↔banche via Enable Banking, feature completa: consenso/mapping conti, motore di sync (dedup, quota, notifiche), categorizzazione LLM + rilevamento giroconti + pagina di revisione, rinnovo consenso e riconciliazione saldi → piano originale in [[Sync Bancario (Piano)]]
 
 ## Fatti chiave
 
 - URL di produzione: `https://jarvis.tail5c15a9.ts.net` (vedi [[Tailscale e Accesso]])
 - Lingua UI: italiano (con i18n IT/EN)
-- Root del progetto: `/home/jarvis/workspace/finance-manager`
+- Root del progetto: `/home/jarvis/workspace/finance-manager` (server di produzione); clone di sviluppo su Mac: `/Users/davideorsini/workspace/finance-manager`
 - Documentazione utente: `docs/MANUALE.md`; brief design: `docs/UI-SPECS.md`

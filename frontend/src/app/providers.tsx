@@ -34,6 +34,9 @@ function AuthGate({ children }: { children: ReactNode }) {
         '/accept-invite',
         '/accounts/invite/accept',
         '/reset-password',
+        // Ritorno dal consenso bancario: pagina pubblica, il 401 del
+        // bootstrap è atteso (su iOS atterra in Safari, non nella PWA).
+        '/bank-sync/callback',
       ];
       if (PUBLIC_PATHS.some((p) => path === p || path.startsWith(`${p}/`))) {
         return;

@@ -49,7 +49,10 @@ export const DialogContent = React.forwardRef<
 DialogContent.displayName = DialogPrimitive.Content.displayName;
 
 export const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn('flex flex-col space-y-1.5 text-center sm:text-left', className)} {...props} />
+  // min-w-0: da item di una grid (DialogContent) senza min-width il track si
+  // allargherebbe al min-content di testi nowrap lunghi (es. causali bancarie),
+  // facendo sbordare tutto il contenuto fuori dal pannello.
+  <div className={cn('min-w-0 flex flex-col space-y-1.5 text-center sm:text-left', className)} {...props} />
 );
 
 export const DialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (

@@ -12,6 +12,8 @@ type NotificationType =
   | 'large_transaction'
   | 'account_shared'
   | 'import_ready'
+  | 'bank_sync_review'
+  | 'bank_sync_consent'
   | 'system';
 
 type Channel = 'in_app' | 'email';
@@ -50,6 +52,14 @@ const TYPE_LABELS: Record<NotificationType, { title: string; desc: string }> = {
   import_ready: {
     title: 'Import CSV pronto',
     desc: "Quando l'analisi AI di un import è completata.",
+  },
+  bank_sync_review: {
+    title: 'Movimenti bancari da rivedere',
+    desc: 'Quando la sincronizzazione bancaria importa nuovi movimenti in attesa di revisione.',
+  },
+  bank_sync_consent: {
+    title: 'Consenso bancario in scadenza',
+    desc: 'Quando il consenso a un collegamento bancario sta per scadere o è scaduto.',
   },
   system: {
     title: 'Avvisi di sistema',

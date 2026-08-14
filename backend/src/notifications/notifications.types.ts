@@ -8,6 +8,8 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   NotificationType.large_transaction,
   NotificationType.account_shared,
   NotificationType.import_ready,
+  NotificationType.bank_sync_review,
+  NotificationType.bank_sync_consent,
   NotificationType.system,
 ];
 
@@ -28,6 +30,10 @@ export const DEFAULT_PREFS: Record<NotificationType, Record<NotificationChannel,
   [NotificationType.large_transaction]:   { in_app: true,  email: false },
   [NotificationType.account_shared]:      { in_app: true,  email: true  },
   [NotificationType.import_ready]:        { in_app: true,  email: false },
+  // Sync bancario: eventi frequenti e "operativi", vanno in app ma non per
+  // email (la coda di revisione si guarda quando si apre l'app).
+  [NotificationType.bank_sync_review]:    { in_app: true,  email: false },
+  [NotificationType.bank_sync_consent]:   { in_app: true,  email: false },
   [NotificationType.system]:              { in_app: true,  email: false },
 };
 
@@ -40,6 +46,10 @@ export type NotificationData =
   | { kind: 'large_transaction'; transactionId: string; amountCents: string; thresholdCents: string }
   | { kind: 'account_shared'; accountId: string; accountName: string; invitedBy: string; role: string }
   | { kind: 'import_ready'; batchId: string; rowCount: number }
+  /** Nuovi movimenti bancari in coda di revisione (`count` = quelli di questo sync, `date` = YYYY-MM-DD). */
+  | { kind: 'bank_sync_review'; count: number; date: string }
+  /** Consenso PSD2 in scadenza (`expired: false`) o già scaduto (`expired: true`). */
+  | { kind: 'bank_sync_consent'; connectionId: string; institutionName: string; expiresAt: string; expired: boolean }
   | { kind: 'system'; level?: 'info' | 'warning'; href?: string };
 
 export interface NotificationDto {

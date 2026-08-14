@@ -12,6 +12,7 @@ import {
   FileText,
   Sparkles,
   MessageSquare,
+  ClipboardCheck,
   Settings,
   Trophy,
   type LucideIcon,
@@ -44,6 +45,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/budget', labelKey: 'nav.budget', icon: Target, primary: false },
   { to: '/recurring', labelKey: 'nav.recurring', icon: Repeat, primary: false },
   { to: '/goals', labelKey: 'nav.goals', icon: Trophy, primary: false },
+  { to: '/bank-review', labelKey: 'nav.bankReview', icon: ClipboardCheck, primary: false },
   { to: '/import', labelKey: 'nav.import', icon: FileUp, primary: false },
   { to: '/import/wizard', labelKey: 'nav.importWizard', icon: Sparkles, primary: false },
   { to: '/import/templates', labelKey: 'nav.importTemplates', icon: FileText, primary: false },
@@ -81,6 +83,7 @@ export const NAV_SECTIONS: NavSection[] = [
     labelKey: 'nav.section.tools',
     items: [
       { to: '/chat', labelKey: 'nav.chat', icon: MessageSquare, primary: true },
+      { to: '/bank-review', labelKey: 'nav.bankReview', icon: ClipboardCheck, primary: false },
       { to: '/import', labelKey: 'nav.import', icon: FileUp, primary: false },
       { to: '/import/wizard', labelKey: 'nav.importWizard', icon: Sparkles, primary: false },
       { to: '/import/templates', labelKey: 'nav.importTemplates', icon: FileText, primary: false },

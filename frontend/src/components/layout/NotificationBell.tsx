@@ -13,9 +13,11 @@ import {
   FileSpreadsheet,
   Info,
   Settings as SettingsIcon,
+  ClipboardList,
+  Landmark,
   type LucideIcon,
 } from 'lucide-react';
-import { Link } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { useNotificationsCtx } from '@/features/notifications/NotificationsProvider';
 import type { Notification, NotificationType } from '@/features/notifications/useNotifications';
 import { cn } from '@/lib/utils/cn';
@@ -28,7 +30,18 @@ const ICONS: Record<NotificationType, LucideIcon> = {
   large_transaction: TrendingUp,
   account_shared: UserPlus,
   import_ready: FileSpreadsheet,
+  bank_sync_review: ClipboardList,
+  bank_sync_consent: Landmark,
   system: Info,
+};
+
+/**
+ * Destinazione al tap della notifica. Solo i tipi che hanno una pagina
+ * dedicata: gli altri restano semplicemente "segna come letta".
+ */
+const TYPE_HREF: Partial<Record<NotificationType, '/bank-review' | '/settings'>> = {
+  bank_sync_review: '/bank-review',
+  bank_sync_consent: '/settings',
 };
 
 const TYPE_HUE: Record<NotificationType, string> = {
@@ -39,6 +52,8 @@ const TYPE_HUE: Record<NotificationType, string> = {
   large_transaction: 'text-violet-600 bg-violet-50 dark:bg-violet-950/40',
   account_shared: 'text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40',
   import_ready: 'text-teal-600 bg-teal-50 dark:bg-teal-950/40',
+  bank_sync_review: 'text-cyan-600 bg-cyan-50 dark:bg-cyan-950/40',
+  bank_sync_consent: 'text-orange-600 bg-orange-50 dark:bg-orange-950/40',
   system: 'text-slate-600 bg-slate-100 dark:bg-slate-800',
 };
 
@@ -46,6 +61,7 @@ export function NotificationBell() {
   const { items, unread, markRead, markAllRead, remove } = useNotificationsCtx();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!open) return;
@@ -133,7 +149,16 @@ export function NotificationBell() {
                   <NotificationRow
                     key={n.id}
                     n={n}
-                    onClick={() => !n.readAt && markRead([n.id])}
+                    onRead={() => !n.readAt && markRead([n.id])}
+                    onActivate={() => {
+                      if (!n.readAt) void markRead([n.id]);
+                      const to = TYPE_HREF[n.type];
+                      if (!to) return;
+                      // Chiudo il pannello prima di navigare: su mobile resterebbe
+                      // aperto sopra la pagina di destinazione.
+                      setOpen(false);
+                      void navigate({ to });
+                    }}
                     onDelete={() => remove(n.id)}
                   />
                 ))}
@@ -148,23 +173,29 @@ export function NotificationBell() {
 
 function NotificationRow({
   n,
-  onClick,
+  onRead,
+  onActivate,
   onDelete,
 }: {
   n: Notification;
-  onClick: () => void;
+  /** Segna come letta senza navigare (bottone "segna letta"). */
+  onRead: () => void;
+  /** Tap sulla riga: segna come letta e, se il tipo ha una pagina, ci porta. */
+  onActivate: () => void;
   onDelete: () => void;
 }) {
   const Icon = ICONS[n.type] ?? Info;
   const hue = TYPE_HUE[n.type] ?? TYPE_HUE.system;
+  const navigable = !!TYPE_HREF[n.type];
 
   return (
     <li
       className={cn(
         'group relative flex gap-3 px-4 py-3 hover:bg-accent/50',
         !n.readAt && 'bg-blue-50/40 dark:bg-blue-950/20',
+        navigable && 'cursor-pointer',
       )}
-      onClick={onClick}
+      onClick={onActivate}
     >
       <div className={cn('flex h-9 w-9 flex-none items-center justify-center rounded-full', hue)}>
         <Icon className="h-4 w-4" />
@@ -201,7 +232,7 @@ function NotificationRow({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                onClick();
+                onRead();
               }}
               className="invisible inline-flex items-center gap-1 hover:text-blue-600 group-hover:visible"
             >

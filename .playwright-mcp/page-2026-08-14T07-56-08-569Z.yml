@@ -1,0 +1,678 @@
+- generic:
+  - generic:
+    - generic:
+      - complementary:
+        - generic:
+          - link:
+            - /url: /
+            - generic: Finance Manager
+        - navigation:
+          - generic:
+            - button [expanded]:
+              - generic: Panoramica
+            - list:
+              - listitem:
+                - link:
+                  - /url: /
+                  - generic: Dashboard
+              - listitem:
+                - link:
+                  - /url: /reports
+                  - generic: Report
+              - listitem:
+                - link:
+                  - /url: /reports/advanced
+                  - generic: Report avanzati
+              - listitem:
+                - link:
+                  - /url: /projections
+                  - generic: Proiezioni
+          - generic:
+            - button [expanded]:
+              - generic: Finanze
+            - list:
+              - listitem:
+                - link:
+                  - /url: /accounts
+                  - generic: Conti
+              - listitem:
+                - link:
+                  - /url: /transactions
+                  - generic: Movimenti
+              - listitem:
+                - link:
+                  - /url: /categories
+                  - generic: Categorie
+          - generic:
+            - button [expanded]:
+              - generic: Pianificazione
+            - list:
+              - listitem:
+                - link:
+                  - /url: /budget
+                  - generic: Budget
+              - listitem:
+                - link:
+                  - /url: /recurring
+                  - generic: Ricorrenze
+              - listitem:
+                - link:
+                  - /url: /goals
+                  - generic: Obiettivi
+          - generic:
+            - button [expanded]:
+              - generic: Strumenti
+            - list:
+              - listitem:
+                - link:
+                  - /url: /chat
+                  - generic: Chat
+              - listitem:
+                - link:
+                  - /url: /bank-review
+                  - generic: Da confermare
+              - listitem:
+                - link:
+                  - /url: /import
+                  - generic: Importa
+              - listitem:
+                - link:
+                  - /url: /import/wizard
+                  - generic: Importa CSV (wizard)
+              - listitem:
+                - link:
+                  - /url: /import/templates
+                  - generic: Template CSV
+          - generic:
+            - button [expanded]:
+              - generic: Sistema
+            - list:
+              - listitem:
+                - link:
+                  - /url: /settings
+                  - generic: Impostazioni
+        - generic:
+          - button:
+            - generic: Comprimi
+      - generic:
+        - banner:
+          - generic:
+            - generic:
+              - button:
+                - generic: Cerca…
+                - generic: ⌘K
+            - generic:
+              - button
+              - button
+              - button
+              - button
+              - generic:
+                - button
+              - button:
+                - generic: D
+        - main:
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - heading [level=1]: Da confermare
+                  - paragraph: "Movimenti importati dalla banca in attesa di revisione. Controlla categoria e tipo, poi conferma: solo allora entrano nei tuoi movimenti e aggiornano i saldi."
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: Martedì 11 agosto 2026
+                      - list:
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "ACCR. BEU COD.DISP.: 6626081135150407 CASH 74-2026-00003 RIF DOC 8 DEL 31-05-26 Bonifico a Vostro favore disposto da: MITT.: PROMEDITAL S.R."
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: 6475,65 €
+                            - button
+                    - generic:
+                      - generic: Venerdì 7 agosto 2026
+                      - list:
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "PAGAMENTO ADUE COD. DISP.: 6626080621556970 NOME: UnipolTech MANDATO: MND0000505474"
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: "-40,00 €"
+                            - button
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "ACCR. BEU COD.DISP.: 6626080726932598 CASH NOTPROVIDED iCloud+ 2TB Bonifico a Vostro favore disposto da: MITT.: Davide Orsini & Valentina Fo"
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: 9,99 €
+                            - button
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "PAGAMENTO ADUE COD. DISP.: 6626080622010864 NOME: PayPal Europe S.a.r.l. et Cie S.C.A MANDATO: 4L42225AM99C8"
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: "-9,99 €"
+                            - button
+                    - generic:
+                      - generic: Mercoledì 5 agosto 2026
+                      - list:
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "ACCR. BEU COD.DISP.: 6626080517003565 SUPP 5010BC20260000214880 200017732200-112605001604 Bonifico a Vostro favore disposto da: MITT.: HERA"
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: 172,61 €
+                            - button
+                    - generic:
+                      - generic: Venerdì 31 luglio 2026
+                      - list:
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "RATA BON. PERIOD. 6626073103887121 PE20260730201419014232968511 CONTRATTO NUMERO: 0103296151020242117325225 RATA NR: 022 Bonifico da Voi dis"
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: "-1600,00 €"
+                            - button
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "COMM.BON.PERIOD. Bonifico da Voi disposto a favore di: BENEFICIARI DIVERSI - COMMISSIONI 6626073103976715 PE20260730201419014232968511"
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: "-1,29 €"
+                            - button
+                    - generic:
+                      - generic: Giovedì 30 luglio 2026
+                      - list:
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "BEU INTERN BANK 6626072957514841 NOTPROVIDED 0329613870062511S90160101601IT Bonifico da Voi disposto a favore di: STUDIO ANTEMA COMMERCIALIS"
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: "-393,33 €"
+                            - button
+                    - generic:
+                      - generic: Martedì 28 luglio 2026
+                      - list:
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "ACCR. BEU COD.DISP.: 6626072848882141 SUPP GRCV-2605753922 GSE CONV. RID426871 DI ORSINI DAVIDE DOCUMENTI 202616718687R Bonifico a Vostro fa"
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: 37,39 €
+                            - button
+                    - generic:
+                      - generic: Lunedì 27 luglio 2026
+                      - list:
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "PAGAMENTO ADUE COD. DISP.: 6626072439314725 NOME: FASTWEB SpA MANDATO: 3F3811A24957090"
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: "-56,66 €"
+                            - button
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: PREL.BANCOMAT GRUP Prelievo Bancomat INTESA SAN PAOLO SPA 25/07-15:47 - Carta n.5167 XXXX XXXX XX86
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: "-200,00 €"
+                            - button
+                    - generic:
+                      - generic: Lunedì 20 luglio 2026
+                      - list:
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: PAG. INTERNET F24
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: "-10.887,40 €"
+                            - button
+                    - generic:
+                      - generic: Giovedì 16 luglio 2026
+                      - list:
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "PAGAMENTO ADUE COD. DISP.: 6626071406517419 NOME: Yada Energia Srl MANDATO: CJML412024000000276087"
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: "-72,30 €"
+                            - button
+                    - generic:
+                      - generic: Mercoledì 15 luglio 2026
+                      - list:
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: ADD. E/C CARTA CARTA N. 4349 XXXX XXXX XX11
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: "-13,14 €"
+                            - button
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "ADDEBITO BON IST 6626071596748362 02INTER20260715HSRT1547105364 0329621887922809481601099999IT Bonifico da Voi disposto a favore di: Davide"
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: "-3000,00 €"
+                            - button
+                    - generic:
+                      - generic: Lunedì 13 luglio 2026
+                      - list:
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "ACCR. BEU COD.DISP.: 6626071359583882 SUPP 5010BC20260000190277 200017732200-112604382901 Bonifico a Vostro favore disposto da: MITT.: HERA"
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: 2,13 €
+                            - button
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "ACCR. BEU COD.DISP.: 6626071359509812 SUPP 67-2026-00001 Rif doc 7 del 30/04/26 Bonifico a Vostro favore disposto da: MITT.: PROMEDITAL S.R."
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: 5502,22 €
+                            - button
+                    - generic:
+                      - generic: Giovedì 9 luglio 2026
+                      - list:
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: PAGAMENTO POS EFFETTUATO IL 06/07/2026 ALLE ORE 06:50 MEDIANTE LA CARTA 5167 XXXX XXXX XX86 PRESSO PAYPAL *saretta0940 4029357733
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: "-23,00 €"
+                            - button
+                    - generic:
+                      - generic: Mercoledì 8 luglio 2026
+                      - list:
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "PAGAMENTO ADUE COD. DISP.: 6626070743758619 NOME: UnipolTech MANDATO: MND0000505474"
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: "-38,50 €"
+                            - button
+                    - generic:
+                      - generic: Martedì 7 luglio 2026
+                      - list:
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "PAGAMENTO ADUE COD. DISP.: 6626070639710648 NOME: PayPal Europe S.a.r.l. et Cie S.C.A MANDATO: 4L42225AM99C8"
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: "-9,99 €"
+                            - button
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "ACCR. BEU COD.DISP.: 6626070744331788 CASH NOTPROVIDED iCloud+ 2TB Bonifico a Vostro favore disposto da: MITT.: Davide Orsini & Valentina Fo"
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: 9,99 €
+                            - button
+                    - generic:
+                      - generic: Martedì 30 giugno 2026
+                      - list:
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "COMM.BON.PERIOD. Bonifico da Voi disposto a favore di: BENEFICIARI DIVERSI - COMMISSIONI 6626063022269383 PE20260629201418780432963151"
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: "-1,29 €"
+                            - button
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "ACCR. BEU COD.DISP.: 6626063022625183 SUPP GRCV-2604625453 GSE CONV. RID426871 DI ORSINI DAVIDE DOCUMENTI 202616120212R Bonifico a Vostro fa"
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: 28,84 €
+                            - button
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "RATA BON. PERIOD. 6626063021393832 PE20260629201418780432963151 CONTRATTO NUMERO: 0103296151020242117325225 RATA NR: 021 Bonifico da Voi dis"
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: "-1600,00 €"
+                            - button
+                    - generic:
+                      - generic: Giovedì 25 giugno 2026
+                      - list:
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "PAGAMENTO ADUE COD. DISP.: 6626061843692641 NOME: FASTWEB SPA MANDATO: 3F3811A24957090"
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: "-22,00 €"
+                            - button
+                    - generic:
+                      - generic: Martedì 16 giugno 2026
+                      - list:
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "PAGAMENTO ADUE COD. DISP.: 6626061225294606 NOME: Yada Energia Srl MANDATO: CJML412024000000276087"
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: "-72,30 €"
+                            - button
+                    - generic:
+                      - generic: Lunedì 15 giugno 2026
+                      - list:
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: ADD. E/C CARTA CARTA N. 4349 XXXX XXXX XX11
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: "-414,84 €"
+                            - button
+                    - generic:
+                      - generic: Giovedì 11 giugno 2026
+                      - list:
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "PAGAMENTO ADUE COD. DISP.: 6626061018005712 NOME: UnipolTech MANDATO: MND0000505474"
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: "-30,90 €"
+                            - button
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "ACCR. BEU COD.DISP.: 6626061122153632 SUPP 56-2026-00001 Rif doc 5 del 31/03/26 Bonifico a Vostro favore disposto da: MITT.: PROMEDITAL S.R."
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: 4989,87 €
+                            - button
+                    - generic:
+                      - generic: Mercoledì 10 giugno 2026
+                      - list:
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "PAGAMENTO ADUE COD. DISP.: 6626060911953575 NOME: PayPal Europe S.a.r.l. et Cie S.C.A MANDATO: 4L42225AM99C8"
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: "-170,00 €"
+                            - button
+                    - generic:
+                      - generic: Martedì 9 giugno 2026
+                      - list:
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "PAGAMENTO ADUE COD. DISP.: 6626060807854638 NOME: PayPal Europe S.a.r.l. et Cie S.C.A MANDATO: 4L42225AM99C8"
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: "-9,99 €"
+                            - button
+                    - generic:
+                      - generic: Lunedì 8 giugno 2026
+                      - list:
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "ACCR. BEU COD.DISP.: 6626060807680718 CASH NOTPROVIDED iCloud+ 2TB Bonifico a Vostro favore disposto da: MITT.: Davide Orsini & Valentina Fo"
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: 9,99 €
+                            - button
+                    - generic:
+                      - generic: Venerdì 5 giugno 2026
+                      - list:
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "BEU INTERN BANK 6626060401275757 NOTPROVIDED 0329612968015204S90160101601IT Bonifico da Voi disposto a favore di: Assolution s.n.c. di nanet"
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: "-534,00 €"
+                            - button
+                    - generic:
+                      - generic: Venerdì 29 maggio 2026
+                      - list:
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "ACCR. BEU COD.DISP.: 6626052944654427 SUPP GRCV-2602487315 GSE CONV. RID426871 DI ORSINI DAVIDE DOCUMENTI 202615812558R Bonifico a Vostro fa"
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: 15,48 €
+                            - button
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: SOTT.FOND./POLIZZE SOTTOSCRIZIONE CONFERIMENTO NR. NE653703208 NE6537032086107
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: "-3000,00 €"
+                            - button
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "RATA BON. PERIOD. 6626052944263026 PE20260528201018540732964237 CONTRATTO NUMERO: 0103296151020242117325225 RATA NR: 020 Bonifico da Voi dis"
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: "-1600,00 €"
+                            - button
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "COMM.BON.PERIOD. Bonifico da Voi disposto a favore di: BENEFICIARI DIVERSI - COMMISSIONI 6626052944391423 PE20260528201018540732964237"
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: "-1,29 €"
+                            - button
+                    - generic:
+                      - generic: Martedì 26 maggio 2026
+                      - list:
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "BEU INTERN BANK 6626052527548833 NOTPROVIDED 0329612605193307S90160101601IT Bonifico da Voi disposto a favore di: VOLKSWAGEN BANK GMBH Risca"
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: "-13.413,64 €"
+                            - button
+                    - generic:
+                      - generic: Giovedì 21 maggio 2026
+                      - list:
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "PAGAMENTO ADUE COD. DISP.: 6626051246869701 NOME: VOLKSWAGEN BANK GMBH MANDATO: ITLE000001062875M001"
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: "-543,57 €"
+                            - button
+                    - generic:
+                      - generic: Mercoledì 20 maggio 2026
+                      - list:
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "ACCR. BEU COD.DISP.: 6626052011752609 SECU 2026-05-18-08.46.52.436371 RISCATTO DEL 15.05.2026 POS 9115760 908 FONDO 00116 FIDELITY FUNDS SIC"
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: 3137,21 €
+                            - button
+                    - generic:
+                      - generic: Martedì 19 maggio 2026
+                      - list:
+                        - listitem:
+                          - checkbox
+                          - generic:
+                            - paragraph: "PAGAMENTO ADUE COD. DISP.: 6626051558332499 NOME: Yada Energia Srl MANDATO: CJML412024000000276087"
+                            - paragraph: Fideuram
+                            - generic:
+                              - button:
+                                - generic: Senza categoria
+                          - generic:
+                            - paragraph: "-72,30 €"
+                            - button
+              - generic:
+                - generic:
+                  - button:
+                    - generic: Seleziona tutto
+                  - generic: 0 di 41 selezionati
+                  - generic:
+                    - button [disabled]: Ignora (0)
+                    - button [disabled]: Conferma (0)
+      - generic:
+        - generic:
+          - paragraph: Installa Finance Manager come app
+          - button: Installa
+          - button
+  - dialog [ref=f7e1295]:
+    - generic [ref=f7e1296]:
+      - heading "Categoria" [level=2] [ref=f7e1297]
+      - paragraph [ref=f7e1298]: "ACCR. BEU COD.DISP.: 6626081135150407 CASH 74-2026-00003 RIF DOC 8 DEL 31-05-26 Bonifico a Vostro favore disposto da: MITT.: PROMEDITAL S.R."
+    - combobox [active] [ref=f7e1300] [cursor=pointer]:
+      - generic [ref=f7e1301]: Seleziona categoria
+    - button "Chiudi" [ref=f7e1306] [cursor=pointer]
+    - button "Close" [ref=f7e1307] [cursor=pointer]

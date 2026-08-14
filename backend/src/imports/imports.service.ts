@@ -13,8 +13,9 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccountPolicyService } from '../common/services/account-policy.service';
+import { sanitizeExternalText } from '../common/utils/sanitize-text';
 import { NotificationsService } from '../notifications/notifications.service';
-import { CategoryAiService } from './category-ai.service';
+import { CATEGORY_BATCH_SIZE, CategoryAiService } from './category-ai.service';
 import { parseCsv, parseDate, parseAmountCents } from './csv-parser';
 import {
   ConfirmBatchDto,
@@ -79,7 +80,11 @@ export class ImportsService {
         const out = parseAmountCents(cells[columnMap.amountOut] ?? '', decimalSep);
         if (out && out !== 0n) amount = -out;
       }
-      const desc = columnMap.description !== undefined ? cells[columnMap.description] ?? '' : '';
+      const rawDesc = columnMap.description !== undefined ? cells[columnMap.description] ?? '' : '';
+      // La descrizione arriva da un file di terzi: sanificazione all'ingestione
+      // (control chars, sintassi Markdown attiva) — vedi sanitize-text.ts.
+      // Cap a 500 = lunghezza storica della colonna, per non troncare dati esistenti.
+      const desc = sanitizeExternalText(rawDesc, 500) ?? '';
       const ok = !!date && !!amount;
       return {
         batchId: batch.id,
@@ -87,7 +92,7 @@ export class ImportsService {
         raw: cells as unknown as Prisma.InputJsonValue,
         parsedDate: date,
         parsedAmount: amount,
-        parsedDescription: desc.slice(0, 500),
+        parsedDescription: desc,
         status: ok ? ImportRowStatus.pending : ImportRowStatus.error,
         errorMessage: ok ? null : 'Data o importo non parsabile',
       } satisfies Prisma.ImportRowCreateManyInput;
@@ -138,12 +143,17 @@ export class ImportsService {
       where: { batchId, status: ImportRowStatus.pending },
     });
     if (pending.length > 0) {
+      // NB: `isIncome` è legacy (sempre false) → non viene passato all'AI.
+      // Al modello serve il nome (+ quello del padre) per capire la semantica;
+      // il tipo entrata/uscita lo deduce dal segno dell'importo della riga.
       const categories = await this.prisma.category.findMany({
         where: { userId },
-        select: { id: true, name: true, isIncome: true },
+        select: { id: true, name: true, parent: { select: { name: true } } },
       });
-      for (let i = 0; i < pending.length; i += 30) {
-        const slice = pending.slice(i, i + 30);
+      // Stesso lotto del sync bancario: su CPU un prompt più lungo non arriva
+      // in fondo prima del timeout del fetch (vedi CATEGORY_BATCH_SIZE).
+      for (let i = 0; i < pending.length; i += CATEGORY_BATCH_SIZE) {
+        const slice = pending.slice(i, i + CATEGORY_BATCH_SIZE);
         const suggestions = await this.ai.suggestBatch(
           slice.map((r) => ({
             description: r.parsedDescription ?? '',
@@ -152,7 +162,7 @@ export class ImportsService {
             categories: categories.map((c) => ({
               id: c.id,
               name: c.name,
-              type: (c.isIncome ? 'income' : 'expense') as 'income' | 'expense',
+              parentName: c.parent?.name ?? null,
             })),
           })),
         );
@@ -234,6 +244,13 @@ export class ImportsService {
 
     const decisions = new Map(dto.rows.map((d) => [d.rowId, d]));
     let imported = 0;
+    // Somma firmata di tutte le transazioni create: va applicata al saldo del
+    // conto, come fa TransactionsService.create (prima non veniva fatto → saldo
+    // fermo dopo un import). Accumulata e applicata con UN solo update in coda
+    // al ciclo: le righe vengono create una per una fuori da $transaction e
+    // avvolgere l'intero ciclo in una transazione interattiva rischierebbe il
+    // timeout (5s di default) sui batch grandi.
+    let balanceDelta = 0n;
 
     for (const row of batch.rows) {
       const dec = decisions.get(row.id);
@@ -274,7 +291,20 @@ export class ImportsService {
           finalCategoryId: dec.finalCategoryId ?? row.finalCategoryId ?? null,
         },
       });
+      // `parsedAmount` è già firmato (negativo = uscita), come amountCents.
+      balanceDelta += row.parsedAmount;
       imported++;
+    }
+
+    // LIMITE NOTO: se il conto è una carta di credito, l'import NON genera gli
+    // addebiti futuri (`CreditCardsService.generateChargeForCcTx`) come fa
+    // TransactionsService.create. Fuori scope qui: va affrontato quando l'import
+    // supporterà i conti carta.
+    if (balanceDelta !== 0n) {
+      await this.prisma.account.update({
+        where: { id: batch.accountId },
+        data: { balanceCents: { increment: balanceDelta } },
+      });
     }
 
     if (dto.saveAsTemplate && dto.templateName) {
