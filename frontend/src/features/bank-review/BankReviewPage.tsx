@@ -1,15 +1,14 @@
-import { useMemo, useState, type ReactNode } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertCircle,
   ArrowDownRight,
   ArrowLeftRight,
   ArrowUpRight,
   Check,
-  ChevronDown,
+  ChevronLeft,
   ChevronRight,
   ClipboardCheck,
-  Copy,
   EyeOff,
   Link2,
   MoreVertical,
@@ -29,6 +28,14 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CategoryPicker } from '@/components/shared/CategoryPicker';
 import { cn } from '@/lib/utils/cn';
 import { formatCents } from '@/lib/utils/currency';
@@ -39,8 +46,12 @@ import type { Category } from '@/types/domain';
 import {
   bankReviewApi,
   CONFIRM_MAX_IDS,
+  DEFAULT_PAGE_SIZE,
+  IGNORE_MAX_IDS,
+  PAGE_SIZE_OPTIONS,
   type ConfirmReviewResult,
   type ReviewItem,
+  type ReviewStatus,
   type UpdateReviewItemInput,
 } from './bankReviewApi';
 
@@ -51,6 +62,14 @@ const TYPE_LABEL: Record<EffectiveType, string> = {
   expense: 'Uscita',
   transfer: 'Giroconto',
 };
+
+/** Chiave localStorage della dimensione pagina scelta (persiste tra sessioni). */
+const PAGE_SIZE_STORAGE_KEY = 'fm-bank-review-page-size';
+
+function loadStoredPageSize(): number {
+  const stored = Number(localStorage.getItem(PAGE_SIZE_STORAGE_KEY));
+  return PAGE_SIZE_OPTIONS.includes(stored) ? stored : DEFAULT_PAGE_SIZE;
+}
 
 /** Una singola PATCH da applicare a una riga della coda. */
 interface PatchOp {
@@ -151,32 +170,31 @@ function dateHeading(iso: string): string {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-/**
- * PATCH necessarie per ignorare una riga: sulle coppie vanno ignorate
- * entrambe le gambe (il backend spaia prima di ignorare, quindi la
- * controparte tornerebbe da sola in `pending_review`).
- */
-function ignoreOps(row: ReviewRow): PatchOp[] {
-  const ops: PatchOp[] = [{ id: row.item.id, data: { ignore: true } }];
-  if (row.item.pair) ops.push({ id: row.item.pair.stagedId, data: { ignore: true } });
-  return ops;
-}
-
 // ============================================================================
 // Pagina
 // ============================================================================
 
 export function BankReviewPage() {
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState<ReviewStatus>('pending_review');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(loadStoredPageSize);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [actionError, setActionError] = useState<string | null>(null);
   const [confirmResult, setConfirmResult] = useState<ConfirmReviewResult | null>(null);
   const [categoryTarget, setCategoryTarget] = useState<ReviewItem | null>(null);
   const [pairTarget, setPairTarget] = useState<ReviewItem | null>(null);
 
+  // La pagina corrente vale solo per il tab attivo: gli altri restano alla
+  // prima (le loro query servono comunque per i contatori `total` nei tab).
+  const pageFor = (tab: ReviewStatus) => (activeTab === tab ? page : 1);
+
   const pendingQuery = useQuery({
-    queryKey: ['bank-review', 'pending_review'],
-    queryFn: () => bankReviewApi.list('pending_review'),
+    queryKey: ['bank-review', 'pending_review', pageFor('pending_review'), pageSize],
+    queryFn: () =>
+      bankReviewApi.list({ status: 'pending_review', page: pageFor('pending_review'), pageSize }),
+    // "Keep previous data": cambiando pagina la lista non sfarfalla vuota.
+    placeholderData: keepPreviousData,
     // La categorizzazione LLM gira in background dopo il sync (job detached):
     // finché c'è almeno una riga senza categoria (né finale né suggerita),
     // ripolla per far comparire i suggerimenti da soli senza refresh manuale.
@@ -189,12 +207,14 @@ export function BankReviewPage() {
     },
   });
   const duplicatesQuery = useQuery({
-    queryKey: ['bank-review', 'duplicate'],
-    queryFn: () => bankReviewApi.list('duplicate'),
+    queryKey: ['bank-review', 'duplicate', pageFor('duplicate'), pageSize],
+    queryFn: () => bankReviewApi.list({ status: 'duplicate', page: pageFor('duplicate'), pageSize }),
+    placeholderData: keepPreviousData,
   });
   const ignoredQuery = useQuery({
-    queryKey: ['bank-review', 'ignored'],
-    queryFn: () => bankReviewApi.list('ignored'),
+    queryKey: ['bank-review', 'ignored', pageFor('ignored'), pageSize],
+    queryFn: () => bankReviewApi.list({ status: 'ignored', page: pageFor('ignored'), pageSize }),
+    placeholderData: keepPreviousData,
   });
   const categoriesQuery = useQuery({
     queryKey: ['categories'],
@@ -206,6 +226,40 @@ export function BankReviewPage() {
   const groups = useMemo(() => groupByDate(rows), [rows]);
   const duplicates = duplicatesQuery.data?.items ?? [];
   const ignored = ignoredQuery.data?.items ?? [];
+  const pendingTotal = pendingQuery.data?.total ?? 0;
+  const duplicatesTotal = duplicatesQuery.data?.total ?? 0;
+  const ignoredTotal = ignoredQuery.data?.total ?? 0;
+
+  // Se il totale del tab attivo cala (conferme/ignora), la pagina corrente
+  // può non esistere più: si rientra sull'ultima disponibile.
+  const activeTotal =
+    activeTab === 'pending_review'
+      ? pendingTotal
+      : activeTab === 'duplicate'
+        ? duplicatesTotal
+        : ignoredTotal;
+  const activeTotalPages = Math.max(1, Math.ceil(activeTotal / pageSize));
+  useEffect(() => {
+    if (page > activeTotalPages) setPage(activeTotalPages);
+  }, [page, activeTotalPages]);
+
+  const changeTab = (tab: string) => {
+    setActiveTab(tab as ReviewStatus);
+    setPage(1);
+    setSelected(new Set());
+  };
+
+  const changePage = (next: number) => {
+    setPage(Math.max(1, next));
+    setSelected(new Set());
+  };
+
+  const changePageSize = (size: number) => {
+    setPageSize(size);
+    setPage(1);
+    setSelected(new Set());
+    localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(size));
+  };
 
   /** Le query di revisione + il contatore mostrato in Impostazioni. */
   const invalidateReview = () => {
@@ -222,7 +276,9 @@ export function BankReviewPage() {
   };
 
   const patch = useMutation({
-    // Sequenziale: sulle coppie l'ordine conta (spaia → ignora).
+    // Sequenziale: sono sempre 1-2 operazioni (categoria, tipo, accoppia,
+    // ripristina). L'ignora — che poteva essere di centinaia di righe e
+    // sforava il rate-limit — è passato all'endpoint bulk dedicato (sotto).
     mutationFn: async (ops: PatchOp[]) => {
       for (const op of ops) await bankReviewApi.update(op.id, op.data);
     },
@@ -245,7 +301,28 @@ export function BankReviewPage() {
     onError: (e: Error) => setActionError(e.message),
   });
 
-  const busy = patch.isPending || confirmMutation.isPending;
+  /**
+   * Ignora bulk: UNA richiesta per N righe (il ciclo di PATCH sforava il
+   * rate-limit globale con centinaia di selezioni → 429). Le coppie vengono
+   * espanse dal backend: basta passare una gamba.
+   */
+  const ignoreMutation = useMutation({
+    mutationFn: (ids: string[]) => bankReviewApi.ignoreMany(ids),
+    onMutate: () => setActionError(null),
+    onSuccess: (result) => {
+      setSelected(new Set());
+      if (result.errors.length > 0) {
+        const n = result.errors.length;
+        setActionError(
+          `${n} moviment${n === 1 ? 'o non ignorato' : 'i non ignorati'} — ${result.errors[0].message}`,
+        );
+      }
+      invalidateReview();
+    },
+    onError: (e: Error) => setActionError(e.message),
+  });
+
+  const busy = patch.isPending || confirmMutation.isPending || ignoreMutation.isPending;
 
   const selectedRows = rows.filter((r) => selected.has(r.id));
   const selectedCount = selectedRows.length;
@@ -270,9 +347,10 @@ export function BankReviewPage() {
   };
 
   const ignoreSelected = () => {
-    const ops = selectedRows.flatMap(ignoreOps);
-    if (ops.length === 0) return;
-    patch.mutate(ops, { onSuccess: () => setSelected(new Set()) });
+    // Basta una gamba per coppia: il backend include l'altra da sé.
+    const ids = selectedRows.slice(0, IGNORE_MAX_IDS).map((r) => r.item.id);
+    if (ids.length === 0) return;
+    ignoreMutation.mutate(ids);
   };
 
   const loading = pendingQuery.isLoading;
@@ -311,93 +389,153 @@ export function BankReviewPage() {
         </p>
       )}
 
-      <Card>
-        <CardContent className="p-0">
-          {loading ? (
-            <p className="p-6 text-sm text-muted-foreground">Caricamento…</p>
-          ) : isEmpty ? (
-            <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
-              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-                <Check className="h-6 w-6" />
-              </div>
-              <p className="text-base font-medium">Tutto confermato ✓</p>
-              <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                Non c'è nulla da rivedere. I nuovi movimenti compariranno qui dopo la prossima
-                sincronizzazione con la banca.
-              </p>
-            </div>
-          ) : (
-            <div>
-              {groups.map((group) => (
-                <div key={group.date}>
-                  <div className="border-b bg-muted/40 px-3 py-1.5 text-xs font-medium tracking-wide text-muted-foreground sm:px-4">
-                    {dateHeading(group.date)}
+      <Tabs value={activeTab} onValueChange={changeTab}>
+        {/* Contatori dai `total` (conteggio pieno), non da items.length che è
+            limitato alla pagina corrente. */}
+        <TabsList className="w-full sm:w-auto">
+          <TabsTrigger value="pending_review" className="flex-1 sm:flex-none">
+            Da confermare ({pendingTotal})
+          </TabsTrigger>
+          <TabsTrigger value="duplicate" className="flex-1 sm:flex-none">
+            Duplicati ({duplicatesTotal})
+          </TabsTrigger>
+          <TabsTrigger value="ignored" className="flex-1 sm:flex-none">
+            Ignorati ({ignoredTotal})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="pending_review" className="mt-4">
+          <Card>
+            <CardContent className="p-0">
+              {loading ? (
+                <p className="p-6 text-sm text-muted-foreground">Caricamento…</p>
+              ) : isEmpty ? (
+                <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
+                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                    <Check className="h-6 w-6" />
                   </div>
-                  <ul className="divide-y">
-                    {group.rows.map((row) => (
-                      <ReviewRowView
-                        key={row.id}
-                        row={row}
-                        selected={selected.has(row.id)}
-                        busy={busy}
-                        onToggle={() => toggleRow(row.id)}
-                        onCategory={() => setCategoryTarget(row.item)}
-                        onIgnore={() => patch.mutate(ignoreOps(row))}
-                        onUnpair={() =>
-                          patch.mutate([{ id: row.item.id, data: { pairWithStagedId: null } }])
-                        }
-                        onPair={() => setPairTarget(row.item)}
-                        onSetType={(type) => patch.mutate([{ id: row.item.id, data: { type } }])}
-                      />
-                    ))}
-                  </ul>
+                  <p className="text-base font-medium">Tutto confermato ✓</p>
+                  <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                    Non c'è nulla da rivedere. I nuovi movimenti compariranno qui dopo la prossima
+                    sincronizzazione con la banca.
+                  </p>
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              ) : (
+                <div>
+                  {groups.map((group) => (
+                    <div key={group.date}>
+                      <div className="border-b bg-muted/40 px-3 py-1.5 text-xs font-medium tracking-wide text-muted-foreground sm:px-4">
+                        {dateHeading(group.date)}
+                      </div>
+                      <ul className="divide-y">
+                        {group.rows.map((row) => (
+                          <ReviewRowView
+                            key={row.id}
+                            row={row}
+                            selected={selected.has(row.id)}
+                            busy={busy}
+                            onToggle={() => toggleRow(row.id)}
+                            onCategory={() => setCategoryTarget(row.item)}
+                            onIgnore={() => ignoreMutation.mutate([row.item.id])}
+                            onUnpair={() =>
+                              patch.mutate([{ id: row.item.id, data: { pairWithStagedId: null } }])
+                            }
+                            onPair={() => setPairTarget(row.item)}
+                            onSetType={(type) => patch.mutate([{ id: row.item.id, data: { type } }])}
+                          />
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <PaginationBar
+                total={pendingTotal}
+                page={pageFor('pending_review')}
+                pageSize={pageSize}
+                onPageChange={changePage}
+                onPageSizeChange={changePageSize}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      <CollapsibleSection
-        title="Probabili duplicati"
-        count={duplicates.length}
-        icon={Copy}
-        description="Movimenti che sembrano già registrati in app. Non possono essere confermati: se non è un duplicato, riportalo tra quelli da confermare."
-      >
-        <ul className="divide-y">
-          {duplicates.map((item) => (
-            <DuplicateRowView
-              key={item.id}
-              item={item}
-              busy={busy}
-              onRestore={() => patch.mutate([{ id: item.id, data: { restore: true } }])}
-            />
-          ))}
-        </ul>
-      </CollapsibleSection>
+        <TabsContent value="duplicate" className="mt-4">
+          <Card>
+            <CardContent className="p-0">
+              <p className="border-b px-3 py-2 text-xs text-muted-foreground sm:px-4">
+                Movimenti che sembrano già registrati in app. Non possono essere confermati: se non
+                è un duplicato, riportalo tra quelli da confermare.
+              </p>
+              {duplicates.length === 0 ? (
+                <p className="p-6 text-sm text-muted-foreground">
+                  {duplicatesQuery.isLoading ? 'Caricamento…' : 'Nessun probabile duplicato.'}
+                </p>
+              ) : (
+                <ul className="divide-y">
+                  {duplicates.map((item) => (
+                    <DuplicateRowView
+                      key={item.id}
+                      item={item}
+                      busy={busy}
+                      onRestore={() => patch.mutate([{ id: item.id, data: { restore: true } }])}
+                    />
+                  ))}
+                </ul>
+              )}
+              <PaginationBar
+                total={duplicatesTotal}
+                page={pageFor('duplicate')}
+                pageSize={pageSize}
+                onPageChange={changePage}
+                onPageSizeChange={changePageSize}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      <CollapsibleSection
-        title="Ignorati"
-        count={ignored.length}
-        icon={EyeOff}
-        description="Movimenti che hai scelto di non registrare. Puoi sempre rimetterli in coda."
-      >
-        <ul className="divide-y">
-          {ignored.map((item) => (
-            <IgnoredRowView
-              key={item.id}
-              item={item}
-              busy={busy}
-              onRestore={() => patch.mutate([{ id: item.id, data: { restore: true } }])}
-            />
-          ))}
-        </ul>
-      </CollapsibleSection>
+        <TabsContent value="ignored" className="mt-4">
+          <Card>
+            <CardContent className="p-0">
+              <p className="border-b px-3 py-2 text-xs text-muted-foreground sm:px-4">
+                Movimenti che hai scelto di non registrare. Puoi sempre rimetterli in coda: quelli
+                usciti dalla finestra di sincronizzazione vengono eliminati automaticamente.
+              </p>
+              {ignored.length === 0 ? (
+                <p className="p-6 text-sm text-muted-foreground">
+                  {ignoredQuery.isLoading ? 'Caricamento…' : 'Nessun movimento ignorato.'}
+                </p>
+              ) : (
+                <ul className="divide-y">
+                  {ignored.map((item) => (
+                    <IgnoredRowView
+                      key={item.id}
+                      item={item}
+                      busy={busy}
+                      onRestore={() => patch.mutate([{ id: item.id, data: { restore: true } }])}
+                    />
+                  ))}
+                </ul>
+              )}
+              <PaginationBar
+                total={ignoredTotal}
+                page={pageFor('ignored')}
+                pageSize={pageSize}
+                onPageChange={changePage}
+                onPageSizeChange={changePageSize}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
-      {/* Spaziatore: la barra azioni è `fixed` e coprirebbe l'ultima riga. */}
-      {rows.length > 0 && <div aria-hidden className="h-20 lg:h-24" />}
+      {/* Spaziatore: la barra azioni è `fixed` e coprirebbe l'ultima riga.
+          Barra e spaziatore solo sul tab "Da confermare" (selezione multipla). */}
+      {activeTab === 'pending_review' && rows.length > 0 && (
+        <div aria-hidden className="h-20 lg:h-24" />
+      )}
 
-      {rows.length > 0 && (
+      {activeTab === 'pending_review' && rows.length > 0 && (
         <BulkActionBar
           total={rows.length}
           selectedCount={selectedCount}
@@ -855,54 +993,72 @@ function MenuItem({
 }
 
 // ============================================================================
-// Sezioni collassabili (duplicati / ignorati)
+// Paginazione (stesso pattern della pagina Movimenti)
 // ============================================================================
 
-function CollapsibleSection({
-  title,
-  count,
-  icon: Icon,
-  description,
-  children,
+function PaginationBar({
+  total,
+  page,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
 }: {
-  title: string;
-  count: number;
-  icon: LucideIcon;
-  description: string;
-  children: ReactNode;
+  total: number;
+  page: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (size: number) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  if (count === 0) return null;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  if (total === 0) return null;
 
   return (
-    <Card>
-      <CardContent className="p-0">
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-          className="flex w-full items-center gap-2 p-3 text-left text-sm font-medium hover:bg-accent/50 sm:px-4"
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t p-3 text-sm sm:px-4">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <span className="whitespace-nowrap">Per pagina:</span>
+        <Select value={String(pageSize)} onValueChange={(v) => onPageSizeChange(Number(v))}>
+          <SelectTrigger className="h-8 w-20">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {PAGE_SIZE_OPTIONS.map((n) => (
+              <SelectItem key={n} value={String(n)}>
+                {n}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <span className="hidden whitespace-nowrap sm:inline">
+          {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} di {total}
+        </span>
+      </div>
+
+      <div className="flex items-center gap-1">
+        <Button
+          size="icon"
+          variant="outline"
+          className="h-8 w-8"
+          onClick={() => onPageChange(page - 1)}
+          disabled={page <= 1}
+          aria-label="Pagina precedente"
         >
-          {open ? (
-            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-          ) : (
-            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-          )}
-          <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <span>
-            {title} ({count})
-          </span>
-        </button>
-        {open && (
-          <>
-            <p className="border-t px-3 py-2 text-xs text-muted-foreground sm:px-4">
-              {description}
-            </p>
-            {children}
-          </>
-        )}
-      </CardContent>
-    </Card>
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <span className="px-2 text-xs tabular-nums text-muted-foreground">
+          Pagina {page} di {totalPages}
+        </span>
+        <Button
+          size="icon"
+          variant="outline"
+          className="h-8 w-8"
+          onClick={() => onPageChange(page + 1)}
+          disabled={page >= totalPages}
+          aria-label="Pagina successiva"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
   );
 }
 

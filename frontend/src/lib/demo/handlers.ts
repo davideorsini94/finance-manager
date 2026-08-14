@@ -203,8 +203,11 @@ export function demoHandle(ctx: Ctx): unknown | null {
   if (matches(pathname, 'bank-sync/review/confirm') && method === 'POST') {
     return demoConfirmReview(body);
   }
+  if (matches(pathname, 'bank-sync/review/ignore') && method === 'POST') {
+    return demoIgnoreReview(body);
+  }
   if (matches(pathname, 'bank-sync/review') && method === 'GET') {
-    return demoReviewList(search.get('status'));
+    return demoReviewList(search.get('status'), search.get('page'), search.get('pageSize'));
   }
   if (matches(pathname, 'bank-sync/review') && method === 'PATCH') {
     return demoPatchReview(demoIdFromPath(pathname, -1), body);
@@ -1232,14 +1235,18 @@ function demoReviewDto(item: DemoReviewItem) {
   };
 }
 
-function demoReviewList(status: string | null) {
+function demoReviewList(status: string | null, pageRaw: string | null, pageSizeRaw: string | null) {
   const wanted: DemoReviewStatus =
     status === 'duplicate' || status === 'ignored' ? status : 'pending_review';
-  const items = demoReviewItems
+  // Stessi default e clamp del backend (DEFAULT_REVIEW_PAGE_SIZE=50, max 200).
+  const pageSize = Math.min(Math.max(Math.trunc(Number(pageSizeRaw)) || 50, 1), 200);
+  const page = Math.max(Math.trunc(Number(pageRaw)) || 1, 1);
+  const all = demoReviewItems
     .filter((i) => i.status === wanted)
-    .sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate))
-    .map(demoReviewDto);
-  return { items, total: items.length };
+    .sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate));
+  const items = all.slice((page - 1) * pageSize, page * pageSize).map(demoReviewDto);
+  // `total` è il conteggio pieno (non paginato), come nell'API reale.
+  return { items, total: all.length, page, pageSize };
 }
 
 /** Spaia la riga e riporta entrambe le gambe al tipo derivato dal segno. */
@@ -1296,6 +1303,35 @@ function demoPatchReview(id: string, body: unknown) {
     item.duplicateOf = null;
   }
   return { item: demoReviewDto(item) };
+}
+
+/**
+ * Replica di `POST bank-sync/review/ignore`: le coppie si ignorano intere
+ * (l'altra gamba entra d'ufficio, come fa il backend in `ignoreMany`).
+ */
+function demoIgnoreReview(body: unknown) {
+  const raw = (body ?? {}) as { ids?: unknown };
+  const ids = Array.isArray(raw.ids) ? raw.ids.filter((x): x is string => typeof x === 'string') : [];
+
+  // Le controparti si raccolgono PRIMA di spaiare, altrimenti il pairing
+  // azzerato da demoUnpairRow le renderebbe introvabili.
+  const targets = new Set<string>();
+  for (const id of ids) {
+    const item = demoReviewItems.find((i) => i.id === id);
+    if (!item) continue;
+    targets.add(item.id);
+    if (item.matchedStagedId) targets.add(item.matchedStagedId);
+  }
+
+  let ignored = 0;
+  for (const id of targets) {
+    const item = demoReviewItems.find((i) => i.id === id);
+    if (!item) continue;
+    demoUnpairRow(item);
+    item.status = 'ignored';
+    ignored += 1;
+  }
+  return { ignored, errors: [] };
 }
 
 function demoConfirmReview(body: unknown) {

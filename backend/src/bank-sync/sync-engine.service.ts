@@ -869,6 +869,40 @@ export class SyncEngineService {
         ...(balanceCents !== null ? { lastBalanceCents: balanceCents, lastBalanceAt: now } : {}),
       },
     });
+    await this.pruneIgnored(link, advance ?? link.lastBookedDate);
+  }
+
+  /**
+   * Pulizia degli **ignorati** usciti dalla finestra di sync: una riga più
+   * vecchia di `cursore - OVERLAP_DAYS` non verrà mai più ri-scaricata dalla
+   * banca, quindi tenerla in staging non serve più a niente (l'utente l'ha già
+   * scartata). Le righe `duplicate` restano: potrebbero ancora essere
+   * ripristinate per correggere un falso positivo del matcher.
+   *
+   * Best-effort: un errore qui non deve far fallire il sync appena riuscito.
+   */
+  private async pruneIgnored(link: LinkForSync, cursor: Date | null): Promise<void> {
+    // Senza cursore il link non ha mai completato un sync: niente da pulire.
+    if (!cursor) return;
+    const cutoff = addDays(cursor, -OVERLAP_DAYS);
+    try {
+      const deleted = await this.prisma.bankStagedTransaction.deleteMany({
+        where: {
+          linkId: link.id,
+          status: StagedTxStatus.ignored,
+          effectiveDate: { lt: cutoff },
+        },
+      });
+      if (deleted.count > 0) {
+        this.logger.debug(
+          `Puliti ${deleted.count} movimenti ignorati fuori finestra (collegamento ${link.id}, cutoff ${toIsoDateOnly(cutoff)})`,
+        );
+      }
+    } catch (e) {
+      this.logger.warn(
+        `Pulizia degli ignorati non riuscita per il collegamento ${link.id}: ${(e as Error).message}`,
+      );
+    }
   }
 
   // -------------------------------------------------------------- consenso

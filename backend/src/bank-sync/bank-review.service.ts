@@ -21,16 +21,13 @@ import { TransfersService } from '../transfers/transfers.service';
 import { buildCategoryMatchKey } from './category-match-key';
 import {
   CONFIRM_MAX_IDS,
+  DEFAULT_REVIEW_PAGE_SIZE,
+  IGNORE_MAX_IDS,
+  MAX_REVIEW_PAGE_SIZE,
   type ReviewableStatus,
   type UpdateReviewItemDto,
 } from './dto/bank-review.dto';
 import { toIsoDateOnly } from './transaction-parse';
-
-/**
- * Tetto delle righe restituite in una pagina di revisione. `total` riporta
- * comunque il conteggio completo, così la UI può dire "ne restano altre".
- */
-const MAX_REVIEW_ITEMS = 500;
 
 /** Vista di una riga della coda di revisione (contratto API Fase 4). */
 export interface ReviewItem {
@@ -69,12 +66,21 @@ export interface ReviewItem {
 
 export interface ReviewListResult {
   items: ReviewItem[];
+  /** Conteggio completo (non paginato): serve alla UI per contare le pagine. */
   total: number;
+  page: number;
+  pageSize: number;
 }
 
 export interface ConfirmError {
   id: string;
   message: string;
+}
+
+export interface IgnoreResult {
+  /** Righe passate a `ignored` (le controparti incluse d'ufficio contano). */
+  ignored: number;
+  errors: ConfirmError[];
 }
 
 export interface ConfirmResult {
@@ -126,7 +132,16 @@ export class BankReviewService {
 
   // ------------------------------------------------------------------ lista
 
-  async list(userId: string, status: ReviewableStatus): Promise<ReviewListResult> {
+  async list(
+    userId: string,
+    status: ReviewableStatus,
+    page = 1,
+    pageSize = DEFAULT_REVIEW_PAGE_SIZE,
+  ): Promise<ReviewListResult> {
+    // Clamp difensivo (il DTO valida già): mai take enormi né skip negativi.
+    const size = Math.min(Math.max(Math.trunc(pageSize) || DEFAULT_REVIEW_PAGE_SIZE, 1), MAX_REVIEW_PAGE_SIZE);
+    const current = Math.max(Math.trunc(page) || 1, 1);
+
     const where: Prisma.BankStagedTransactionWhereInput = {
       status,
       link: { account: this.policy.writableAccountsWhere(userId) },
@@ -137,7 +152,8 @@ export class BankReviewService {
         where,
         include: REVIEW_INCLUDE,
         orderBy: [{ effectiveDate: 'desc' }, { createdAt: 'desc' }],
-        take: MAX_REVIEW_ITEMS,
+        skip: (current - 1) * size,
+        take: size,
       }),
       this.prisma.bankStagedTransaction.count({ where }),
     ]);
@@ -146,6 +162,8 @@ export class BankReviewService {
     return {
       items: rows.map((r) => toReviewItem(r, r.matchedStagedId ? pairs.get(r.matchedStagedId) : undefined)),
       total,
+      page: current,
+      pageSize: size,
     };
   }
 
@@ -339,6 +357,80 @@ export class BankReviewService {
         duplicateOfTransactionId: null,
       },
     });
+  }
+
+  // ---------------------------------------------------------------- ignora
+
+  /**
+   * Ignora multiplo: una sola richiesta HTTP per N righe (il ciclo di PATCH
+   * dal client sforava il rate-limit globale con centinaia di selezioni).
+   *
+   * Come in `confirm`, ogni riga è indipendente: un errore finisce in
+   * `errors[]` senza fermare le altre — mai un 500 per una riga sola.
+   *
+   * Le coppie di giroconto si ignorano intere: se `ids` contiene una sola
+   * gamba, l'altra entra d'ufficio nell'insieme (stesso comportamento che
+   * prima viveva nel client, in `ignoreOps` di `BankReviewPage`). `ignore()`
+   * spaia comunque prima di ignorare, quindi la controparte — processata dopo
+   * — risulta già spaiata e viene ignorata come riga singola.
+   */
+  async ignoreMany(userId: string, ids: string[]): Promise<IgnoreResult> {
+    const unique = [...new Set(ids)];
+    if (unique.length > IGNORE_MAX_IDS) {
+      throw new BadRequestException(
+        `Puoi ignorare al massimo ${IGNORE_MAX_IDS} movimenti per volta.`,
+      );
+    }
+
+    const out: IgnoreResult = { ignored: 0, errors: [] };
+    // Coda espandibile: le controparti scoperte strada facendo si accodano.
+    const queue = [...unique];
+    const seen = new Set<string>();
+
+    for (let i = 0; i < queue.length; i++) {
+      const id = queue[i];
+      if (seen.has(id)) continue;
+      seen.add(id);
+
+      let row: StagedForReview;
+      try {
+        // Stessa ACL di `update`: write sul conto collegato.
+        row = await this.findWritable(userId, id);
+      } catch (e) {
+        out.errors.push({ id, message: describeError(e) });
+        continue;
+      }
+      // Stessi vincoli di stato di `update()`: confermate ed errate non si toccano.
+      if (row.status === StagedTxStatus.confirmed) {
+        out.errors.push({
+          id,
+          message: 'Il movimento è già stato confermato: non è più modificabile.',
+        });
+        continue;
+      }
+      if (row.status === StagedTxStatus.error) {
+        out.errors.push({ id, message: 'Il movimento è in errore: non è modificabile.' });
+        continue;
+      }
+
+      // L'altra gamba entra nell'insieme PRIMA di ignorare questa (dopo,
+      // `ignore()` avrà già azzerato il pairing e non la ritroveremmo).
+      if (row.matchedStagedId && !seen.has(row.matchedStagedId)) {
+        queue.push(row.matchedStagedId);
+      }
+
+      try {
+        await this.ignore(row);
+        out.ignored++;
+      } catch (e) {
+        out.errors.push({ id, message: describeError(e) });
+      }
+    }
+
+    this.logger.log(
+      `Ignora multiplo revisione bancaria (utente ${userId}): ${out.ignored} movimenti ignorati, ${out.errors.length} errori`,
+    );
+    return out;
   }
 
   // --------------------------------------------------------------- conferma
@@ -818,5 +910,6 @@ function describeError(e: unknown): string {
     if (Array.isArray(message) && typeof message[0] === 'string') return message[0];
     return e.message;
   }
-  return 'Errore imprevisto durante la conferma: riprova.';
+  // Usato sia dalla conferma sia dall'ignora multiplo: messaggio generico.
+  return 'Errore imprevisto: riprova.';
 }

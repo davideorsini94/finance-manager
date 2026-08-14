@@ -20,6 +20,7 @@ import { BankSyncService } from './bank-sync.service';
 import { SyncEngineService } from './sync-engine.service';
 import {
   ConfirmReviewDto,
+  IgnoreReviewDto,
   ListReviewQueryDto,
   UpdateReviewItemDto,
 } from './dto/bank-review.dto';
@@ -135,12 +136,17 @@ export class BankSyncController {
   }
 
   /**
-   * Coda di revisione. Visibilità = write sul conto collegato, non proprietà
-   * della connessione: su un conto condiviso rivedono entrambi.
+   * Coda di revisione, paginata. Visibilità = write sul conto collegato, non
+   * proprietà della connessione: su un conto condiviso rivedono entrambi.
    */
   @Get('review')
   listReview(@CurrentUser() user: AuthUser, @Query() query: ListReviewQueryDto) {
-    return this.review.list(user.id, query.status ?? StagedTxStatus.pending_review);
+    return this.review.list(
+      user.id,
+      query.status ?? StagedTxStatus.pending_review,
+      query.page,
+      query.pageSize,
+    );
   }
 
   /** Categoria, tipo, accoppiamento giroconto, ignora/ripristina. */
@@ -161,6 +167,17 @@ export class BankSyncController {
   @HttpCode(HttpStatus.OK)
   confirmReview(@CurrentUser() user: AuthUser, @Body() dto: ConfirmReviewDto) {
     return this.review.confirm(user.id, dto.ids);
+  }
+
+  /**
+   * Ignora multiplo: N righe in una sola richiesta. Sostituisce il ciclo di
+   * PATCH del client, che con centinaia di righe sforava il rate-limit
+   * globale (429). Le coppie di giroconto si ignorano intere.
+   */
+  @Post('review/ignore')
+  @HttpCode(HttpStatus.OK)
+  ignoreReview(@CurrentUser() user: AuthUser, @Body() dto: IgnoreReviewDto) {
+    return this.review.ignoreMany(user.id, dto.ids);
   }
 
   /**

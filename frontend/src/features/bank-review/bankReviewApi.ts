@@ -66,10 +66,21 @@ export interface ReviewItem {
   duplicateOf: ReviewDuplicateOf | null;
 }
 
+export interface ReviewListParams {
+  status?: ReviewStatus;
+  /** Pagina 1-based; default 1. */
+  page?: number;
+  /** Righe per pagina; il backend accetta al massimo 200. */
+  pageSize?: number;
+}
+
 export interface ReviewListResponse {
-  /** Ordinati per `effectiveDate` desc. */
+  /** Ordinati per `effectiveDate` desc, paginati. */
   items: ReviewItem[];
+  /** Conteggio completo (non paginato): serve a contare le pagine. */
   total: number;
+  page: number;
+  pageSize: number;
 }
 
 /**
@@ -97,12 +108,29 @@ export interface ConfirmReviewResult {
   errors: Array<{ id: string; message: string }>;
 }
 
+export interface IgnoreReviewResult {
+  /** Righe passate a `ignored` (le controparti incluse d'ufficio contano). */
+  ignored: number;
+  errors: Array<{ id: string; message: string }>;
+}
+
 /** Massimo accettato dal backend in una singola conferma. */
 export const CONFIRM_MAX_IDS = 200;
 
+/** Massimo accettato dal backend in un singolo "ignora" multiplo. */
+export const IGNORE_MAX_IDS = 500;
+
+/** Dimensione pagina di default della coda (allineata al backend). */
+export const DEFAULT_PAGE_SIZE = 50;
+
+/** Opzioni del selettore "per pagina" (il tetto backend è 200). */
+export const PAGE_SIZE_OPTIONS = [25, 50, 100, 200];
+
 export const bankReviewApi = {
-  list: (status: ReviewStatus = 'pending_review') =>
-    api.get('bank-sync/review', { searchParams: { status } }).json<ReviewListResponse>(),
+  list: ({ status = 'pending_review', page = 1, pageSize = DEFAULT_PAGE_SIZE }: ReviewListParams = {}) =>
+    api
+      .get('bank-sync/review', { searchParams: { status, page, pageSize } })
+      .json<ReviewListResponse>(),
 
   update: (id: string, data: UpdateReviewItemInput) =>
     api
@@ -113,4 +141,14 @@ export const bankReviewApi = {
     api
       .post('bank-sync/review/confirm', { json: { ids }, timeout: CONFIRM_TIMEOUT_MS })
       .json<ConfirmReviewResult>(),
+
+  /**
+   * Ignora N righe in UNA richiesta: il vecchio ciclo di PATCH per riga
+   * sforava il rate-limit globale (429) con centinaia di selezioni. Le coppie
+   * di giroconto vengono ignorate intere dal backend (basta una gamba).
+   */
+  ignoreMany: (ids: string[]) =>
+    api
+      .post('bank-sync/review/ignore', { json: { ids }, timeout: CONFIRM_TIMEOUT_MS })
+      .json<IgnoreReviewResult>(),
 };
