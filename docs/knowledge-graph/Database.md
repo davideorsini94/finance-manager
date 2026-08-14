@@ -9,6 +9,7 @@ PostgreSQL 16, schema gestito con Prisma: `backend/prisma/schema.prisma`. Migraz
 - **AccountMember** — N:N User↔Account con ruolo owner/write/read → [[Condivisione Conti]]
 - **AccountInvite** — inviti per conto (token monouso, status pending/accepted/rejected/revoked/expired)
 - **Category** — per utente, albero a 2 livelli (`parentId`), eredità colore, isIncome, sortOrder
+- **CategoryMemory** — memoria delle categorie scelte a mano nella coda di revisione bancaria: `@@unique([userId, matchKey])`, `matchKey` = chiave normalizzata del movimento (controparte o causale depurata, `buildCategoryMatchKey` in `bank-sync/category-match-key.ts`, max 80 char), `categoryId`, `timesUsed`/`lastUsedAt`. Applicata **prima** dell'LLM in `SyncEngineService.categorizeOwnerQueue`, scritta (upsert) da `BankReviewService` su ogni scelta manuale di categoria (PATCH) e su ogni conferma → [[Sync Bancario]]
 - **Transaction** — accountId, userId, amountCents (negativo = uscita), type (income/expense/transfer), categoryId, transactionDate, `transferPairId` (link giroconto), `ccChargeId`, `recurringRuleId`, `importBatchId`, isPending
 - **Attachment** — transactionId, minioKey, mimeType, sizeBytes (max 10 MB)
 - **RecurringRule** — frequenza daily→yearly, nextRunDate, isActive; anche per giroconti (`toAccountId`)

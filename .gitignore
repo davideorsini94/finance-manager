@@ -49,3 +49,4 @@ finance-manager-db-backup-*.dump
 
 # Chiavi private Enable Banking (mai committare)
 *.pem
+.playwright-mcp/
