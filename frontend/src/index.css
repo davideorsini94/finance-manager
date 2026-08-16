@@ -401,21 +401,28 @@
     @apply bg-background text-foreground antialiased;
     font-feature-settings: 'rlig' 1, 'calt' 1;
   }
-  /* Workaround bug viewport iOS 26 (standalone): dvh/svh vengono calcolati
-     sottraendo l'altezza della status bar dal fondo dello schermo (misurato
-     su iPhone 16 Pro: screen 874, dvh/svh 812, lvh 874 — il delta 62px è
-     esattamente la safe-area-top) e restava una banda nera sotto la
-     BottomNav. In standalone non c'è chrome dinamico, quindi lvh è sempre
-     l'altezza vera: `--fm-lvh-fix` vale svh−lvh (negativo solo col bug,
-     0px su iOS sani/Android/desktop) e viene sottratto alle altezze dvh e
-     sommato agli ancoraggi `bottom` degli elementi fixed. Da rimuovere
-     quando Apple corregge il calcolo. */
+  /* Workaround bug viewport iOS 26 (standalone): il layout viewport viene
+     calcolato sottraendo l'altezza della status bar dal fondo dello schermo
+     (misurato su iPhone 16 Pro: screen 874, inner/dvh 812, lvh 874 — il
+     delta 62px è esattamente la safe-area-top) e restava una banda nera
+     sotto la BottomNav. In standalone non c'è chrome dinamico, quindi lvh è
+     sempre l'altezza vera: `--fm-lvh-fix` vale dvh−lvh (negativo solo col
+     bug, 0px quando iOS è sano e su Android/desktop) e viene sottratto alle
+     altezze dvh e sommato agli ancoraggi `bottom` degli elementi fixed.
+     ATTENZIONE: il delta va misurato con dvh, NON con svh — il bug è
+     bistabile e quando il layout viewport si risana (inner/dvh tornano 874,
+     es. dopo un rilancio) svh può restare stantio a 812: con svh il fix
+     sovracorreggeva di 62px spingendo la BottomNav sotto il fondo. dvh
+     segue il layout viewport live, quindi è corretto in entrambi gli stati;
+     con la tastiera aperta il fix cresce e spinge le barre fuori schermo
+     (accettabile: durante l'editing sono comunque coperte/inutili).
+     Da rimuovere quando Apple corregge il calcolo. */
   :root {
     --fm-lvh-fix: 0px;
   }
   @media (display-mode: standalone) {
     :root {
-      --fm-lvh-fix: calc(100svh - 100lvh);
+      --fm-lvh-fix: calc(100dvh - 100lvh);
     }
   }
   html, body, #root {
