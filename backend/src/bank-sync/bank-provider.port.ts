@@ -98,6 +98,25 @@ export interface ProviderTransaction {
   raw: unknown;
 }
 
+/**
+ * Esito di uno scaricamento movimenti: oltre alle righe contabilizzate porta
+ * indietro **quante righe sono state scartate perché non contabilizzate** e la
+ * distribuzione degli stati visti. Senza questi due numeri un movimento ancora
+ * `PDNG` in banca sparirebbe senza lasciare traccia, e dall'esito del sync
+ * sembrerebbe che la banca non lo abbia proprio mandato.
+ */
+export interface FetchTransactionsResult {
+  /** Righe `BOOK`, le uniche che il motore mette in staging. */
+  transactions: ProviderTransaction[];
+  /** Righe con uno stato dichiarato diverso da `BOOK` (tipicamente `PDNG`). */
+  skippedPending: number;
+  /**
+   * Quante righe per stato, incluso `BOOK`. Le righe senza stato dichiarato
+   * finiscono sotto `UNKNOWN`. Solo diagnostica (log e `BankSyncRun.stats`).
+   */
+  statusCounts: Record<string, number>;
+}
+
 export interface BankProviderPort {
   /** Elenco banche disponibili per il paese (ISO 3166-1 alpha-2). */
   /** country assente = tutte le banche visibili all'app (es. Mock ASPSP con credenziali sandbox). */
@@ -128,8 +147,12 @@ export interface BankProviderPort {
    * Movimenti **contabilizzati** (`status = BOOK`) del conto, dal giorno
    * `dateFrom` (YYYY-MM-DD) in poi; senza `dateFrom` la banca decide fin dove
    * andare indietro. L'implementazione segue la paginazione fino a esaurimento.
+   *
+   * Le righe non contabilizzate non vengono restituite ma **contate**
+   * (`skippedPending`/`statusCounts`): sono la spiegazione più comune di un
+   * movimento visibile nell'app della banca e assente dalla coda di revisione.
    */
-  fetchTransactions(accountUid: string, dateFrom?: string): Promise<ProviderTransaction[]>;
+  fetchTransactions(accountUid: string, dateFrom?: string): Promise<FetchTransactionsResult>;
 
   /** Revoca il consenso lato provider. */
   revokeConsent(consentId: string): Promise<void>;

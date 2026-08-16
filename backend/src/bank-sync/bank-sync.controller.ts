@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 import { BankSyncTrigger, StagedTxStatus } from '@prisma/client';
@@ -30,6 +31,7 @@ import {
   CreateLinkDto,
   ListInstitutionsQueryDto,
   UpdateLinkDto,
+  UpdateSyncScheduleDto,
 } from './dto/bank-sync.dto';
 
 /**
@@ -127,6 +129,21 @@ export class BankSyncController {
   @HttpCode(HttpStatus.OK)
   syncLink(@CurrentUser() user: AuthUser, @Param('id', new ParseUUIDPipe()) id: string) {
     return this.syncEngine.syncLink(id, user.id, BankSyncTrigger.manual);
+  }
+
+  /**
+   * Orari della sincronizzazione automatica dell'utente (HH:mm, ora italiana).
+   * Lista vuota = sync automatico disattivato.
+   */
+  @Get('schedule')
+  getSchedule(@CurrentUser() user: AuthUser) {
+    return this.bankSync.getSchedule(user.id);
+  }
+
+  /** Sostituisce gli orari: max 4/giorno (tetto PSD2), passi di 15 minuti. */
+  @Put('schedule')
+  updateSchedule(@CurrentUser() user: AuthUser, @Body() dto: UpdateSyncScheduleDto) {
+    return this.bankSync.updateSchedule(user.id, dto.times);
   }
 
   /** Badge della coda di revisione: righe da rivedere sui conti scrivibili. */

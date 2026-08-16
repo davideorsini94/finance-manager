@@ -159,6 +159,10 @@ model User {
   isActive          Boolean  @default(true) @map("is_active")
   /// Conto preferito: pre-selezionato nel form di nuovo movimento.
   favoriteAccountId String?  @map("favorite_account_id") @db.Uuid
+  /// Orari (HH:mm, ora italiana, passi di 15') delle sincronizzazioni bancarie
+  /// automatiche. Massimo 4 al giorno (tetto PSD2 per gli accessi non
+  /// presidiati); lista vuota = sincronizzazione automatica disattivata.
+  bankSyncTimes     String[] @default(["06:00"]) @map("bank_sync_times")
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz()
 

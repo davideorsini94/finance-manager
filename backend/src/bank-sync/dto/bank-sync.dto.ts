@@ -1,5 +1,7 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsBoolean,
   IsOptional,
   IsString,
@@ -87,6 +89,34 @@ export class CreateLinkDto {
 export class UpdateLinkDto {
   @IsBoolean()
   syncEnabled!: boolean;
+}
+
+/**
+ * Tetto di sincronizzazioni **automatiche** al giorno per utente: PSD2 limita
+ * a 4 gli accessi ai conti non presidiati dal cliente. Le sincronizzazioni
+ * manuali hanno una quota propria (`MANUAL_SYNC_DAILY_LIMIT`).
+ */
+export const MAX_SYNC_TIMES = 4;
+
+/** `HH:mm` sulla griglia dei quarti d'ora (ora italiana). */
+export const SYNC_TIME_PATTERN = /^([01]\d|2[0-3]):(00|15|30|45)$/;
+
+/**
+ * Orari di sincronizzazione automatica dell'utente. Lista vuota = sync
+ * automatico disattivato. Duplicati e ordinamento sono normalizzati lato
+ * server, non rifiutati.
+ */
+export class UpdateSyncScheduleDto {
+  @IsArray({ message: 'Gli orari devono essere una lista.' })
+  @ArrayMaxSize(MAX_SYNC_TIMES, {
+    message: `Puoi impostare al massimo ${MAX_SYNC_TIMES} sincronizzazioni automatiche al giorno.`,
+  })
+  @IsString({ each: true, message: 'Ogni orario deve essere una stringa nel formato HH:mm.' })
+  @Matches(SYNC_TIME_PATTERN, {
+    each: true,
+    message: 'Gli orari devono essere nel formato HH:mm a passi di 15 minuti (es. 06:00, 13:45).',
+  })
+  times!: string[];
 }
 
 /** Payload della pagina pubblica di callback. */

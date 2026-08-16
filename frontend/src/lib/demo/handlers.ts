@@ -195,6 +195,13 @@ export function demoHandle(ctx: Ctx): unknown | null {
   if (matches(pathname, 'bank-sync/sync') && method === 'POST') {
     return demoSyncAll();
   }
+  // Orari del sync automatico (max 4/giorno, quarti d'ora).
+  if (matches(pathname, 'bank-sync/schedule') && method === 'GET') {
+    return { times: demoBankSyncTimes };
+  }
+  if (matches(pathname, 'bank-sync/schedule') && method === 'PUT') {
+    return demoUpdateSchedule(body);
+  }
   // Coda di revisione (Fase 4): le rotte specifiche prima della generica,
   // altrimenti `matches` (prefix-match) le intercetta tutte.
   if (matches(pathname, 'bank-sync/review/count') && method === 'GET') {
@@ -805,6 +812,23 @@ let demoBankSeq = 1;
 /** Sincronizzazioni manuali residue oggi (Fase 3): 4/utente/giorno, in-memory. */
 let demoSyncQuotaRemaining = 4;
 
+/** Tetto di orari di sync automatico (limite PSD2), come lato backend. */
+const DEMO_MAX_SYNC_TIMES = 4;
+
+/** Orari del sync automatico (`User.bankSyncTimes`): default di sistema. */
+let demoBankSyncTimes: string[] = ['06:00'];
+
+/** Replica di `PUT bank-sync/schedule`: valida, deduplica e ordina. */
+function demoUpdateSchedule(body: unknown) {
+  const raw = ((body ?? {}) as { times?: unknown }).times;
+  const list = Array.isArray(raw) ? raw : [];
+  const valid = list.filter(
+    (t): t is string => typeof t === 'string' && /^([01]\d|2[0-3]):(00|15|30|45)$/.test(t),
+  );
+  demoBankSyncTimes = [...new Set(valid)].sort().slice(0, DEMO_MAX_SYNC_TIMES);
+  return { times: demoBankSyncTimes };
+}
+
 function demoStripPath(pathname: string): string {
   return pathname
     .replace(/^.*?\/api\//, '')
@@ -1030,6 +1054,9 @@ function demoSyncResultForLink(link: DemoBankLink) {
     staged,
     duplicates,
     skippedCurrency: 0,
+    // Riga plausibile non ancora contabilizzata dalla banca: esercita la UI
+    // dedicata (SyncSummaryPanel) anche in modalità demo.
+    skippedPending: 1,
     error: null,
   };
 }

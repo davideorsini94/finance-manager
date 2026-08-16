@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { Smile, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,7 +20,6 @@ interface Props {
 export function IconPicker({ value, onChange, color }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const Selected = getIcon(value);
   const entries = Object.entries(ICON_POOL).filter(([key]) =>
@@ -51,14 +50,11 @@ export function IconPicker({ value, onChange, color }: Props) {
       <PopoverContent
         className="w-80 p-0"
         align="start"
-        // Wheel manuale: dentro Radix Dialog gli eventi wheel sui Portal
-        // figli a volte non scrollano automaticamente il container interno.
-        // Intercettiamo l'evento sul wrapper e lo applichiamo a mano.
-        onWheel={(e) => {
-          if (scrollRef.current) {
-            scrollRef.current.scrollTop += e.deltaY;
-          }
-        }}
+        // Dentro un Radix Dialog, react-remove-scroll blocca il touch-scroll
+        // sul contenuto portato in portal fuori dal sottoalbero del Dialog:
+        // disablePortal lo tiene inline così lo scroll nativo funziona anche
+        // su touch (bug risolto allo stesso modo in CategoryPicker.tsx).
+        disablePortal
       >
         <div className="p-3 pb-2 border-b">
           <div className="relative">
@@ -73,7 +69,6 @@ export function IconPicker({ value, onChange, color }: Props) {
         </div>
 
         <div
-          ref={scrollRef}
           className="overflow-y-auto px-3 py-2"
           style={{ height: '220px', touchAction: 'pan-y' }}
         >

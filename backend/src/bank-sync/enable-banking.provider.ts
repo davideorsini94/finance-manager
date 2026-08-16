@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import {
   BankProviderPort,
   ConsentSession,
+  FetchTransactionsResult,
   ProviderAccountDetails,
   ProviderAccountRef,
   ProviderBalance,
@@ -18,6 +19,9 @@ const INSTITUTIONS_TTL_MS = 24 * 60 * 60 * 1000;
 
 /** Cap di sicurezza sulla paginazione dei movimenti (anti-loop infinito). */
 const MAX_TRANSACTION_PAGES = 50;
+
+/** Etichetta usata in `statusCounts` per le righe senza stato dichiarato. */
+const UNKNOWN_STATUS = 'UNKNOWN';
 
 /** Attese (ms) tra i ritentativi dopo un 429 del provider. */
 const RATE_LIMIT_BACKOFF_MS = [1_500, 5_000];
@@ -131,10 +135,11 @@ export class EnableBankingProvider implements BankProviderPort {
 
   /**
    * Saldo del conto. La risposta Berlin Group è una **lista** di saldi di tipo
-   * diverso: si sceglie il più vicino al "disponibile oggi"
-   * (`interimAvailable`), poi il contabile di chiusura (`closingBooked`), poi
-   * il primo leggibile. Le entry senza importo o valuta interpretabili vengono
-   * scartate, quindi un payload inatteso vale `null` e non un saldo sbagliato.
+   * diverso: si sceglie il contabile di chiusura (`closingBooked`, omogeneo coi
+   * movimenti `BOOK` che scarichiamo), poi il disponibile (`interimAvailable`),
+   * poi il primo leggibile. Le entry senza importo o valuta interpretabili
+   * vengono scartate, quindi un payload inatteso vale `null` e non un saldo
+   * sbagliato.
    */
   async getAccountBalance(accountUid: string): Promise<ProviderBalance | null> {
     const res = await this.client.getAccountBalances(accountUid);
@@ -149,10 +154,14 @@ export class EnableBankingProvider implements BankProviderPort {
    * stesso cursore ci terrebbe in loop) e un piccolo backoff sui 429, perché il
    * limite PSD2 di accessi non presidiati è per-banca e non lo conosciamo.
    * Le righe non `BOOK` (pending) vengono scartate qui: non sono contabilizzate
-   * e cambierebbero identità una volta contabilizzate.
+   * e cambierebbero identità una volta contabilizzate. **Scartate ma contate**
+   * (`skippedPending`, `statusCounts`): altrimenti una spesa ancora `PDNG`
+   * sparirebbe in silenzio e l'esito del sync direbbe solo "0 movimenti".
    */
-  async fetchTransactions(accountUid: string, dateFrom?: string): Promise<ProviderTransaction[]> {
+  async fetchTransactions(accountUid: string, dateFrom?: string): Promise<FetchTransactionsResult> {
     const out: ProviderTransaction[] = [];
+    const statusCounts: Record<string, number> = {};
+    let skippedPending = 0;
     let continuationKey: string | undefined;
 
     for (let page = 0; page < MAX_TRANSACTION_PAGES; page++) {
@@ -160,18 +169,24 @@ export class EnableBankingProvider implements BankProviderPort {
       const rows = asArray(res.transactions) ?? asArray(res.data) ?? [];
       for (const row of rows) {
         const parsed = toProviderTransaction(row);
-        if (parsed && parsed.status === BOOKED_STATUS) out.push(parsed);
+        if (!parsed) continue;
+        const status = parsed.status ?? UNKNOWN_STATUS;
+        statusCounts[status] = (statusCounts[status] ?? 0) + 1;
+        // Pending "veri" solo gli stati dichiarati e diversi da BOOK: una riga
+        // senza stato è un payload incompleto, non un movimento in attesa.
+        if (parsed.status === BOOKED_STATUS) out.push(parsed);
+        else if (parsed.status) skippedPending++;
       }
 
       continuationKey = firstString(res.continuation_key) ?? undefined;
-      if (!continuationKey) return out;
+      if (!continuationKey) break;
       if (page === MAX_TRANSACTION_PAGES - 1) {
         this.logger.warn(
           `Paginazione movimenti interrotta al limite di ${MAX_TRANSACTION_PAGES} pagine per il conto ${accountUid}`,
         );
       }
     }
-    return out;
+    return { transactions: out, skippedPending, statusCounts };
   }
 
   /**
@@ -338,12 +353,20 @@ export function toProviderTransaction(entry: unknown): ProviderTransaction | nul
 
 /**
  * Ordine di preferenza dei tipi di saldo, con gli alias del code set ISO che
- * alcune banche mandano al posto del nome esteso (`ITAV`, `CLBD`).
+ * alcune banche mandano al posto del nome esteso (`CLBD`, `ITAV`).
  * Il confronto avviene sul tipo normalizzato (minuscolo, senza separatori).
+ *
+ * Prima il **contabile** (`closingBooked`), poi il disponibile
+ * (`interimAvailable`): il saldo salvato serve alla riconciliazione col saldo
+ * dell'app, che registra **solo movimenti contabilizzati** (scarichiamo solo le
+ * righe `BOOK`). Il disponibile include invece le autorizzazioni ancora
+ * pendenti, quindi come riferimento produrrebbe uno scostamento perenne per
+ * ogni spesa non ancora contabilizzata — differenza vera per la banca, falsa
+ * per il confronto che facciamo noi.
  */
 const BALANCE_TYPE_PREFERENCE = [
-  ['interimavailable', 'itav'],
   ['closingbooked', 'clbd'],
+  ['interimavailable', 'itav'],
 ];
 
 /**

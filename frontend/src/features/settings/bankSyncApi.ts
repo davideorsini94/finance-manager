@@ -145,6 +145,11 @@ export interface SyncResult {
   duplicates: number;
   /** Movimenti scartati perché in una valuta diversa da quella del conto. */
   skippedCurrency: number;
+  /**
+   * Movimenti scartati perché la banca non li ha ancora contabilizzati
+   * (pending/non "booked"): arriveranno al prossimo sync una volta contabilizzati.
+   */
+  skippedPending?: number;
   /** Messaggio d'errore per questo conto, se il sync è fallito solo per lui. */
   error: string | null;
 }
@@ -158,6 +163,20 @@ export interface SyncAllResponse {
 export interface SyncLinkResponse {
   result: SyncResult;
   quotaRemaining: number;
+}
+
+// ---------- Orari di sincronizzazione automatica ----------
+
+/**
+ * Tetto di sincronizzazioni automatiche al giorno: PSD2 limita a 4 gli accessi
+ * ai conti non presidiati dall'utente. Deve restare allineato a
+ * `MAX_SYNC_TIMES` del backend.
+ */
+export const MAX_SYNC_TIMES = 4;
+
+export interface SyncScheduleResponse {
+  /** Orari HH:mm (ora italiana), ordinati. Lista vuota = sync automatico spento. */
+  times: string[];
 }
 
 export interface ReviewCountResponse {
@@ -232,4 +251,9 @@ export const bankSyncApi = {
       .post(`bank-sync/links/${encodeURIComponent(id)}/sync`, { timeout: SYNC_TIMEOUT_MS })
       .json<SyncLinkResponse>(),
   reviewCount: () => api.get('bank-sync/review/count').json<ReviewCountResponse>(),
+
+  // --- orari del sync automatico (max 4/giorno, passi di 15') ---
+  getSchedule: () => api.get('bank-sync/schedule').json<SyncScheduleResponse>(),
+  updateSchedule: (times: string[]) =>
+    api.put('bank-sync/schedule', { json: { times } }).json<SyncScheduleResponse>(),
 };

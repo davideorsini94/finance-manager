@@ -85,5 +85,34 @@
       "label": "Dati demo",
       "description": "Mostra dati fittizi al posto di quelli reali"
     }
+  },
+  "bankSync": {
+    "syncNow": "Sincronizza ora",
+    "summary": {
+      "fetched_one": "{{count}} scaricato",
+      "fetched_other": "{{count}} scaricati",
+      "skippedPending_one": "{{count}} in attesa di contabilizzazione",
+      "skippedPending_other": "{{count}} in attesa di contabilizzazione",
+      "skippedPendingHint": "Movimenti non ancora contabilizzati dalla banca: arriveranno al prossimo sync."
+    },
+    "reconciliation": {
+      "pendingNote": "La differenza può dipendere da movimenti non ancora contabilizzati dalla banca."
+    },
+    "schedule": {
+      "title": "Sincronizzazione automatica",
+      "help": "Fino a {{max}} sincronizzazioni automatiche al giorno (limite PSD2 per gli accessi non presidiati), a passi di 15 minuti e in orario italiano. Senza orari la sincronizzazione automatica è disattivata.",
+      "loading": "Caricamento orari…",
+      "disabled": "Sincronizzazione automatica disattivata: nessun orario impostato.",
+      "addLabel": "Nuovo orario",
+      "add": "Aggiungi",
+      "remove": "Rimuovi l'orario {{time}}",
+      "save": "Salva orari",
+      "saving": "Salvataggio…",
+      "saved": "Orari salvati.",
+      "maxReached": "Puoi impostare al massimo {{max}} sincronizzazioni automatiche al giorno.",
+      "duplicate": "Questo orario è già impostato.",
+      "invalid": "Inserisci un orario valido.",
+      "rounded": "L'orario è stato arrotondato a {{time}}: sono ammessi solo i quarti d'ora."
+    }
   }
 }

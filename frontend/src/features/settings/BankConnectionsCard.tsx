@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { HTTPError } from 'ky';
+import { useTranslation } from 'react-i18next';
 import { Link } from '@tanstack/react-router';
 import {
   Building2,
@@ -14,8 +14,11 @@ import {
   KeyRound,
   Loader2,
   CheckCircle2,
+  Clock,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils/cn';
@@ -26,12 +29,14 @@ import { accountsApi } from '@/features/accounts/accountsApi';
 import type { Account } from '@/types/domain';
 import {
   bankSyncApi,
+  MAX_SYNC_TIMES,
   type BankAccountLink,
   type BankConnection,
   type BankConnectionStatus,
   type SyncResult,
 } from './bankSyncApi';
 import { BankLinkWizard, InstitutionLogo, statusLabel, type WizardResume } from './BankLinkWizard';
+import { SyncSummaryPanel, syncErrorMessage } from './syncSummary';
 
 /** Tempo massimo di attesa del polling dopo un rinnovo del consenso. */
 const RENEW_TIMEOUT_MS = 5 * 60_000;
@@ -75,17 +80,6 @@ const STATUS_VARIANTS: Record<
   error: 'destructive',
 };
 
-/** Messaggio per un fallimento di sync: dedicato per la quota esaurita (429). */
-function syncErrorMessage(e: unknown): string {
-  if (e instanceof HTTPError && e.response.status === 429) {
-    return (
-      e.message ||
-      'Hai raggiunto il limite di sincronizzazioni manuali per oggi. Riprova domani, oppure attendi il prossimo sync automatico.'
-    );
-  }
-  return e instanceof Error ? e.message : 'Errore durante la sincronizzazione.';
-}
-
 /** Interruttore accessibile (stesso pattern di NotificationsPreferences). */
 function Toggle({
   checked,
@@ -127,6 +121,7 @@ function Toggle({
  * agli amministratori — qui non vengono mai richieste.
  */
 export function BankConnectionsCard() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const confirm = useConfirm();
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -319,7 +314,7 @@ export function BankConnectionsCard() {
               <RefreshCw
                 className={cn('h-4 w-4 mr-2', syncAll.isPending && 'animate-spin')}
               />
-              Sincronizza ora
+              {t('bankSync.syncNow')}
             </Button>
           </div>
         </div>
@@ -387,6 +382,9 @@ export function BankConnectionsCard() {
           ))}
         </ul>
 
+        {/* Orari del sync automatico: ha senso solo se c'è almeno una banca collegata. */}
+        {connections.length > 0 && <SyncScheduleSection />}
+
         {actionError && (
           <p className="text-sm text-destructive flex items-start gap-1">
             <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
@@ -421,72 +419,168 @@ export function BankConnectionsCard() {
   );
 }
 
-/** Riepilogo inline dopo un sync (manuale, tutta la card o un singolo conto). */
-function SyncSummaryPanel({
-  summary,
-  onDismiss,
-}: {
-  summary: { results: SyncResult[]; quotaRemaining: number };
-  onDismiss: () => void;
-}) {
-  const { results, quotaRemaining } = summary;
+/**
+ * Riporta un `HH:mm` sulla griglia dei quarti d'ora arrotondando **per
+ * difetto**, come fa il tick del cron lato backend. Ritorna `null` se il valore
+ * non è un orario (l'input `type="time"` può tornare stringa vuota).
+ */
+function toQuarterHour(value: string): string | null {
+  const m = /^(\d{1,2}):(\d{2})/.exec(value.trim());
+  if (!m) return null;
+  const hours = Number(m[1]);
+  const minutes = Number(m[2]);
+  if (!Number.isInteger(hours) || hours > 23 || !Number.isInteger(minutes) || minutes > 59) {
+    return null;
+  }
+  const quarter = Math.floor(minutes / 15) * 15;
+  return `${String(hours).padStart(2, '0')}:${String(quarter).padStart(2, '0')}`;
+}
+
+/**
+ * Orari della sincronizzazione automatica (`User.bankSyncTimes`): da 0 a 4 al
+ * giorno, a passi di 15 minuti, in ora italiana. Ogni aggiunta/rimozione salva
+ * subito, come il toggle di sincronizzazione dei singoli conti.
+ */
+function SyncScheduleSection() {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const [draft, setDraft] = useState('');
+  /** Messaggio di validazione client-side (limite, duplicato, arrotondamento). */
+  const [hint, setHint] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  const scheduleQuery = useQuery({
+    queryKey: ['bank-sync-schedule'],
+    queryFn: () => bankSyncApi.getSchedule(),
+  });
+
+  const saveSchedule = useMutation({
+    mutationFn: (times: string[]) => bankSyncApi.updateSchedule(times),
+    onMutate: () => {
+      setHint(null);
+      setSaved(false);
+    },
+    onSuccess: (data) => {
+      // La risposta è già normalizzata dal server (dedup + ordinamento).
+      queryClient.setQueryData(['bank-sync-schedule'], data);
+      void queryClient.invalidateQueries({ queryKey: ['bank-sync-schedule'] });
+      setSaved(true);
+    },
+  });
+
+  const times = scheduleQuery.data?.times ?? [];
+  const busy = saveSchedule.isPending || scheduleQuery.isLoading;
+
+  const addTime = () => {
+    const normalized = toQuarterHour(draft);
+    if (!normalized) {
+      setHint(t('bankSync.schedule.invalid'));
+      return;
+    }
+    if (times.includes(normalized)) {
+      setHint(t('bankSync.schedule.duplicate'));
+      return;
+    }
+    if (times.length >= MAX_SYNC_TIMES) {
+      setHint(t('bankSync.schedule.maxReached', { max: MAX_SYNC_TIMES }));
+      return;
+    }
+    setDraft('');
+    saveSchedule.mutate([...times, normalized]);
+    if (normalized !== draft.trim()) {
+      setHint(t('bankSync.schedule.rounded', { time: normalized }));
+    }
+  };
 
   return (
-    <div className="space-y-2 rounded-md border bg-muted/30 p-3 text-sm">
-      <div className="flex items-center justify-between gap-2">
-        <p className="flex items-center gap-1.5 font-medium">
-          <RefreshCw className="h-4 w-4" /> Risultato sincronizzazione
-        </p>
-        <button
-          type="button"
-          onClick={onDismiss}
-          className="text-xs text-muted-foreground hover:text-foreground"
-        >
-          Chiudi
-        </button>
-      </div>
+    <div className="space-y-2 rounded-md border p-3">
+      <p className="text-sm font-medium flex items-center gap-2">
+        <Clock className="h-4 w-4" />
+        {t('bankSync.schedule.title')}
+      </p>
 
-      {results.length === 0 ? (
-        <p className="text-xs text-muted-foreground">
-          Nessun conto con sincronizzazione attiva da aggiornare.
-        </p>
+      {scheduleQuery.isLoading ? (
+        <p className="text-xs text-muted-foreground">{t('bankSync.schedule.loading')}</p>
+      ) : times.length === 0 ? (
+        <p className="text-xs text-muted-foreground">{t('bankSync.schedule.disabled')}</p>
       ) : (
-        <ul className="space-y-1.5">
-          {results.map((r) => (
+        <ul className="flex flex-wrap gap-2">
+          {times.map((time) => (
             <li
-              key={r.linkId}
-              className="flex flex-wrap items-center justify-between gap-2 rounded bg-background/60 px-2 py-1.5"
+              key={time}
+              className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs font-medium"
             >
-              <span className="min-w-0 truncate font-medium">{r.accountName}</span>
-              {r.error ? (
-                <span className="flex items-center gap-1 text-xs text-destructive">
-                  <AlertCircle className="h-3.5 w-3.5 shrink-0" /> {r.error}
-                </span>
-              ) : (
-                <span className="text-xs text-muted-foreground">
-                  {r.staged} nuov{r.staged === 1 ? 'o' : 'i'} · {r.duplicates} duplicat
-                  {r.duplicates === 1 ? 'o' : 'i'}
-                  {r.skippedCurrency > 0 && ` · ${r.skippedCurrency} valuta diversa`}
-                </span>
-              )}
+              <span className="font-mono">{time}</span>
+              <button
+                type="button"
+                aria-label={t('bankSync.schedule.remove', { time })}
+                title={t('bankSync.schedule.remove', { time })}
+                disabled={busy}
+                onClick={() => saveSchedule.mutate(times.filter((x) => x !== time))}
+                className="text-muted-foreground transition-colors hover:text-destructive disabled:opacity-50"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
             </li>
           ))}
         </ul>
       )}
 
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          type="time"
+          step={900}
+          value={draft}
+          aria-label={t('bankSync.schedule.addLabel')}
+          disabled={busy || times.length >= MAX_SYNC_TIMES}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            setHint(null);
+          }}
+          className="h-9 w-32"
+        />
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={busy || !draft}
+          onClick={addTime}
+        >
+          {saveSchedule.isPending ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Plus className="h-4 w-4 mr-2" />
+          )}
+          {saveSchedule.isPending ? t('bankSync.schedule.saving') : t('bankSync.schedule.add')}
+        </Button>
+      </div>
+
       <p className="text-xs text-muted-foreground">
-        {quotaRemaining > 0
-          ? `${quotaRemaining} sincronizzazion${quotaRemaining === 1 ? 'e' : 'i'} manual${
-              quotaRemaining === 1 ? 'e' : 'i'
-            } rimast${quotaRemaining === 1 ? 'a' : 'e'} oggi.`
-          : 'Nessuna sincronizzazione manuale rimasta per oggi: riprova domani (i sync automatici continuano a funzionare).'}
+        {t('bankSync.schedule.help', { max: MAX_SYNC_TIMES })}
       </p>
+
+      {hint && <p className="text-xs text-amber-600">{hint}</p>}
+
+      {saveSchedule.isError && (
+        <p className="text-xs text-destructive flex items-start gap-1">
+          <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+          {(saveSchedule.error as Error).message}
+        </p>
+      )}
+
+      {saved && !saveSchedule.isPending && !saveSchedule.isError && (
+        <p className="text-xs text-emerald-600 flex items-start gap-1">
+          <CheckCircle2 className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+          {t('bankSync.schedule.saved')}
+        </p>
+      )}
     </div>
   );
 }
 
 /** Confronta il saldo dichiarato dalla banca con quello del conto app (Fase 5). */
 function BalanceReconciliation({ link, account }: { link: BankAccountLink; account?: Account }) {
+  const { t } = useTranslation();
   if (link.lastBalanceCents == null || !account) return null;
 
   const bankCents = BigInt(link.lastBalanceCents);
@@ -505,12 +599,17 @@ function BalanceReconciliation({ link, account }: { link: BankAccountLink; accou
 
   const diff = bankCents > appCents ? bankCents - appCents : appCents - bankCents;
   return (
-    <span className="mt-1 flex flex-wrap items-center gap-1.5">
-      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
-        <AlertCircle className="h-3 w-3 shrink-0" />
-        Saldo banca: {formatCents(bankCents)} · differenza {formatCents(diff)}
+    <span className="mt-1 block space-y-0.5">
+      <span className="flex flex-wrap items-center gap-1.5">
+        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
+          <AlertCircle className="h-3 w-3 shrink-0" />
+          Saldo banca: {formatCents(bankCents)} · differenza {formatCents(diff)}
+        </span>
+        {lastAt && <span className="text-xs text-muted-foreground">rilevato il {lastAt}</span>}
       </span>
-      {lastAt && <span className="text-xs text-muted-foreground">rilevato il {lastAt}</span>}
+      <span className="block text-xs text-muted-foreground">
+        {t('bankSync.reconciliation.pendingNote')}
+      </span>
     </span>
   );
 }
@@ -695,7 +794,8 @@ function ConnectionRow({
               key={link.id}
               className="flex flex-wrap items-center gap-2 rounded-md bg-muted/40 p-2 text-sm"
             >
-              <span className="min-w-0 flex-1">
+              {/* min-w: sotto questa larghezza le azioni vanno a capo invece di schiacciare il testo */}
+              <span className="min-w-[13rem] flex-1">
                 <span className="block truncate font-medium">{link.accountName}</span>
                 <span className="block text-xs text-muted-foreground font-mono break-all">
                   {link.iban ?? link.providerAccountId} · {link.currency}
@@ -706,7 +806,7 @@ function ConnectionRow({
                 </span>
                 <BalanceReconciliation link={link} account={accountsById.get(link.accountId)} />
               </span>
-              <span className="flex items-center gap-2 shrink-0">
+              <span className="ml-auto flex items-center gap-2 shrink-0">
                 <span className="text-xs text-muted-foreground">
                   {link.syncEnabled ? 'Sync attiva' : 'Sync sospesa'}
                 </span>

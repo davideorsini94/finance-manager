@@ -42,6 +42,17 @@ import {
  */
 export const MANUAL_SYNC_DAILY_LIMIT = 4;
 
+/** Griglia degli orari configurabili: quarti d'ora (vedi `MAX_SYNC_TIMES`). */
+const SYNC_SLOT_MINUTES = 15;
+
+/**
+ * Fuso in cui vengono interpretati gli orari configurati dagli utenti. Esplicito
+ * di proposito: il container gira in UTC, quindi `new Date().getHours()` darebbe
+ * un'ora diversa da quella che l'utente ha impostato (e sfasata di un'ora tra
+ * ora solare e ora legale).
+ */
+const SYNC_TIMEZONE = 'Europe/Rome';
+
 /** Sovrapposizione sul cursore incrementale: le banche ricontabilizzano. */
 const OVERLAP_DAYS = 7;
 
@@ -89,6 +100,13 @@ export interface SyncResult {
   duplicates: number;
   /** Righe scartate perché in una valuta diversa da quella del conto. */
   skippedCurrency: number;
+  /**
+   * Righe viste dalla banca ma **non contabilizzate** (`PDNG` e simili):
+   * scartate perché cambierebbero identità una volta contabilizzate. È la
+   * risposta al caso "in banca la vedo, nell'app no": il movimento c'è, ma
+   * arriverà in coda al sync successivo alla sua contabilizzazione.
+   */
+  skippedPending: number;
   error: string | null;
 }
 
@@ -148,7 +166,8 @@ interface LinkOutcome {
  * (Fase 4).
  *
  * Tre modi di partire:
- *  - `cron` alle 06:00, su tutti i collegamenti attivi;
+ *  - `cron`, negli orari configurati dall'utente (`User.bankSyncTimes`, fino a
+ *    4 al giorno, default 06:00), su tutti i suoi collegamenti attivi;
  *  - `manual`, dagli endpoint `POST bank-sync/sync[/links/:id]`, con quota
  *    giornaliera per-utente persistita in DB;
  *  - `auto`, una volta sola subito dopo la creazione di un collegamento.
@@ -190,12 +209,23 @@ export class SyncEngineService {
   // ------------------------------------------------------------------- entry
 
   /**
-   * Sincronizzazione notturna di tutti i collegamenti attivi. Un
-   * `BankSyncRun` per utente; dentro, i link sono raggruppati per connessione
+   * Tick ogni quarto d'ora: sincronizza gli utenti che hanno **questo** slot
+   * tra i propri `bankSyncTimes`. Sostituisce il vecchio cron fisso delle 06:00
+   * — chi resta col default `["06:00"]` si comporta esattamente come prima.
+   *
+   * Un `BankSyncRun` per utente; dentro, i link sono raggruppati per connessione
    * così le chiamate verso la stessa banca restano in fila.
    */
-  @Cron(CronExpression.EVERY_DAY_AT_6AM)
-  async syncAll(): Promise<void> {
+  @Cron('*/15 * * * *')
+  async syncScheduled(): Promise<void> {
+    await this.syncAll(currentSyncSlot());
+  }
+
+  /**
+   * Sincronizzazione automatica di tutti i collegamenti attivi degli utenti che
+   * hanno configurato `slot` (HH:mm, ora italiana) tra i propri orari.
+   */
+  async syncAll(slot: string): Promise<void> {
     const { hasCredentials } = await this.config.getStatus();
     if (!hasCredentials) {
       this.logger.log('Sync bancario saltato: credenziali Enable Banking non configurate.');
@@ -207,6 +237,8 @@ export class SyncEngineService {
       connection: {
         status: BankConnectionStatus.linked,
         providerConsentId: { not: null },
+        // Chi ha svuotato la lista non compare mai: sync automatico disattivato.
+        user: { bankSyncTimes: { has: slot } },
       },
     });
     if (links.length === 0) return;
@@ -216,7 +248,9 @@ export class SyncEngineService {
         await this.runSync(userId, BankSyncTrigger.cron, userLinks);
       } catch (e) {
         // Un utente in errore non deve fermare gli altri.
-        this.logger.error(`Sync notturno fallito per l'utente ${userId}: ${(e as Error).message}`);
+        this.logger.error(
+          `Sync automatico delle ${slot} fallito per l'utente ${userId}: ${(e as Error).message}`,
+        );
       }
     }
   }
@@ -360,6 +394,7 @@ export class SyncEngineService {
       staged: 0,
       duplicates: 0,
       skippedCurrency: 0,
+      skippedPending: 0,
       error: null,
     };
     const outcome: LinkOutcome = { result, ownerId: link.connection.userId, invalid: 0 };
@@ -384,8 +419,16 @@ export class SyncEngineService {
       const dateFrom = link.lastBookedDate
         ? toIsoDateOnly(addDays(link.lastBookedDate, -OVERLAP_DAYS))
         : undefined;
-      const rows = await this.provider.fetchTransactions(link.providerAccountId, dateFrom);
+      const {
+        transactions: rows,
+        skippedPending,
+        statusCounts,
+      } = await this.provider.fetchTransactions(link.providerAccountId, dateFrom);
       result.fetched = rows.length;
+      // Le righe non contabilizzate le ha già scartate il provider: qui ne
+      // teniamo solo il conto, così l'esito spiega perché una spesa vista in
+      // banca non è ancora scesa in coda.
+      result.skippedPending = skippedPending;
 
       const linkCurrency = link.currency.toUpperCase();
       const candidates: StagedCandidate[] = [];
@@ -394,8 +437,12 @@ export class SyncEngineService {
       let maxBookingDate: Date | null = null;
 
       for (const row of rows) {
-        // Il provider filtra già i non contabilizzati: difesa in profondità.
-        if (row.status && row.status !== BOOKED_STATUS) continue;
+        // Il provider filtra già i non contabilizzati: difesa in profondità
+        // (se mai scattasse, la riga va comunque contata come pending).
+        if (row.status && row.status !== BOOKED_STATUS) {
+          result.skippedPending++;
+          continue;
+        }
 
         const currency = (row.currency || linkCurrency).toUpperCase();
         if (currency !== linkCurrency) {
@@ -464,6 +511,16 @@ export class SyncEngineService {
       // far risultare fallito lo scaricamento dei movimenti).
       const balanceCents = await this.fetchLinkBalance(link);
       await this.touchLink(link, now, maxBookingDate, balanceCents);
+
+      // Riepilogo per collegamento: da `docker logs` si legge subito perché un
+      // movimento non è arrivato in coda (non contabilizzato, valuta diversa,
+      // duplicato, riga senza data...).
+      this.logger.log(
+        `Sync collegamento ${link.id} (conto ${link.accountId}): ` +
+          `fetched=${result.fetched} staged=${result.staged} duplicates=${result.duplicates} ` +
+          `skippedCurrency=${result.skippedCurrency} skippedPending=${result.skippedPending} ` +
+          `invalid=${outcome.invalid} statuses=${formatStatusCounts(statusCounts)}`,
+      );
     } catch (e) {
       result.error = this.describeError(e);
       this.logger.warn(
@@ -1076,9 +1133,18 @@ function buildRunStats(results: SyncResult[], invalid: number): Record<string, u
     staged: sum((r) => r.staged),
     duplicates: sum((r) => r.duplicates),
     skippedCurrency: sum((r) => r.skippedCurrency),
+    skippedPending: sum((r) => r.skippedPending),
     invalid,
     errors: results.filter((r) => r.error).map((r) => ({ linkId: r.linkId, error: r.error })),
   };
+}
+
+/** `{BOOK:12,PDNG:3}` per il log; `{}` se la banca non dichiara nessuno stato. */
+function formatStatusCounts(counts: Record<string, number>): string {
+  const parts = Object.entries(counts)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([status, count]) => `${status}:${count}`);
+  return `{${parts.join(',')}}`;
 }
 
 function groupBy<T, K>(items: T[], key: (item: T) => K): Map<K, T[]> {
@@ -1096,6 +1162,29 @@ function addDays(date: Date, days: number): Date {
   const d = new Date(date.getTime());
   d.setUTCDate(d.getUTCDate() + days);
   return d;
+}
+
+/**
+ * Slot corrente della griglia dei quarti d'ora, in **ora italiana**: `HH:mm`
+ * con i minuti arrotondati per difetto a 00/15/30/45.
+ *
+ * Il fuso è esplicito perché il container gira in UTC: senza, un utente che ha
+ * chiesto le 06:00 verrebbe sincronizzato alle 07:00 (o alle 08:00 con l'ora
+ * legale). L'arrotondamento è una rete di sicurezza: se il tick parte con
+ * qualche secondo di ritardo (o su un minuto non esatto) cade comunque sullo
+ * slot giusto invece di non trovare nessun utente.
+ */
+export function currentSyncSlot(now: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: SYNC_TIMEZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(now);
+  const hour = parts.find((p) => p.type === 'hour')?.value ?? '00';
+  const minute = Number(parts.find((p) => p.type === 'minute')?.value ?? '0');
+  const slotMinute = Math.floor(minute / SYNC_SLOT_MINUTES) * SYNC_SLOT_MINUTES;
+  return `${hour}:${String(slotMinute).padStart(2, '0')}`;
 }
 
 function withinDays(a: Date, b: Date, days: number): boolean {

@@ -74,7 +74,14 @@ export function ColorPicker({ value, onChange, label }: Props) {
           <Palette className="ml-auto h-4 w-4 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 max-w-[calc(100vw-2rem)] p-3" align="start">
+      <PopoverContent
+        className="w-80 max-w-[calc(100vw-2rem)] p-3"
+        align="start"
+        // Stesso bug di IconPicker/CategoryPicker: dentro un Radix Dialog
+        // react-remove-scroll blocca il touch-scroll sui contenuti in portal
+        // fuori dal sottoalbero del Dialog (usato in CategoryForm/AccountForm).
+        disablePortal
+      >
         <div className="grid max-h-72 grid-cols-9 gap-1.5 overflow-y-auto pr-1">
           {PRESETS.map((color) => {
             const selected = value?.toLowerCase() === color.toLowerCase();

@@ -1,102 +1,131 @@
-# Graph Report - /Users/davideorsini/workspace/finance-manager  (2026-08-13)
+# Graph Report - /Users/davideorsini/workspace/finance-manager  (2026-08-14)
 
 ## Corpus Check
-- 267 files · ~121,165 words
+- 70 files · ~170,660 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1625 nodes · 3646 edges · 102 communities (74 shown, 28 thin omitted)
-- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 46 edges (avg confidence: 0.85)
-- Token cost: 445,435 input · 0 output
+- 2130 nodes · 4502 edges · 131 communities (100 shown, 31 thin omitted)
+- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 54 edges (avg confidence: 0.81)
+- Token cost: 188,862 input · 0 output
 
 ## Community Hubs (Navigation)
-- [[_COMMUNITY_Widget UI Condivisi|Widget UI Condivisi]]
-- [[_COMMUNITY_Notifiche, Cron ed Email|Notifiche, Cron ed Email]]
-- [[_COMMUNITY_Componenti UI di Base|Componenti UI di Base]]
-- [[_COMMUNITY_Form Conti e Input Denaro|Form Conti e Input Denaro]]
-- [[_COMMUNITY_Servizi Backend e ACL Conti|Servizi Backend e ACL Conti]]
-- [[_COMMUNITY_Dipendenze Dev Backend|Dipendenze Dev Backend]]
-- [[_COMMUNITY_Docker Compose e Infrastruttura|Docker Compose e Infrastruttura]]
 - [[_COMMUNITY_Grafo di Conoscenza Obsidian|Grafo di Conoscenza Obsidian]]
-- [[_COMMUNITY_Autenticazione Backend|Autenticazione Backend]]
-- [[_COMMUNITY_Router e Pagine Frontend|Router e Pagine Frontend]]
-- [[_COMMUNITY_Controller REST Backend|Controller REST Backend]]
-- [[_COMMUNITY_Dipendenze Frontend|Dipendenze Frontend]]
-- [[_COMMUNITY_Grafici Dashboard|Grafici Dashboard]]
-- [[_COMMUNITY_Moduli NestJS e Guard|Moduli NestJS e Guard]]
-- [[_COMMUNITY_API Conti Frontend|API Conti Frontend]]
 - [[_COMMUNITY_Modalità Demo Frontend|Modalità Demo Frontend]]
-- [[_COMMUNITY_Dipendenze Backend|Dipendenze Backend]]
-- [[_COMMUNITY_Controller e Decorator API|Controller e Decorator API]]
-- [[_COMMUNITY_Backup e Restore|Backup e Restore]]
-- [[_COMMUNITY_Manuale e Funzionalità|Manuale e Funzionalità]]
-- [[_COMMUNITY_Definizione Route Frontend|Definizione Route Frontend]]
-- [[_COMMUNITY_Modulo Conti Backend|Modulo Conti Backend]]
+- [[_COMMUNITY_Picker e Selettori UI|Picker e Selettori UI]]
 - [[_COMMUNITY_Dialog e Conferme UI|Dialog e Conferme UI]]
-- [[_COMMUNITY_Modulo Categorie Backend|Modulo Categorie Backend]]
-- [[_COMMUNITY_Modulo Import CSV|Modulo Import CSV]]
-- [[_COMMUNITY_Quick-Add e Wizard Import|Quick-Add e Wizard Import]]
-- [[_COMMUNITY_Movimenti Ricorrenti Backend|Movimenti Ricorrenti Backend]]
-- [[_COMMUNITY_Seed e Wiring Auth|Seed e Wiring Auth]]
-- [[_COMMUNITY_Config TypeScript Backend|Config TypeScript Backend]]
-- [[_COMMUNITY_Provider e Tema Frontend|Provider e Tema Frontend]]
-- [[_COMMUNITY_SMTP e Impostazioni Mail|SMTP e Impostazioni Mail]]
-- [[_COMMUNITY_Modulo Transazioni Backend|Modulo Transazioni Backend]]
-- [[_COMMUNITY_Report Avanzati Backend|Report Avanzati Backend]]
-- [[_COMMUNITY_Autenticazione Frontend|Autenticazione Frontend]]
-- [[_COMMUNITY_Modulo Giroconti Backend|Modulo Giroconti Backend]]
-- [[_COMMUNITY_Modulo Budget Backend|Modulo Budget Backend]]
+- [[_COMMUNITY_Dipendenze Dev Backend|Dipendenze Dev Backend]]
+- [[_COMMUNITY_Widget UI Condivisi|Widget UI Condivisi]]
+- [[_COMMUNITY_Grafici Dashboard|Grafici Dashboard]]
+- [[_COMMUNITY_Autenticazione Backend|Autenticazione Backend]]
+- [[_COMMUNITY_Provider Enable Banking|Provider Enable Banking]]
+- [[_COMMUNITY_Pagine e Componenti Frontend|Pagine e Componenti Frontend]]
+- [[_COMMUNITY_Servizi Backend e ACL|Servizi Backend e ACL]]
+- [[_COMMUNITY_Controller REST Backend|Controller REST Backend]]
+- [[_COMMUNITY_Client API Frontend|Client API Frontend]]
 - [[_COMMUNITY_Modulo Obiettivi Backend|Modulo Obiettivi Backend]]
-- [[_COMMUNITY_Client API Feature Frontend|Client API Feature Frontend]]
-- [[_COMMUNITY_Chat LLM Backend|Chat LLM Backend]]
-- [[_COMMUNITY_Condivisione Categorie e Carte|Condivisione Categorie e Carte]]
-- [[_COMMUNITY_Notifiche Frontend|Notifiche Frontend]]
-- [[_COMMUNITY_Servizi Comuni Audit Crypto|Servizi Comuni Audit Crypto]]
+- [[_COMMUNITY_Docs Infrastruttura e Compose|Docs Infrastruttura e Compose]]
+- [[_COMMUNITY_Dipendenze Frontend|Dipendenze Frontend]]
+- [[_COMMUNITY_Notifiche Backend ed Email|Notifiche Backend ed Email]]
+- [[_COMMUNITY_Servizio Collegamenti Bancari|Servizio Collegamenti Bancari]]
+- [[_COMMUNITY_Wiring Auth Backend|Wiring Auth Backend]]
+- [[_COMMUNITY_Dipendenze Backend|Dipendenze Backend]]
+- [[_COMMUNITY_Sync Engine Bancario|Sync Engine Bancario]]
+- [[_COMMUNITY_Modulo Budget Backend|Modulo Budget Backend]]
+- [[_COMMUNITY_Condivisione Categorie e Audit|Condivisione Categorie e Audit]]
+- [[_COMMUNITY_API Bank-Sync|API Bank-Sync]]
+- [[_COMMUNITY_Modulo Categorie Backend|Modulo Categorie Backend]]
+- [[_COMMUNITY_Quick-Add e Wizard Import|Quick-Add e Wizard Import]]
+- [[_COMMUNITY_API Conti Frontend|API Conti Frontend]]
+- [[_COMMUNITY_API Condivisione|API Condivisione]]
+- [[_COMMUNITY_Movimenti Ricorrenti Backend|Movimenti Ricorrenti Backend]]
+- [[_COMMUNITY_SMTP e Mail|SMTP e Mail]]
+- [[_COMMUNITY_Route Frontend|Route Frontend]]
+- [[_COMMUNITY_Controller e Decorator API|Controller e Decorator API]]
 - [[_COMMUNITY_Modulo Allegati Backend|Modulo Allegati Backend]]
+- [[_COMMUNITY_Cron e Probe Notifiche|Cron e Probe Notifiche]]
+- [[_COMMUNITY_Categorie UI e Icone|Categorie UI e Icone]]
+- [[_COMMUNITY_Credenziali Bank-Sync|Credenziali Bank-Sync]]
+- [[_COMMUNITY_Gestione Modelli Ollama|Gestione Modelli Ollama]]
+- [[_COMMUNITY_Config TypeScript Backend|Config TypeScript Backend]]
+- [[_COMMUNITY_Transfer Matcher Giroconti|Transfer Matcher Giroconti]]
+- [[_COMMUNITY_Report Avanzati Backend|Report Avanzati Backend]]
+- [[_COMMUNITY_Importi e Progress UI|Importi e Progress UI]]
+- [[_COMMUNITY_API Revisione Bancaria|API Revisione Bancaria]]
+- [[_COMMUNITY_Servizio Revisione e Conferma|Servizio Revisione e Conferma]]
+- [[_COMMUNITY_Toggle Tema e Demo|Toggle Tema e Demo]]
+- [[_COMMUNITY_Pagina Da Confermare|Pagina Da Confermare]]
+- [[_COMMUNITY_Modulo Conti Backend|Modulo Conti Backend]]
+- [[_COMMUNITY_Ricorrenze Frontend|Ricorrenze Frontend]]
+- [[_COMMUNITY_Backup e Restore|Backup e Restore]]
+- [[_COMMUNITY_Helper Sync e Consensi|Helper Sync e Consensi]]
+- [[_COMMUNITY_Notifiche Frontend|Notifiche Frontend]]
+- [[_COMMUNITY_Card Collegamenti Bancari|Card Collegamenti Bancari]]
+- [[_COMMUNITY_Modulo Import CSV|Modulo Import CSV]]
+- [[_COMMUNITY_Controller Report Avanzati|Controller Report Avanzati]]
+- [[_COMMUNITY_DTO Report|DTO Report]]
+- [[_COMMUNITY_Funzionalità nel README|Funzionalità nel README]]
+- [[_COMMUNITY_Client API Bank-Sync|Client API Bank-Sync]]
+- [[_COMMUNITY_AI Categorie Ollama|AI Categorie Ollama]]
 - [[_COMMUNITY_Servizio Condivisione Conti|Servizio Condivisione Conti]]
 - [[_COMMUNITY_Manifest PWA|Manifest PWA]]
-- [[_COMMUNITY_Shell App e Install PWA|Shell App e Install PWA]]
 - [[_COMMUNITY_Script NPM Backend|Script NPM Backend]]
-- [[_COMMUNITY_Pagina Budget Frontend|Pagina Budget Frontend]]
-- [[_COMMUNITY_Toolchain Frontend Vite|Toolchain Frontend Vite]]
-- [[_COMMUNITY_Report Avanzati Frontend|Report Avanzati Frontend]]
-- [[_COMMUNITY_AI Categorie Ollama|AI Categorie Ollama]]
-- [[_COMMUNITY_Servizio Report Base|Servizio Report Base]]
-- [[_COMMUNITY_Metadata Package Frontend|Metadata Package Frontend]]
+- [[_COMMUNITY_Moduli NestJS|Moduli NestJS]]
+- [[_COMMUNITY_Crypto e Common Module|Crypto e Common Module]]
+- [[_COMMUNITY_Client HTTP Enable Banking|Client HTTP Enable Banking]]
+- [[_COMMUNITY_Servizio Import CSV|Servizio Import CSV]]
+- [[_COMMUNITY_API Impostazioni LLM|API Impostazioni LLM]]
+- [[_COMMUNITY_Toolchain Frontend|Toolchain Frontend]]
+- [[_COMMUNITY_Bootstrap App e iOS|Bootstrap App e iOS]]
 - [[_COMMUNITY_Navigazione e Menu|Navigazione e Menu]]
-- [[_COMMUNITY_TopBar Ricerca e Toggle|TopBar Ricerca e Toggle]]
+- [[_COMMUNITY_Report Avanzati Frontend|Report Avanzati Frontend]]
+- [[_COMMUNITY_Servizio Report Base|Servizio Report Base]]
+- [[_COMMUNITY_Dialoghi Revisione|Dialoghi Revisione]]
+- [[_COMMUNITY_Wizard Collegamento Banca|Wizard Collegamento Banca]]
+- [[_COMMUNITY_Card Modelli LLM|Card Modelli LLM]]
+- [[_COMMUNITY_Errori e Util Provider|Errori e Util Provider]]
+- [[_COMMUNITY_Metadata Package Frontend|Metadata Package Frontend]]
+- [[_COMMUNITY_Shell App e BottomNav|Shell App e BottomNav]]
+- [[_COMMUNITY_Card Impostazioni Banche|Card Impostazioni Banche]]
 - [[_COMMUNITY_Configurazione Test Jest|Configurazione Test Jest]]
 - [[_COMMUNITY_Parser CSV|Parser CSV]]
 - [[_COMMUNITY_PWA Offline e Sync|PWA Offline e Sync]]
-- [[_COMMUNITY_Menu Utente e Pagine Auth|Menu Utente e Pagine Auth]]
+- [[_COMMUNITY_API Credenziali Banche|API Credenziali Banche]]
+- [[_COMMUNITY_Chiavi Memoria Categorie|Chiavi Memoria Categorie]]
+- [[_COMMUNITY_Config Modello LLM|Config Modello LLM]]
+- [[_COMMUNITY_Chat LLM Backend|Chat LLM Backend]]
+- [[_COMMUNITY_Client API Revisione|Client API Revisione]]
 - [[_COMMUNITY_Pannello Membri Conto|Pannello Membri Conto]]
-- [[_COMMUNITY_API Condivisione|API Condivisione]]
 - [[_COMMUNITY_Modulo Utenti|Modulo Utenti]]
 - [[_COMMUNITY_Preferenze Notifiche UI|Preferenze Notifiche UI]]
 - [[_COMMUNITY_Config NestJS CLI|Config NestJS CLI]]
 - [[_COMMUNITY_Metadata Package Backend|Metadata Package Backend]]
-- [[_COMMUNITY_Tool Registry LLM|Tool Registry LLM]]
-- [[_COMMUNITY_API Inviti|API Inviti]]
+- [[_COMMUNITY_Guard JWT|Guard JWT]]
+- [[_COMMUNITY_Regole Vault e Convenzioni|Regole Vault e Convenzioni]]
 - [[_COMMUNITY_Service Worker|Service Worker]]
+- [[_COMMUNITY_TopBar e Ricerca|TopBar e Ricerca]]
+- [[_COMMUNITY_Chat Frontend|Chat Frontend]]
 - [[_COMMUNITY_API Proiezioni|API Proiezioni]]
+- [[_COMMUNITY_Pagine Pubbliche e Callback|Pagine Pubbliche e Callback]]
 - [[_COMMUNITY_Icone PWA|Icone PWA]]
 - [[_COMMUNITY_Favicon e Brand|Favicon e Brand]]
+- [[_COMMUNITY_Install PWA|Install PWA]]
 - [[_COMMUNITY_API Chat Frontend|API Chat Frontend]]
-- [[_COMMUNITY_API Impostazioni|API Impostazioni]]
+- [[_COMMUNITY_API Import Frontend|API Import Frontend]]
+- [[_COMMUNITY_API Budget Frontend|API Budget Frontend]]
+- [[_COMMUNITY_API Inviti Frontend|API Inviti Frontend]]
+- [[_COMMUNITY_API SMTP Frontend|API SMTP Frontend]]
 - [[_COMMUNITY_Architettura nel README|Architettura nel README]]
 - [[_COMMUNITY_Build TypeScript|Build TypeScript]]
+- [[_COMMUNITY_Stream Chat Hook|Stream Chat Hook]]
 - [[_COMMUNITY_Sicurezza nel README|Sicurezza nel README]]
-- [[_COMMUNITY_Giroconti nel Manuale|Giroconti nel Manuale]]
-- [[_COMMUNITY_Glossario ed Entità|Glossario ed Entità]]
 - [[_COMMUNITY_Icone iOS|Icone iOS]]
 - [[_COMMUNITY_Entrypoint Ollama|Entrypoint Ollama]]
 - [[_COMMUNITY_Frontend Dev Server|Frontend Dev Server]]
 - [[_COMMUNITY_Rete Docker|Rete Docker]]
-- [[_COMMUNITY_Allegati Docs|Allegati Docs]]
-- [[_COMMUNITY_Budget Docs|Budget Docs]]
-- [[_COMMUNITY_Inviti Docs|Inviti Docs]]
-- [[_COMMUNITY_Obiettivi Docs|Obiettivi Docs]]
-- [[_COMMUNITY_Primo Accesso Docs|Primo Accesso Docs]]
+- [[_COMMUNITY_Inventario Entità|Inventario Entità]]
+- [[_COMMUNITY_Specifiche i18n|Specifiche i18n]]
+- [[_COMMUNITY_Fuori Scope UI-SPECS|Fuori Scope UI-SPECS]]
 - [[_COMMUNITY_Allegati README|Allegati README]]
 - [[_COMMUNITY_Budget README|Budget README]]
 - [[_COMMUNITY_Categorie README|Categorie README]]
@@ -109,338 +138,437 @@
 
 ## God Nodes (most connected - your core abstractions)
 1. `AuthUser` - 108 edges
-2. `PrismaService` - 59 edges
-3. `cn()` - 55 edges
-4. `Button` - 41 edges
-5. `AccountPolicyService` - 35 edges
-6. `NotificationsService` - 27 edges
-7. `useConfirm()` - 27 edges
-8. `sortByName()` - 24 edges
-9. `api` - 23 edges
-10. `MailService` - 22 edges
+2. `PrismaService` - 49 edges
+3. `cn()` - 44 edges
+4. `AccountPolicyService` - 42 edges
+5. `Button` - 38 edges
+6. `demoHandle()` - 37 edges
+7. `Registro Modifiche` - 35 edges
+8. `SyncEngineService` - 30 edges
+9. `Autenticazione e Sicurezza` - 30 edges
+10. `api` - 27 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `Tailscale Funnel (tunnel pubblico gratuito)` --semantically_similar_to--> `TLS in produzione (nginx.conf + certs)`  [INFERRED] [semantically similar]
   TAILSCALE_CONFIGURATION.md → README.md
+- `Pagina Movimenti` --references--> `BottomNav()`  [EXTRACTED]
+  docs/knowledge-graph/Pagina Movimenti.md → frontend/src/components/layout/BottomNav.tsx
 - `Frontend` --references--> `AppShell()`  [EXTRACTED]
   docs/knowledge-graph/Frontend.md → frontend/src/components/layout/AppShell.tsx
-- `PWA e Mobile` --references--> `AppShell()`  [EXTRACTED]
-  docs/knowledge-graph/PWA e Mobile.md → frontend/src/components/layout/AppShell.tsx
-- `Registro Modifiche` --references--> `AppShell()`  [EXTRACTED]
-  docs/knowledge-graph/Registro Modifiche.md → frontend/src/components/layout/AppShell.tsx
 - `AppShell()` --shares_data_with--> `quickAddStore (Zustand)`  [EXTRACTED]
   frontend/src/components/layout/AppShell.tsx → docs/knowledge-graph/Frontend.md
+- `Pagina Movimenti` --references--> `TransactionsPage()`  [EXTRACTED]
+  docs/knowledge-graph/Pagina Movimenti.md → frontend/src/features/transactions/TransactionsPage.tsx
 
 ## Import Cycles
 - None detected.
 
 ## Hyperedges (group relationships)
-- **Stack Docker Compose di produzione (postgres, minio, ollama, backend, frontend, nginx)** — docker_compose_postgres_service, docker_compose_minio_service, docker_compose_ollama_service, docker_compose_backend_service, docker_compose_frontend_service, docker_compose_nginx_service [EXTRACTED 1.00]
-- **Workflow obbligatorio del grafo di conoscenza (vault Obsidian)** — claude_grafo_di_conoscenza_obbligatorio, docs_knowledge_graph_finance_manager_hub, docs_knowledge_graph_registro_modifiche_changelog, docs_knowledge_graph_convenzioni_di_sviluppo_conventions, docs_knowledge_graph_deploy_e_versioning_deploy_guide, docs_knowledge_graph_pwa_e_mobile_pwa_constraints [EXTRACTED 1.00]
-- **Meccanismo di addebito differito carte di credito attraverso scheduler e documentazione** — readme_credit_card_deferred_billing, readme_credit_cards_module, readme_recurring_scheduler, docs_manuale_carte_di_credito_addebito_differito, docs_manuale_ricorrenze [INFERRED 0.85]
-- **ACL e condivisione conti (owner/write/read)** — docs_knowledge_graph_condivisione_conti, docs_knowledge_graph_autenticazione_e_sicurezza_accountpolicyservice, docs_knowledge_graph_database_accountmember, docs_knowledge_graph_database_accountinvite [INFERRED 0.85]
-- **Streaming SSE realtime (chat e notifiche) senza buffering nginx** — docs_knowledge_graph_chat_llm, docs_knowledge_graph_infrastruttura_docker_sse_streaming, docs_knowledge_graph_backend, docs_knowledge_graph_api [INFERRED 0.80]
-- **Fix viewport iOS per PWA standalone (v0.2.5)** — docs_knowledge_graph_pwa_e_mobile, frontend_src_lib_ios_viewport_initiosviewportfix, frontend_src_main_main, docs_knowledge_graph_frontend_src_index_index, docs_knowledge_graph_registro_modifiche [INFERRED 0.85]
+- **Fasi Di Implementazione Sync Bancario** — docs_knowledge_graph_sync_bancario_piano_fase_0, docs_knowledge_graph_sync_bancario_piano_fase_1, docs_knowledge_graph_sync_bancario_piano_fase_2, docs_knowledge_graph_sync_bancario_piano_fase_3, docs_knowledge_graph_sync_bancario_piano_fase_4, docs_knowledge_graph_sync_bancario_piano_fase_5 [EXTRACTED 1.00]
+- **Componenti Della Coda Di Revisione Bancaria** — docs_knowledge_graph_sync_bancario_bankreviewservice, docs_knowledge_graph_sync_bancario_transfermatcherservice, docs_knowledge_graph_database_categorymemory [INFERRED 0.85]
+- **Catena Di Sanificazione Testo Esterno Non Fidato** — docs_knowledge_graph_autenticazione_e_sicurezza_sanitizeexternaltext, docs_knowledge_graph_import_csv_ofx_categoryaiservice, docs_knowledge_graph_autenticazione_e_sicurezza_reactmarkdown_hardening [EXTRACTED 1.00]
 
-## Communities (102 total, 28 thin omitted)
+## Communities (131 total, 31 thin omitted)
 
-### Community 0 - "Widget UI Condivisi"
+### Community 0 - "Grafo di Conoscenza Obsidian"
 Cohesion: 0.06
-Nodes (46): AccountMultiSelect(), AnimatedNumber(), defaultFmt(), Props, Props, Reveal(), Props, Skeleton() (+38 more)
+Nodes (92): API, Architettura, Modalita Demo (mock API frontend), Autenticazione e Sicurezza, AccountPolicyService, CryptoService, JWT_ACCESS_SECRET, Hardening ReactMarkdown Chat (+84 more)
 
-### Community 1 - "Notifiche, Cron ed Email"
-Cohesion: 0.08
-Nodes (24): escapeHtml(), extractHref(), renderNotificationEmail(), BudgetThresholdProbe, CcPaymentDueProbe, formatDateIt(), formatEuro(), ListNotificationsQuery (+16 more)
+### Community 1 - "Modalità Demo Frontend"
+Cohesion: 0.06
+Nodes (61): maybeDemoResponse(), buildAnnual(), buildBudgetsWithSpent(), buildCashflow(), buildCompare(), buildDashboard(), buildSankey(), Ctx (+53 more)
 
-### Community 2 - "Componenti UI di Base"
-Cohesion: 0.12
-Nodes (33): PasswordInput, Props, Button, ButtonProps, buttonVariants, Card, CardContent, CardDescription (+25 more)
+### Community 2 - "Picker e Selettori UI"
+Cohesion: 0.11
+Nodes (38): CategoryPicker(), PickerItemProps, QuickCreateProps, ColorPicker(), PRESETS, Props, Props, IconPicker() (+30 more)
 
-### Community 3 - "Form Conti e Input Denaro"
-Cohesion: 0.07
-Nodes (33): ColorPicker(), Cents, MoneyAmount(), MoneyAmountProps, SelectContent, SelectItem, SelectTrigger, FormValues (+25 more)
+### Community 3 - "Dialog e Conferme UI"
+Cohesion: 0.09
+Nodes (35): ConfirmContext, ConfirmFn, ConfirmOptions, DialogState, initial, ConfirmDialog(), Card, CardContent (+27 more)
 
-### Community 4 - "Servizi Backend e ACL Conti"
-Cohesion: 0.08
-Nodes (14): BudgetWithSpent, AccountPolicyService, READ_ROLES, WRITE_ROLES, PrismaTx, ToolCall, ToolDefinition, ToolResult (+6 more)
-
-### Community 5 - "Dipendenze Dev Backend"
+### Community 4 - "Dipendenze Dev Backend"
 Cohesion: 0.04
 Nodes (44): devDependencies, jest, @nestjs/cli, @nestjs/schematics, @nestjs/testing, supertest, ts-jest, ts-loader (+36 more)
 
-### Community 6 - "Docker Compose e Infrastruttura"
-Cohesion: 0.06
-Nodes (45): Regola obbligatoria: consultare/aggiornare il grafo di conoscenza, Descrizione progetto in CLAUDE.md (app famigliare React19+NestJS+PostgreSQL+Docker), backend (fm-backend: DATABASE_URL, JWT, MINIO_*, OLLAMA_*, APP_PUBLIC_URL), backend (dev: start:dev, volumi src montati, COOKIE_SECURE=false), docker-compose.dev.yml (override hot-reload), frontend (fm-frontend), Pinning immagini a tag+digest sha256, minio (fm-minio, sha256 pinned, console 9001) (+37 more)
+### Community 5 - "Widget UI Condivisi"
+Cohesion: 0.09
+Nodes (29): AccountMultiSelect(), Props, AnimatedNumber(), defaultFmt(), Props, Props, Reveal(), Props (+21 more)
 
-### Community 7 - "Grafo di Conoscenza Obsidian"
-Cohesion: 0.14
-Nodes (41): API, Architettura, Modalita Demo (mock API frontend), Autenticazione e Sicurezza, AccountPolicyService (ACL conti), Refresh Rotation con Family Detection (anti-furto), Backend, Chat LLM (+33 more)
+### Community 6 - "Grafici Dashboard"
+Cohesion: 0.07
+Nodes (31): BalanceArea(), Props, CategoryPieChart(), FALLBACK_PALETTE, Props, IncomeExpenseBar(), Props, AnnualReport (+23 more)
 
-### Community 8 - "Autenticazione Backend"
+### Community 7 - "Autenticazione Backend"
 Cohesion: 0.07
 Nodes (8): AuthController, detectLanIp(), isLocalOrDocker(), AuthService, parseTtlSec(), AcceptInviteDto, InviteDto, LoginDto
 
-### Community 9 - "Router e Pagine Frontend"
-Cohesion: 0.07
-Nodes (36): Register, ACCEPTED, AttachmentUploader(), ItemProps, Props, useConfirm(), InlinePreview(), AccountForm() (+28 more)
+### Community 8 - "Provider Enable Banking"
+Cohesion: 0.11
+Nodes (26): ConsentSession, ProviderAccountDetails, ProviderAccountRef, ProviderBalance, ProviderInstitution, ProviderTransaction, StartConsentInput, StartConsentResult (+18 more)
 
-### Community 10 - "Controller REST Backend"
+### Community 9 - "Pagine e Componenti Frontend"
 Cohesion: 0.08
-Nodes (6): AttachmentsController, AuthUser, NotificationsController, AdvancedReportsController, AccountSharingController, UsersController
+Nodes (35): Register, initials(), UserMenu(), ACCEPTED, AttachmentUploader(), ItemProps, Props, useConfirm() (+27 more)
 
-### Community 11 - "Dipendenze Frontend"
+### Community 10 - "Servizi Backend e ACL"
+Cohesion: 0.08
+Nodes (14): prisma, BudgetWithSpent, AccountPolicyService, READ_ROLES, WRITE_ROLES, ToolCall, ToolDefinition, ToolResult (+6 more)
+
+### Community 11 - "Controller REST Backend"
+Cohesion: 0.08
+Nodes (7): AccountsController, AccountsModule, AttachmentsController, AuthUser, LlmChatController, NotificationsController, TransactionsController
+
+### Community 12 - "Client API Frontend"
+Cohesion: 0.06
+Nodes (31): acceptInvite(), fetchMe(), InviteValidation, loginRequest(), LoginResponse, logoutRequest(), requestPasswordReset(), resetPassword() (+23 more)
+
+### Community 13 - "Modulo Obiettivi Backend"
+Cohesion: 0.09
+Nodes (10): CreateGoalDto, UpdateGoalDto, GoalsController, GoalsModule, GoalsService, CreateTransferDto, UpdateTransferDto, TransfersController (+2 more)
+
+### Community 14 - "Docs Infrastruttura e Compose"
+Cohesion: 0.07
+Nodes (38): Descrizione progetto in CLAUDE.md (app famigliare React19+NestJS+PostgreSQL+Docker), backend (fm-backend: DATABASE_URL, JWT, MINIO_*, OLLAMA_*, APP_PUBLIC_URL), backend (dev: start:dev, volumi src montati, COOKIE_SECURE=false), docker-compose.dev.yml (override hot-reload), frontend (fm-frontend), Pinning immagini a tag+digest sha256, minio (fm-minio, sha256 pinned, console 9001), nginx (fm-nginx: 1.27-alpine, HTTP_PORT:80) (+30 more)
+
+### Community 15 - "Dipendenze Frontend"
 Cohesion: 0.05
 Nodes (38): dependencies, class-variance-authority, clsx, date-fns, @fontsource/fraunces, @fontsource/inter, @fontsource/jetbrains-mono, @hookform/resolvers (+30 more)
 
-### Community 12 - "Grafici Dashboard"
-Cohesion: 0.07
-Nodes (30): BalanceArea(), Props, CategoryPieChart(), FALLBACK_PALETTE, Props, IncomeExpenseBar(), Props, AnnualReport (+22 more)
+### Community 16 - "Notifiche Backend ed Email"
+Cohesion: 0.11
+Nodes (17): escapeHtml(), extractHref(), renderNotificationEmail(), ListNotificationsQuery, MarkReadDto, PreferenceItemDto, TestNotificationDto, UpdatePreferencesDto (+9 more)
 
-### Community 13 - "Moduli NestJS e Guard"
+### Community 17 - "Servizio Collegamenti Bancari"
+Cohesion: 0.12
+Nodes (14): BankConnectionView, BankLinkView, BankSyncService, compactIban(), ConnectionAccountView, ConnectionWithLinks, httpsUrlOrNull(), parseInstitutionId() (+6 more)
+
+### Community 18 - "Wiring Auth Backend"
 Cohesion: 0.09
-Nodes (16): AppModule, BudgetsModule, CategoriesModule, Public(), AccessTokenPayload, JwtAuthGuard, CreditCardsModule, HealthController (+8 more)
+Nodes (12): AuthModule, AccessTokenPayload, RefreshTokenPayload, TokenPair, Public(), Roles(), RolesGuard, HealthController (+4 more)
 
-### Community 14 - "API Conti Frontend"
-Cohesion: 0.10
-Nodes (28): Props, Props, accountsApi, CreateAccountInput, UpdateAccountInput, confirmCta(), confirmDescription(), confirmTitle() (+20 more)
-
-### Community 15 - "Modalità Demo Frontend"
-Cohesion: 0.10
-Nodes (27): maybeDemoResponse(), ACCOUNTS, BUDGETS, buildTx(), CATEGORIES, DemoDataset, generateTransactions(), GOALS (+19 more)
-
-### Community 16 - "Dipendenze Backend"
+### Community 19 - "Dipendenze Backend"
 Cohesion: 0.07
 Nodes (29): dependencies, archiver, argon2, class-transformer, class-validator, cookie-parser, exceljs, file-type (+21 more)
 
-### Community 17 - "Controller e Decorator API"
-Cohesion: 0.11
-Nodes (12): CurrentUser, CreditCardsController, CashflowQuery, CompareV2Query, ProjectionsQuery, SankeyQuery, AnnualReportQueryDto, CompareQueryDto (+4 more)
+### Community 20 - "Sync Engine Bancario"
+Cohesion: 0.13
+Nodes (6): addDays(), buildRunStats(), groupBy(), startOfToday(), SyncEngineService, parseIsoDateOnly()
 
-### Community 18 - "Backup e Restore"
-Cohesion: 0.09
-Nodes (10): BackupController, BackupModule, BackupService, BIGINT_FIELDS, DATE_FIELDS, readZipEntries(), TableName, TABLES (+2 more)
-
-### Community 19 - "Manuale e Funzionalità"
-Cohesion: 0.08
-Nodes (29): Backup e ripristino (solo admin, restore distruttivo), Carte di credito: addebito differito giorno 15 (pending), Categorie ad albero (2 livelli, eredità/propagazione colore), Condivisione conto (permessi read/write), Import estratto conto CSV/OFX (dedup + AI category suggest), Impostazioni (profilo, tema, lingua, demo, cambio password), Modalità privacy (oscura importi con pallini, per-dispositivo), Installazione PWA su telefono (iOS/Android, lettura offline) (+21 more)
-
-### Community 20 - "Definizione Route Frontend"
-Cohesion: 0.07
-Nodes (26): accountInviteRoute, accountsRoute, advancedReportsRoute, budgetRoute, categoriesRoute, chatRoute, dashboardRoute, goalsRoute (+18 more)
-
-### Community 21 - "Modulo Conti Backend"
-Cohesion: 0.14
-Nodes (7): AccountsController, AccountsModule, AccountsService, AddMemberDto, CreateAccountDto, UpdateAccountDto, UpdateMemberDto
-
-### Community 22 - "Dialog e Conferme UI"
+### Community 21 - "Modulo Budget Backend"
 Cohesion: 0.12
-Nodes (20): ConfirmContext, ConfirmFn, ConfirmOptions, DialogState, initial, ConfirmDialog(), Props, Props (+12 more)
+Nodes (7): BudgetsController, BudgetsModule, BudgetsService, CreateBudgetDto, ListBudgetsQuery, UpdateBudgetDto, ToolRegistry
 
-### Community 23 - "Modulo Categorie Backend"
+### Community 22 - "Condivisione Categorie e Audit"
+Cohesion: 0.12
+Nodes (6): CategorySharingService, AuditService, CreateTransactionDto, ListTransactionsQuery, UpdateTransactionDto, TransactionsService
+
+### Community 23 - "API Bank-Sync"
+Cohesion: 0.11
+Nodes (9): BankSyncController, ConfirmReviewDto, ListReviewQueryDto, BankSyncCallbackDto, CreateConnectionDto, CreateLinkDto, ListInstitutionsQueryDto, NewLinkedAccountDto (+1 more)
+
+### Community 24 - "Modulo Categorie Backend"
 Cohesion: 0.13
 Nodes (7): CategoriesController, CategoriesService, CreateCategoryDto, DeleteCategoryQueryDto, ReorderCategoriesDto, ReorderCategoryItemDto, UpdateCategoryDto
 
-### Community 24 - "Modulo Import CSV"
-Cohesion: 0.09
-Nodes (8): ColumnMapDto, ConfirmBatchDto, ConfirmRowDto, CreateBatchDto, CreateTemplateDto, ImportsController, ImportsService, normalize()
-
 ### Community 25 - "Quick-Add e Wizard Import"
 Cohesion: 0.09
-Nodes (17): Icona Shortcut Aggiungi Movimento, shortcut-home.png (icona scorciatoia PWA Dashboard), Account, Category, QuickAddSheet(), Account, Batch, BatchRow (+9 more)
+Nodes (16): Icona Shortcut Aggiungi Movimento, shortcut-home.png (icona scorciatoia PWA Dashboard), Account, Category, QuickAddSheet(), Account, Batch, BatchRow (+8 more)
 
-### Community 26 - "Movimenti Ricorrenti Backend"
+### Community 26 - "API Conti Frontend"
+Cohesion: 0.11
+Nodes (23): Props, Props, CreateAccountInput, UpdateAccountInput, confirmCta(), confirmDescription(), confirmTitle(), PendingAction (+15 more)
+
+### Community 27 - "API Condivisione"
+Cohesion: 0.11
+Nodes (9): CategoriesModule, AcceptInviteDto, BulkInviteDto, InviteMemberDto, UpdateMemberRoleDto, AccountSharingController, InvitesController, SharingModule (+1 more)
+
+### Community 28 - "Movimenti Ricorrenti Backend"
 Cohesion: 0.14
 Nodes (5): CreateRecurringDto, UpdateRecurringDto, RecurringController, RecurringModule, RecurringService
 
-### Community 27 - "Seed e Wiring Auth"
-Cohesion: 0.15
-Nodes (9): prisma, AuthModule, AccessTokenPayload, RefreshTokenPayload, TokenPair, Roles(), RolesGuard, SetFavoriteAccountDto (+1 more)
+### Community 29 - "SMTP e Mail"
+Cohesion: 0.17
+Nodes (6): TestSmtpDto, UpdateSmtpDto, MailModule, MailService, humanizeSmtpError(), SmtpSettingsController
 
-### Community 28 - "Config TypeScript Backend"
+### Community 30 - "Route Frontend"
+Cohesion: 0.08
+Nodes (24): accountInviteRoute, accountsRoute, advancedReportsRoute, bankCallbackRoute, bankReviewRoute, budgetRoute, categoriesRoute, chatRoute (+16 more)
+
+### Community 31 - "Controller e Decorator API"
+Cohesion: 0.12
+Nodes (7): CurrentUser, CreditCardsController, CreditCardsModule, CreditCardsService, PrismaTx, CreateSessionDto, SendMessageDto
+
+### Community 32 - "Modulo Allegati Backend"
+Cohesion: 0.11
+Nodes (8): AttachmentsModule, ALLOWED_MIME, AttachmentsService, dynamicImport, FileTypeModule, loadFileType(), MinioModule, MinioService
+
+### Community 33 - "Cron e Probe Notifiche"
+Cohesion: 0.13
+Nodes (9): BudgetThresholdProbe, CcPaymentDueProbe, formatDateIt(), formatEuro(), formatEuro(), LargeTransactionProbe, NotificationsModule, PrismaModule (+1 more)
+
+### Community 34 - "Categorie UI e Icone"
+Cohesion: 0.11
+Nodes (20): CategoryLabel(), PickerItem(), getIcon(), ICON_KEYS, ICON_POOL, CategoryRow(), CreateTransactionInput, CreateTransferInput (+12 more)
+
+### Community 35 - "Credenziali Bank-Sync"
+Cohesion: 0.12
+Nodes (9): BankProviderPort, assertUsableRsaKey(), BankSyncConfigService, BankSyncCredentials, BankSyncCredentialsStatus, maskAppId(), normalizePem(), BankSyncSettingsService (+1 more)
+
+### Community 36 - "Gestione Modelli Ollama"
+Cohesion: 0.12
+Nodes (11): CATALOG_SEED, isCatalogModel(), LLM_CATALOG, LlmCatalogEntry, InstalledModel, LlmModelsService, LlmOverview, PullJobState (+3 more)
+
+### Community 37 - "Config TypeScript Backend"
 Cohesion: 0.09
 Nodes (22): compilerOptions, allowSyntheticDefaultImports, baseUrl, declaration, emitDecoratorMetadata, esModuleInterop, experimentalDecorators, forceConsistentCasingInFileNames (+14 more)
 
-### Community 29 - "Provider e Tema Frontend"
-Cohesion: 0.15
-Nodes (17): AuthGate(), ThemeBootstrap(), router, FONTS, PALETTES, PaletteToggle(), DemoBanner(), ThemeToggle() (+9 more)
-
-### Community 30 - "SMTP e Impostazioni Mail"
+### Community 38 - "Transfer Matcher Giroconti"
 Cohesion: 0.17
-Nodes (5): TestSmtpDto, UpdateSmtpDto, MailService, humanizeSmtpError(), SmtpSettingsController
+Nodes (15): normalizeForCompare(), addDays(), bestPartner(), Candidate, compactIdentity(), dayDiff(), findPairs(), hasTransferKeyword() (+7 more)
 
-### Community 31 - "Modulo Transazioni Backend"
-Cohesion: 0.16
-Nodes (5): CreateTransactionDto, ListTransactionsQuery, UpdateTransactionDto, TransactionsController, TransactionsService
-
-### Community 32 - "Report Avanzati Backend"
+### Community 39 - "Report Avanzati Backend"
 Cohesion: 0.22
 Nodes (12): accountIdFilterSql(), addMonths(), AdvancedReportsService, bumpDate(), CashflowPoint, CashflowResult, countOccurrencesInRange(), monthStart() (+4 more)
 
-### Community 33 - "Autenticazione Frontend"
-Cohesion: 0.15
-Nodes (16): acceptInvite(), fetchMe(), InviteValidation, loginRequest(), LoginResponse, logoutRequest(), requestPasswordReset(), resetPassword() (+8 more)
-
-### Community 34 - "Modulo Giroconti Backend"
-Cohesion: 0.21
-Nodes (6): CreateTransferDto, UpdateTransferDto, TransfersController, TransfersModule, TransfersService, Tx
-
-### Community 35 - "Modulo Budget Backend"
-Cohesion: 0.19
-Nodes (5): BudgetsController, BudgetsService, CreateBudgetDto, ListBudgetsQuery, UpdateBudgetDto
-
-### Community 36 - "Modulo Obiettivi Backend"
-Cohesion: 0.20
-Nodes (5): CreateGoalDto, UpdateGoalDto, GoalsController, GoalsModule, GoalsService
-
-### Community 37 - "Client API Feature Frontend"
-Cohesion: 0.11
-Nodes (14): budgetApi, BudgetWithSpent, CreateBudgetInput, ConfirmRow, importApi, ImportBatch, PreviewRow, CreateInviteResponse (+6 more)
-
-### Community 38 - "Chat LLM Backend"
+### Community 40 - "Importi e Progress UI"
 Cohesion: 0.14
-Nodes (4): CreateSessionDto, LlmChatController, SendMessageDto, LlmChatService
+Nodes (15): Cents, MoneyAmount(), MoneyAmountProps, Progress, ProgressProps, CreateGoalInput, Goal, goalsApi (+7 more)
 
-### Community 40 - "Notifiche Frontend"
-Cohesion: 0.19
-Nodes (13): formatRelative(), ICONS, NotificationBell(), NotificationRow(), TYPE_HUE, Ctx, NotificationsContext, NotificationsProvider() (+5 more)
+### Community 41 - "API Revisione Bancaria"
+Cohesion: 0.12
+Nodes (14): ConfirmError, ConfirmResult, describeError(), PairView, ReviewItem, ReviewListResult, StagedForReview, toReviewItem() (+6 more)
 
-### Community 41 - "Servizi Comuni Audit Crypto"
+### Community 43 - "Toggle Tema e Demo"
+Cohesion: 0.17
+Nodes (13): FONTS, PALETTES, PaletteToggle(), DemoBanner(), PrivacyToggle(), ThemeToggle(), applyTheme(), ColorTheme (+5 more)
+
+### Community 44 - "Pagina Da Confermare"
+Cohesion: 0.12
+Nodes (6): ReviewItem, UpdateReviewItemInput, BankReviewPage(), PatchOp, ReviewRow, TYPE_LABEL
+
+### Community 45 - "Modulo Conti Backend"
+Cohesion: 0.22
+Nodes (5): AccountsService, AddMemberDto, CreateAccountDto, UpdateAccountDto, UpdateMemberDto
+
+### Community 46 - "Ricorrenze Frontend"
+Cohesion: 0.14
+Nodes (14): CreateRecurringInput, RecurrenceFreq, recurringApi, RecurringRule, UpdateRecurringInput, FormType, FormValues, FREQUENCIES (+6 more)
+
+### Community 47 - "Backup e Restore"
+Cohesion: 0.13
+Nodes (7): BackupController, BackupService, BIGINT_FIELDS, DATE_FIELDS, readZipEntries(), TableName, TABLES
+
+### Community 48 - "Helper Sync e Consensi"
 Cohesion: 0.16
-Nodes (5): CommonModule, AuditService, CryptoService, SALT, SmtpSettings
+Nodes (13): formatDateIt(), isoWeekKey(), LinkForSync, LinkOutcome, StagedCandidate, SyncLinkResult, SyncResult, SyncRunResult (+5 more)
 
-### Community 42 - "Modulo Allegati Backend"
-Cohesion: 0.18
-Nodes (6): AttachmentsModule, ALLOWED_MIME, AttachmentsService, dynamicImport, FileTypeModule, loadFileType()
+### Community 49 - "Notifiche Frontend"
+Cohesion: 0.15
+Nodes (13): formatRelative(), ICONS, NotificationBell(), NotificationRow(), TYPE_HREF, TYPE_HUE, Ctx, NotificationsContext (+5 more)
 
-### Community 44 - "Manifest PWA"
+### Community 50 - "Card Collegamenti Bancari"
+Cohesion: 0.14
+Nodes (11): RENEWABLE_STATUSES, RenewOutcome, RenewOutcomeMessage(), RenewState, STATUS_LABELS, STATUS_VARIANTS, BankLinkWizard(), statusLabel() (+3 more)
+
+### Community 51 - "Modulo Import CSV"
+Cohesion: 0.14
+Nodes (6): ColumnMapDto, ConfirmBatchDto, ConfirmRowDto, CreateBatchDto, CreateTemplateDto, ImportsController
+
+### Community 52 - "Controller Report Avanzati"
+Cohesion: 0.14
+Nodes (6): AdvancedReportsController, CashflowQuery, CompareV2Query, ProjectionsQuery, SankeyQuery, ReportsModule
+
+### Community 53 - "DTO Report"
+Cohesion: 0.23
+Nodes (6): AnnualReportQueryDto, CompareQueryDto, CustomReportQueryDto, DashboardQueryDto, MonthlyReportQueryDto, ReportsController
+
+### Community 54 - "Funzionalità nel README"
+Cohesion: 0.13
+Nodes (15): Requisiti PWA (icone 192/512, tema header #0f172a, standalone), index.html (app shell, meta PWA/iOS, mount #root), backend/src/backup (export/restore full ZIP), Backup & Restore full-system (.zip), frontend/src/features/chat (ChatPage + useChatStream SSE), Addebito differito carte di credito (giorno 15), backend/src/credit-cards (billing date + scheduler addebiti), frontend/src/features/dashboard (DashboardPage + 3 charts) (+7 more)
+
+### Community 55 - "Client API Bank-Sync"
+Cohesion: 0.13
+Nodes (14): BankAccountLink, BankConnectionsResponse, BankInstitutionsResponse, BankSyncCredentialsStatus, BankSyncTestResult, CreateConnectionInput, CreateConnectionResult, CreateLinkInput (+6 more)
+
+### Community 56 - "AI Categorie Ollama"
+Cohesion: 0.19
+Nodes (5): CategoryAiService, CategorySuggestion, describeError(), elapsedSeconds(), SuggestionInput
+
+### Community 58 - "Manifest PWA"
 Cohesion: 0.14
 Nodes (13): background_color, categories, description, display, icons, lang, name, orientation (+5 more)
 
-### Community 45 - "Shell App e Install PWA"
-Cohesion: 0.21
-Nodes (9): GlobalQuickAdd(), Sidebar(), ConfirmProvider(), PWAInstallPrompt(), SWUpdateBanner(), BeforeInstallPromptEvent, usePWAInstall(), QuickAddState (+1 more)
-
-### Community 46 - "Script NPM Backend"
+### Community 59 - "Script NPM Backend"
 Cohesion: 0.15
 Nodes (13): scripts, build, lint, prisma:generate, prisma:migrate:deploy, prisma:migrate:dev, prisma:seed, start (+5 more)
 
-### Community 47 - "Pagina Budget Frontend"
-Cohesion: 0.19
-Nodes (10): CategoryPicker(), Progress, ProgressProps, BudgetPage(), currentMonth(), FormValues, schema, categoriesApi (+2 more)
+### Community 60 - "Moduli NestJS"
+Cohesion: 0.33
+Nodes (5): AppModule, BackupModule, BankSyncModule, ImportsModule, LlmChatModule
 
-### Community 48 - "Toolchain Frontend Vite"
+### Community 61 - "Crypto e Common Module"
+Cohesion: 0.23
+Nodes (3): CommonModule, CryptoService, SmtpSettings
+
+### Community 64 - "API Impostazioni LLM"
+Cohesion: 0.23
+Nodes (3): PullModelDto, SetActiveModelDto, LlmSettingsController
+
+### Community 65 - "Toolchain Frontend"
 Cohesion: 0.17
 Nodes (12): devDependencies, autoprefixer, postcss, tailwindcss, @tanstack/router-devtools, @types/node, @types/react, @types/react-dom (+4 more)
 
-### Community 49 - "Report Avanzati Frontend"
+### Community 66 - "Bootstrap App e iOS"
+Cohesion: 0.23
+Nodes (7): AuthGate(), Providers(), router, setUnauthorizedHandler(), initIosViewportFix(), cleanupLegacyApiCaches(), container
+
+### Community 67 - "Navigazione e Menu"
+Cohesion: 0.24
+Nodes (8): MobileMenu(), isNavItemActive(), NAV_ITEMS, NAV_PATHS_BY_SPECIFICITY, NAV_SECTIONS, NavItem, NavSection, Sidebar()
+
+### Community 68 - "Report Avanzati Frontend"
 Cohesion: 0.20
-Nodes (7): AdvancedReports(), CashflowResult, CompareResult, fmt(), SankeyResult, SankeySection(), SummaryCard()
+Nodes (6): CashflowResult, CompareResult, fmt(), SankeyResult, SankeySection(), SummaryCard()
 
-### Community 50 - "AI Categorie Ollama"
+### Community 70 - "Dialoghi Revisione"
+Cohesion: 0.31
+Nodes (11): CategoryDialog(), displayCents(), DuplicateRowView(), EffectiveType, IgnoredRowView(), itemLabel(), PairDialog(), PairHeadline() (+3 more)
+
+### Community 71 - "Wizard Collegamento Banca"
+Cohesion: 0.18
+Nodes (7): Choice, InstitutionLogo(), LinkOutcome, Step, WizardResume, BankInstitution, ProviderAccount
+
+### Community 72 - "Card Modelli LLM"
 Cohesion: 0.22
-Nodes (3): CategoryAiService, CategorySuggestion, SuggestionInput
+Nodes (7): CatalogItem, InstalledModel, llmApi, LlmCatalog, LlmSettings, PullStatus, LlmSettingsCard()
 
-### Community 52 - "Metadata Package Frontend"
+### Community 73 - "Errori e Util Provider"
+Cohesion: 0.27
+Nodes (7): b64url(), BankProviderError, BankProviderErrorKind, extractDetail(), mapHttpError(), RequestOptions, sanitizeExternalText()
+
+### Community 74 - "Metadata Package Frontend"
 Cohesion: 0.20
 Nodes (9): name, private, scripts, build, dev, lint, preview, type (+1 more)
 
-### Community 53 - "Navigazione e Menu"
-Cohesion: 0.33
-Nodes (6): isNavItemActive(), NAV_ITEMS, NAV_PATHS_BY_SPECIFICITY, NAV_SECTIONS, NavItem, NavSection
+### Community 75 - "Shell App e BottomNav"
+Cohesion: 0.36
+Nodes (6): GlobalQuickAdd(), BottomNav(), ConfirmProvider(), SWUpdateBanner(), QuickAddState, useQuickAdd
 
-### Community 54 - "TopBar Ricerca e Toggle"
-Cohesion: 0.27
-Nodes (6): CommandSearch(), MobileMenu(), TopBar(), LANGS, LanguageSwitcher(), PrivacyToggle()
+### Community 76 - "Card Impostazioni Banche"
+Cohesion: 0.22
+Nodes (8): BankConnectionsCard(), bankSyncApi, BankSyncCredentialsCard(), FormValues, schema, passwordSchema, profileSchema, SettingsPage()
 
-### Community 55 - "Configurazione Test Jest"
+### Community 77 - "Configurazione Test Jest"
 Cohesion: 0.22
 Nodes (9): jest, collectCoverageFrom, coverageDirectory, moduleFileExtensions, rootDir, testEnvironment, testRegex, transform (+1 more)
 
-### Community 56 - "Parser CSV"
+### Community 78 - "Parser CSV"
 Cohesion: 0.28
-Nodes (7): autoDetectDelimiter(), parseAmountCents(), parseCsv(), ParseCsvOptions, parseDate(), ParsedCsv, splitCsvLines()
+Nodes (5): autoDetectDelimiter(), parseCsv(), ParseCsvOptions, ParsedCsv, splitCsvLines()
 
-### Community 57 - "PWA Offline e Sync"
+### Community 79 - "PWA Offline e Sync"
 Cohesion: 0.33
 Nodes (5): OnlineIndicator(), openDb(), persistRecentTransactions(), readRecentTransactions(), useOnlineStatus()
 
-### Community 58 - "Menu Utente e Pagine Auth"
-Cohesion: 0.32
-Nodes (7): initials(), UserMenu(), AccountsPage(), InviteAcceptPage(), LoginPage(), useAuth, SettingsPage()
+### Community 81 - "Chiavi Memoria Categorie"
+Cohesion: 0.39
+Nodes (7): buildCategoryMatchKey(), isSignificant(), keyFromText(), NOISE_PHRASES, normalize(), STOPWORDS, stripNoise()
 
-### Community 59 - "Pannello Membri Conto"
+### Community 84 - "Client API Revisione"
+Cohesion: 0.25
+Nodes (7): bankReviewApi, ConfirmReviewResult, ReviewCategory, ReviewDuplicateOf, ReviewListResponse, ReviewPair, ReviewStatus
+
+### Community 85 - "Pannello Membri Conto"
 Cohesion: 0.25
 Nodes (5): AccountMembersPanel(), Invite, Member, MembersData, Role
 
-### Community 60 - "API Condivisione"
-Cohesion: 0.48
-Nodes (3): BulkInviteDto, InviteMemberDto, UpdateMemberRoleDto
-
-### Community 62 - "Preferenze Notifiche UI"
+### Community 87 - "Preferenze Notifiche UI"
 Cohesion: 0.29
-Nodes (5): Channel, NotificationType, Pref, Toggle(), TYPE_LABELS
+Nodes (4): Channel, NotificationType, Pref, TYPE_LABELS
 
-### Community 63 - "Config NestJS CLI"
+### Community 88 - "Config NestJS CLI"
 Cohesion: 0.33
 Nodes (5): collection, compilerOptions, deleteOutDir, $schema, sourceRoot
 
-### Community 64 - "Metadata Package Backend"
+### Community 89 - "Metadata Package Backend"
 Cohesion: 0.33
 Nodes (5): name, prisma, seed, private, version
 
-### Community 68 - "API Proiezioni"
+### Community 91 - "Regole Vault e Convenzioni"
+Cohesion: 0.33
+Nodes (6): Regola obbligatoria: consultare/aggiornare il grafo di conoscenza, Convenzioni di Sviluppo.md, Deploy e Versioning.md, Finance Manager.md (nota-hub del vault), PWA e Mobile.md, Registro Modifiche.md (changelog grafo)
+
+### Community 93 - "TopBar e Ricerca"
+Cohesion: 0.40
+Nodes (4): CommandSearch(), TopBar(), LANGS, LanguageSwitcher()
+
+### Community 95 - "API Proiezioni"
 Cohesion: 0.33
 Nodes (4): ProjectionAccount, ProjectionPoint, ProjectionResult, projectionsApi
 
-### Community 69 - "Icone PWA"
+### Community 97 - "Icone PWA"
 Cohesion: 0.40
 Nodes (5): Finance Manager (app), Icona PWA Finance Manager 192x192, PWA Icon 512x512 (Maskable), PWA Icon 512x512, PWA Manifest (manifest.json)
 
-### Community 70 - "Favicon e Brand"
+### Community 98 - "Favicon e Brand"
 Cohesion: 0.60
 Nodes (5): Cyan Accent Dot, Finance Manager App Icon, Dark Slate Rounded-Square Background, F Monogram Mark, Cyan-Indigo Progress Ring
 
-### Community 71 - "API Chat Frontend"
+### Community 99 - "Install PWA"
+Cohesion: 0.60
+Nodes (3): PWAInstallPrompt(), BeforeInstallPromptEvent, usePWAInstall()
+
+### Community 100 - "API Chat Frontend"
 Cohesion: 0.50
 Nodes (4): chatApi, ChatMessage, ChatSession, ChatSessionSummary
 
-### Community 72 - "API Impostazioni"
-Cohesion: 0.50
-Nodes (3): ChangePasswordInput, settingsApi, UpdateProfileInput
+### Community 101 - "API Import Frontend"
+Cohesion: 0.40
+Nodes (4): ConfirmRow, importApi, ImportBatch, PreviewRow
 
-### Community 73 - "Architettura nel README"
+### Community 102 - "API Budget Frontend"
+Cohesion: 0.50
+Nodes (3): budgetApi, BudgetWithSpent, CreateBudgetInput
+
+### Community 103 - "API Inviti Frontend"
+Cohesion: 0.50
+Nodes (3): CreateInviteResponse, invitesApi, PendingInvite
+
+### Community 104 - "API SMTP Frontend"
+Cohesion: 0.50
+Nodes (3): smtpApi, SmtpSettings, UpdateSmtpInput
+
+### Community 105 - "Architettura nel README"
 Cohesion: 0.50
 Nodes (4): AccountPolicyService (ACL conti), backend/src/accounts (CRUD + ACL), backend/src/sharing (inviti membri conto + propagazione categorie), backend/src/transactions (CRUD + filtri + audit log)
 
-### Community 76 - "Sicurezza nel README"
+### Community 109 - "Sicurezza nel README"
 Cohesion: 0.67
 Nodes (3): backend/src/auth (login, refresh rotation, invite, reset-password), Autenticazione & sicurezza (invite-only, refresh rotation, throttler), backend/src/common (guards, decorators, services)
 
 ## Ambiguous Edges - Review These
-- `Modalità privacy (oscura importi con pallini, per-dispositivo)` → `Fuori scope (§12: no push, no multi-valuta, no export PDF, no privacy mode)`  [AMBIGUOUS]
-  docs/UI-SPECS.md · relation: conceptually_related_to
 - `Cyan-Indigo Progress Ring` → `Cyan Accent Dot`  [AMBIGUOUS]
   frontend/public/favicon.svg · relation: conceptually_related_to
 
 ## Knowledge Gaps
-- **480 isolated node(s):** `$schema`, `collection`, `sourceRoot`, `deleteOutDir`, `name` (+475 more)
+- **591 isolated node(s):** `$schema`, `collection`, `sourceRoot`, `deleteOutDir`, `name` (+586 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **28 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **31 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **What is the exact relationship between `Modalità privacy (oscura importi con pallini, per-dispositivo)` and `Fuori scope (§12: no push, no multi-valuta, no export PDF, no privacy mode)`?**
-  _Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low._
 - **What is the exact relationship between `Cyan-Indigo Progress Ring` and `Cyan Accent Dot`?**
   _Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low._
-- **Why does `AuthUser` connect `Controller REST Backend` to `Notifiche, Cron ed Email`, `API Inviti`, `Modulo Budget Backend`, `Modulo Obiettivi Backend`, `Modulo Giroconti Backend`, `Chat LLM Backend`, `Autenticazione Backend`, `Controller e Decorator API`, `Modulo Conti Backend`, `Modulo Categorie Backend`, `Modulo Import CSV`, `Movimenti Ricorrenti Backend`, `Seed e Wiring Auth`, `API Condivisione`, `SMTP e Impostazioni Mail`, `Modulo Transazioni Backend`?**
-  _High betweenness centrality (0.085) - this node is a cross-community bridge._
-- **Why does `PrismaService` connect `Servizi Backend e ACL Conti` to `Report Avanzati Backend`, `Notifiche, Cron ed Email`, `Modulo Giroconti Backend`, `Modulo Obiettivi Backend`, `Condivisione Categorie e Carte`, `Autenticazione Backend`, `Servizi Comuni Audit Crypto`, `Modulo Allegati Backend`, `Moduli NestJS e Guard`, `Backup e Restore`, `Modulo Conti Backend`, `Modulo Categorie Backend`, `Movimenti Ricorrenti Backend`, `Seed e Wiring Auth`, `API Condivisione`?**
-  _High betweenness centrality (0.042) - this node is a cross-community bridge._
-- **Why does `MailService` connect `SMTP e Impostazioni Mail` to `Notifiche, Cron ed Email`, `Condivisione Categorie e Carte`, `Autenticazione Backend`, `Servizi Comuni Audit Crypto`, `Moduli NestJS e Guard`, `Seed e Wiring Auth`, `API Condivisione`?**
-  _High betweenness centrality (0.030) - this node is a cross-community bridge._
+- **Why does `TransactionsPage()` connect `Grafo di Conoscenza Obsidian` to `Pagine e Componenti Frontend`, `Categorie UI e Icone`, `Shell App e BottomNav`?**
+  _High betweenness centrality (0.076) - this node is a cross-community bridge._
+- **Why does `Pagina Movimenti` connect `Grafo di Conoscenza Obsidian` to `Shell App e BottomNav`?**
+  _High betweenness centrality (0.070) - this node is a cross-community bridge._
+- **Why does `AuthUser` connect `Controller REST Backend` to `Autenticazione Backend`, `Modulo Conti Backend`, `Modulo Obiettivi Backend`, `Notifiche Backend ed Email`, `Wiring Auth Backend`, `Modulo Import CSV`, `Controller Report Avanzati`, `Modulo Budget Backend`, `DTO Report`, `Condivisione Categorie e Audit`, `Modulo Categorie Backend`, `Modulo Utenti`, `API Condivisione`, `Movimenti Ricorrenti Backend`, `SMTP e Mail`, `Controller e Decorator API`?**
+  _High betweenness centrality (0.067) - this node is a cross-community bridge._
 - **What connects `$schema`, `collection`, `sourceRoot` to the rest of the system?**
-  _481 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `Widget UI Condivisi` be split into smaller, more focused modules?**
-  _Cohesion score 0.05868544600938967 - nodes in this community are weakly interconnected._
+  _593 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `Grafo di Conoscenza Obsidian` be split into smaller, more focused modules?**
+  _Cohesion score 0.06378404204491162 - nodes in this community are weakly interconnected._
+- **Should `Modalità Demo Frontend` be split into smaller, more focused modules?**
+  _Cohesion score 0.06240084611316764 - nodes in this community are weakly interconnected._

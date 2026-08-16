@@ -85,5 +85,34 @@
       "label": "Demo data",
       "description": "Show fake data instead of real data"
     }
+  },
+  "bankSync": {
+    "syncNow": "Sync now",
+    "summary": {
+      "fetched_one": "{{count}} fetched",
+      "fetched_other": "{{count}} fetched",
+      "skippedPending_one": "{{count}} awaiting posting",
+      "skippedPending_other": "{{count}} awaiting posting",
+      "skippedPendingHint": "Transactions the bank hasn't posted yet: they'll arrive on the next sync."
+    },
+    "reconciliation": {
+      "pendingNote": "The difference may be due to transactions the bank hasn't posted yet."
+    },
+    "schedule": {
+      "title": "Automatic sync",
+      "help": "Up to {{max}} automatic syncs per day (PSD2 limit for unattended access), in 15-minute steps and in Italian time. With no times set, automatic sync is off.",
+      "loading": "Loading times…",
+      "disabled": "Automatic sync is off: no times set.",
+      "addLabel": "New time",
+      "add": "Add",
+      "remove": "Remove {{time}}",
+      "save": "Save times",
+      "saving": "Saving…",
+      "saved": "Times saved.",
+      "maxReached": "You can set at most {{max}} automatic syncs per day.",
+      "duplicate": "This time is already set.",
+      "invalid": "Enter a valid time.",
+      "rounded": "Time rounded to {{time}}: only quarter hours are allowed."
+    }
   }
 }

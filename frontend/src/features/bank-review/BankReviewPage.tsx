@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import {
   AlertCircle,
   ArrowDownRight,
@@ -12,6 +13,7 @@ import {
   EyeOff,
   Link2,
   MoreVertical,
+  RefreshCw,
   RotateCcw,
   Tag,
   Unlink,
@@ -43,6 +45,8 @@ import { formatDate } from '@/lib/utils/date';
 import { categoriesApi } from '@/features/categories/categoriesApi';
 import { useUIStore } from '@/store/uiStore';
 import type { Category } from '@/types/domain';
+import { bankSyncApi, type SyncAllResponse } from '@/features/settings/bankSyncApi';
+import { SyncSummaryPanel, syncErrorMessage } from '@/features/settings/syncSummary';
 import {
   bankReviewApi,
   CONFIRM_MAX_IDS,
@@ -175,6 +179,7 @@ function dateHeading(iso: string): string {
 // ============================================================================
 
 export function BankReviewPage() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<ReviewStatus>('pending_review');
   const [page, setPage] = useState(1);
@@ -182,6 +187,7 @@ export function BankReviewPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [actionError, setActionError] = useState<string | null>(null);
   const [confirmResult, setConfirmResult] = useState<ConfirmReviewResult | null>(null);
+  const [syncSummary, setSyncSummary] = useState<SyncAllResponse | null>(null);
   const [categoryTarget, setCategoryTarget] = useState<ReviewItem | null>(null);
   const [pairTarget, setPairTarget] = useState<ReviewItem | null>(null);
 
@@ -274,6 +280,21 @@ export function BankReviewPage() {
       void queryClient.invalidateQueries({ queryKey: [key], refetchType: 'all' });
     }
   };
+
+  /** Trigger manuale del sync bancario direttamente dalla coda di revisione. */
+  const syncNow = useMutation({
+    mutationFn: () => bankSyncApi.syncAll(),
+    onMutate: () => {
+      setActionError(null);
+      setSyncSummary(null);
+    },
+    onSuccess: (data) => {
+      setSyncSummary(data);
+      invalidateReview();
+      void queryClient.invalidateQueries({ queryKey: ['bank-connections'], refetchType: 'all' });
+    },
+    onError: (e) => setActionError(syncErrorMessage(e)),
+  });
 
   const patch = useMutation({
     // Sequenziale: sono sempre 1-2 operazioni (categoria, tipo, accoppia,
@@ -369,7 +390,22 @@ export function BankReviewPage() {
             poi conferma: solo allora entrano nei tuoi movimenti e aggiornano i saldi.
           </p>
         </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="shrink-0"
+          disabled={syncNow.isPending}
+          onClick={() => syncNow.mutate()}
+        >
+          <RefreshCw className={cn('mr-2 h-4 w-4', syncNow.isPending && 'animate-spin')} />
+          {t('bankSync.syncNow')}
+        </Button>
       </div>
+
+      {syncSummary && (
+        <SyncSummaryPanel summary={syncSummary} onDismiss={() => setSyncSummary(null)} />
+      )}
 
       {confirmResult && (
         <ConfirmSummary result={confirmResult} onDismiss={() => setConfirmResult(null)} />

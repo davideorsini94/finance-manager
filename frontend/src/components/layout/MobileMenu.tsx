@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useRouterState } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { Menu, X, PiggyBank } from 'lucide-react';
@@ -53,6 +54,11 @@ export function MobileMenu() {
         <Menu className="h-5 w-5" />
       </Button>
 
+      {/* Portal su body: la TopBar (sticky z-20) crea uno stacking context,
+          quindi senza portal il drawer — pur con z-50 — finirebbe DIETRO la
+          BottomNav (z-30, contesto radice) che ne copriva le ultime voci. */}
+      {createPortal(
+        <>
       {/* Backdrop */}
       <div
         className={cn(
@@ -72,7 +78,10 @@ export function MobileMenu() {
         )}
         style={{
           paddingTop: 'var(--safe-top)',
-          paddingBottom: 'var(--safe-bottom)',
+          // Somma l'eventuale offset del visual viewport (banda scoperta da
+          // pan residuo su iOS standalone, vedi lib/ios-viewport.ts) così
+          // l'ultima voce del menu non resta nascosta sotto la zona scoperta.
+          paddingBottom: 'calc(var(--safe-bottom) + var(--fm-vv-offset, 0px))',
           paddingLeft: 'var(--safe-left)',
         }}
         role="dialog"
@@ -96,7 +105,7 @@ export function MobileMenu() {
           </Button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto py-3">
+        <nav className="flex-1 overflow-y-auto pt-3 pb-4">
           {NAV_SECTIONS.map((section) => (
             <div key={section.labelKey} className="mb-4 px-2">
               <div className="px-3 pb-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -132,6 +141,9 @@ export function MobileMenu() {
           ))}
         </nav>
       </aside>
+        </>,
+        document.body,
+      )}
     </>
   );
 }

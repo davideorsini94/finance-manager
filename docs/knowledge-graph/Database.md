@@ -4,7 +4,7 @@ PostgreSQL 16, schema gestito con Prisma: `backend/prisma/schema.prisma`. Migraz
 
 ## Modelli e relazioni chiave
 
-- **User** — email, passwordHash (Argon2id), role (admin/user), locale, `favoriteAccountId` (conto proposto di default nei form)
+- **User** — email, passwordHash (Argon2id), role (admin/user), locale, `favoriteAccountId` (conto proposto di default nei form), `bankSyncTimes` (`String[]`, default `["06:00"]`, colonna `bank_sync_times`): orari `HH:mm` **in ora italiana** a passi di 15' in cui parte il sync bancario automatico, max 4 (tetto PSD2 per gli accessi non presidiati), lista vuota = automatismo disattivato → [[Sync Bancario]]
 - **Account** — name, type (`checking`/`credit_card`/`cash`), currency, balanceCents, ownerId, color, icon, archivedAt; per carte: `paymentAccountId` (conto d'appoggio) e `billingDay`
 - **AccountMember** — N:N User↔Account con ruolo owner/write/read → [[Condivisione Conti]]
 - **AccountInvite** — inviti per conto (token monouso, status pending/accepted/rejected/revoked/expired)

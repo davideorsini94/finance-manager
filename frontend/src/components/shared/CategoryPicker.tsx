@@ -149,7 +149,7 @@ export function CategoryPicker({
           </Button>
         </PopoverTrigger>
         <PopoverContent
-          className="w-[var(--radix-popover-trigger-width)] p-0"
+          className="w-[var(--radix-popover-trigger-width)] min-w-[16rem] max-w-[calc(100vw-2rem)] p-0"
           align="start"
           // Quando il picker è dentro un Radix Dialog (es. TransactionForm),
           // `react-remove-scroll` del Dialog blocca wheel/touch sugli elementi

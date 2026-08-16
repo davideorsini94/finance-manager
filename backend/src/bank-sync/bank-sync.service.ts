@@ -35,6 +35,7 @@ import {
 import { BankProviderError } from './enable-banking.client';
 import { computeConsentValidUntil, normalizeAccountEntry } from './enable-banking.provider';
 import { SyncEngineService } from './sync-engine.service';
+import { MAX_SYNC_TIMES, SYNC_TIME_PATTERN } from './dto/bank-sync.dto';
 import type { CreateConnectionDto, CreateLinkDto } from './dto/bank-sync.dto';
 
 /**
@@ -143,6 +144,40 @@ export class BankSyncService {
       this.provider.listInstitutions(normalized === 'ALL' ? undefined : normalized),
     );
     return { items };
+  }
+
+  // ------------------------------------------- orari di sync automatico
+
+  /**
+   * Orari (HH:mm, ora italiana) in cui parte la sincronizzazione automatica
+   * dell'utente. Lista vuota = sync automatico disattivato.
+   */
+  async getSchedule(userId: string): Promise<{ times: string[] }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { bankSyncTimes: true },
+    });
+    if (!user) throw new NotFoundException('Utente non trovato.');
+    return { times: normalizeSyncTimes(user.bankSyncTimes) };
+  }
+
+  /**
+   * Sostituisce gli orari di sync automatico. Il formato è già validato dal
+   * DTO: qui si deduplica e si ordina, così il tetto di `MAX_SYNC_TIMES` conta
+   * gli orari **effettivi** (e non due volte lo stesso).
+   */
+  async updateSchedule(userId: string, times: string[]): Promise<{ times: string[] }> {
+    const normalized = normalizeSyncTimes(times);
+    if (normalized.length > MAX_SYNC_TIMES) {
+      throw new BadRequestException(
+        `Puoi impostare al massimo ${MAX_SYNC_TIMES} sincronizzazioni automatiche al giorno.`,
+      );
+    }
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { bankSyncTimes: normalized },
+    });
+    return { times: normalized };
   }
 
   // ------------------------------------------------------------- connessioni
@@ -849,6 +884,16 @@ function parseProviderAccounts(value: Prisma.JsonValue | null): ProviderAccountR
   return value
     .map((entry) => normalizeAccountEntry(entry))
     .filter((a): a is ProviderAccountRef => a !== null);
+}
+
+/**
+ * Orari di sync in forma canonica: solo `HH:mm` sulla griglia dei quarti d'ora,
+ * senza duplicati e in ordine crescente. Il filtro sul formato serve anche in
+ * lettura, per non restituire valori scritti prima di questa validazione.
+ */
+function normalizeSyncTimes(times: string[]): string[] {
+  const valid = times.map((t) => t.trim()).filter((t) => SYNC_TIME_PATTERN.test(t));
+  return [...new Set(valid)].sort();
 }
 
 /** Il logo finisce in un `<img src>`: accettiamo solo https. */

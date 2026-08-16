@@ -79,12 +79,31 @@ export const useUIStore = create<UIState>()(
   ),
 );
 
+/**
+ * Il meta `theme-color` (barra di stato iOS/Android) è statico in
+ * `index.html`. Lo teniamo allineato a `--background` (variabile CSS che
+ * dipende da dark/light E da colorTheme, vedi index.css) rileggendola dal
+ * computed style dopo ogni mutazione di classe/data-attribute su <html>.
+ */
+function syncThemeColorMeta(): void {
+  const bg = getComputedStyle(document.documentElement).getPropertyValue('--background').trim();
+  if (!bg) return;
+  let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+  if (!meta) {
+    meta = document.createElement('meta');
+    meta.setAttribute('name', 'theme-color');
+    document.head.appendChild(meta);
+  }
+  meta.setAttribute('content', `hsl(${bg})`);
+}
+
 export function applyTheme(theme: ThemeMode): void {
   const root = document.documentElement;
   const dark =
     theme === 'dark' ||
     (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   root.classList.toggle('dark', dark);
+  syncThemeColorMeta();
 }
 
 export function applyUIChrome(state: {
@@ -96,4 +115,5 @@ export function applyUIChrome(state: {
   root.dataset.theme = state.colorTheme;
   root.dataset.numFont = state.numFont;
   root.dataset.privacy = state.privacy ? 'on' : 'off';
+  syncThemeColorMeta();
 }

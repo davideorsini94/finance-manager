@@ -86,16 +86,19 @@ export function initIosViewportFix() {
       // bulk della revisione bancaria): stesso ancoraggio della BottomNav,
       // quindi stessa compensazione.
       const bars = document.querySelectorAll<HTMLElement>('.fm-bottomnav, .fm-actionbar');
-      if (bars.length === 0) return;
-      const value = isEditing()
-        ? ''
-        : (() => {
-            const offset = vv.offsetTop + vv.height - window.innerHeight;
-            return Math.abs(offset) > 1 ? `translateY(${offset}px)` : '';
-          })();
+      const offset = vv.offsetTop + vv.height - window.innerHeight;
+      const applied = !isEditing() && Math.abs(offset) > 1;
+      const value = applied ? `translateY(${offset}px)` : '';
       bars.forEach((bar) => {
         bar.style.transform = value;
       });
+      // Pubblica l'offset come variabile CSS globale: serve ad altri elementi
+      // fixed non coperti da `.fm-bottomnav/.fm-actionbar` (es. il drawer del
+      // menu mobile) per compensare via padding la stessa zona scoperta.
+      document.documentElement.style.setProperty(
+        '--fm-vv-offset',
+        applied ? `${offset}px` : '0px',
+      );
     };
     const schedule = () => {
       if (!raf) raf = requestAnimationFrame(glue);
@@ -109,7 +112,10 @@ export function initIosViewportFix() {
       if (!document.hidden) schedule();
     });
     schedule();
-    // Ripassa dopo l'assestamento del layout post-lancio.
+    // Ripassa a più riprese durante l'assestamento del layout post-lancio,
+    // per ridurre la finestra in cui la banda scoperta resta visibile al
+    // cold start (prima passata già schedulata via rAF da `schedule()`).
+    setTimeout(schedule, 150);
     setTimeout(schedule, 600);
     setTimeout(schedule, 1800);
   }
