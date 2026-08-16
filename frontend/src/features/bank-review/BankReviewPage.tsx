@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CategoryPicker } from '@/components/shared/CategoryPicker';
+import { useConfirm } from '@/components/shared/confirm';
 import { cn } from '@/lib/utils/cn';
 import { formatCents } from '@/lib/utils/currency';
 import { formatDate } from '@/lib/utils/date';
@@ -181,6 +182,7 @@ function dateHeading(iso: string): string {
 export function BankReviewPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
   const [activeTab, setActiveTab] = useState<ReviewStatus>('pending_review');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(loadStoredPageSize);
@@ -360,17 +362,37 @@ export function BankReviewPage() {
   const toggleAll = () =>
     setSelected(allSelected ? new Set() : new Set(rows.map((r) => r.id)));
 
-  const confirmSelected = () => {
-    // Per le coppie basta una gamba: il backend include l'altra da sé.
+  // Conferma e ignora massivi passano da una modale: la conferma crea
+  // movimenti reali e muove i saldi **senza possibilità di annullare** dalla
+  // UI (un tocco sbagliato è costato il ripristino a mano di 73 movimenti);
+  // l'ignora è reversibile dalla scheda "Ignorati" ma resta un'azione su
+  // molte righe insieme.
+  const confirmSelected = async () => {
     const ids = selectedRows.slice(0, CONFIRM_MAX_IDS).map((r) => r.item.id);
     if (ids.length === 0) return;
+    const ok = await confirm({
+      title: `Confermare ${ids.length} ${ids.length === 1 ? 'movimento' : 'movimenti'}?`,
+      description:
+        'Entreranno nei tuoi movimenti e aggiorneranno i saldi dei conti. L’operazione non è annullabile dall’app.',
+      confirmLabel: 'Conferma',
+    });
+    if (!ok) return;
+    // Per le coppie basta una gamba: il backend include l'altra da sé.
     confirmMutation.mutate(ids);
   };
 
-  const ignoreSelected = () => {
-    // Basta una gamba per coppia: il backend include l'altra da sé.
+  const ignoreSelected = async () => {
     const ids = selectedRows.slice(0, IGNORE_MAX_IDS).map((r) => r.item.id);
     if (ids.length === 0) return;
+    const ok = await confirm({
+      title: `Ignorare ${ids.length} ${ids.length === 1 ? 'movimento' : 'movimenti'}?`,
+      description:
+        'Spariranno dalla coda e non diventeranno movimenti. Puoi ripristinarli dalla scheda “Ignorati”.',
+      confirmLabel: 'Ignora',
+      destructive: true,
+    });
+    if (!ok) return;
+    // Basta una gamba per coppia: il backend include l'altra da sé.
     ignoreMutation.mutate(ids);
   };
 
