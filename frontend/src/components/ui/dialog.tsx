@@ -15,7 +15,9 @@ export const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      'fixed inset-0 z-50 bg-black/60 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+      // h esplicita: con il bug viewport iOS 26 (vedi --fm-lvh-fix in
+      // index.css) inset-0 si fermerebbe 62px sopra il fondo dello schermo.
+      'fixed inset-0 h-[calc(100dvh-var(--fm-lvh-fix,0px))] z-50 bg-black/60 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
       className,
     )}
     {...props}

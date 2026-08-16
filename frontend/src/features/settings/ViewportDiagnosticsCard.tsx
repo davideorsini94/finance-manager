@@ -27,6 +27,8 @@ interface Metrics {
   safeTop: string;
   safeBottom: string;
   standalone: boolean;
+  rootH: number;
+  lvhFix: string;
 }
 
 function readMetrics(probe: HTMLDivElement | null): Metrics {
@@ -54,6 +56,10 @@ function readMetrics(probe: HTMLDivElement | null): Metrics {
     standalone:
       window.matchMedia('(display-mode: standalone)').matches ||
       (navigator as unknown as { standalone?: boolean }).standalone === true,
+    rootH: Math.round(
+      document.getElementById('root')?.getBoundingClientRect().height ?? 0,
+    ),
+    lvhFix: cs.getPropertyValue('--fm-lvh-fix').trim() || 'n/d',
   };
 }
 
@@ -95,6 +101,8 @@ export function ViewportDiagnosticsCard() {
         ['100dvh / 100svh / 100lvh', `${m.dvh} / ${m.svh} / ${m.lvh}px`],
         ['safe-area top / bottom', `${m.safeTop} / ${m.safeBottom}`],
         ['display-mode', m.standalone ? 'standalone (PWA)' : 'browser'],
+        ['#root (shell) effettivo', `${m.rootH}px`],
+        ['--fm-lvh-fix (workaround iOS 26)', m.lvhFix],
       ]
     : [];
 

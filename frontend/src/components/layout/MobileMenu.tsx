@@ -62,7 +62,7 @@ export function MobileMenu() {
       {/* Backdrop */}
       <div
         className={cn(
-          'fixed inset-0 z-40 bg-black/40 backdrop-blur-sm transition-opacity duration-200 lg:hidden',
+          'fixed inset-0 h-[calc(100dvh-var(--fm-lvh-fix,0px))] z-40 bg-black/40 backdrop-blur-sm transition-opacity duration-200 lg:hidden',
           open ? 'opacity-100' : 'pointer-events-none opacity-0',
         )}
         onClick={() => setOpen(false)}
@@ -72,7 +72,7 @@ export function MobileMenu() {
       {/* Drawer */}
       <aside
         className={cn(
-          'fixed left-0 top-0 z-50 flex h-dvh w-72 max-w-[85vw] flex-col border-r bg-card shadow-xl',
+          'fixed left-0 top-0 z-50 flex h-[calc(100dvh-var(--fm-lvh-fix,0px))] w-72 max-w-[85vw] flex-col border-r bg-card shadow-xl',
           'transition-transform duration-200 lg:hidden',
           open ? 'translate-x-0' : '-translate-x-full',
         )}

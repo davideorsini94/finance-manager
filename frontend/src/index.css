@@ -401,8 +401,25 @@
     @apply bg-background text-foreground antialiased;
     font-feature-settings: 'rlig' 1, 'calt' 1;
   }
+  /* Workaround bug viewport iOS 26 (standalone): dvh/svh vengono calcolati
+     sottraendo l'altezza della status bar dal fondo dello schermo (misurato
+     su iPhone 16 Pro: screen 874, dvh/svh 812, lvh 874 — il delta 62px è
+     esattamente la safe-area-top) e restava una banda nera sotto la
+     BottomNav. In standalone non c'è chrome dinamico, quindi lvh è sempre
+     l'altezza vera: `--fm-lvh-fix` vale svh−lvh (negativo solo col bug,
+     0px su iOS sani/Android/desktop) e viene sottratto alle altezze dvh e
+     sommato agli ancoraggi `bottom` degli elementi fixed. Da rimuovere
+     quando Apple corregge il calcolo. */
+  :root {
+    --fm-lvh-fix: 0px;
+  }
+  @media (display-mode: standalone) {
+    :root {
+      --fm-lvh-fix: calc(100svh - 100lvh);
+    }
+  }
   html, body, #root {
-    @apply h-dvh;
+    height: calc(100dvh - var(--fm-lvh-fix));
   }
 
   /* App-shell: tutto lo scroll avviene dentro <main> (AppShell). Il documento
