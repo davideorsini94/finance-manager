@@ -256,7 +256,22 @@ export function RecurringPage() {
             value={accountIds}
             onChange={setAccountIds}
           />
-          <Button variant="outline" onClick={() => runNow.mutate()} disabled={runNow.isPending}>
+          <Button
+            variant="outline"
+            onClick={async () => {
+              // Genera in blocco TUTTI i movimenti scaduti di TUTTE le regole:
+              // per disfarli vanno cancellati uno per uno.
+              const ok = await confirm({
+                title: 'Eseguire ora le ricorrenze?',
+                description:
+                  'Verranno generati tutti i movimenti ricorrenti scaduti fino a oggi: entreranno nei tuoi movimenti e aggiorneranno i saldi. Per annullarli dovrai cancellarli uno per uno.',
+                confirmLabel: 'Esegui',
+              });
+              if (!ok) return;
+              runNow.mutate();
+            }}
+            disabled={runNow.isPending}
+          >
             <Repeat className="h-4 w-4 mr-2" /> Esegui ora
           </Button>
           <Button onClick={openNew}>

@@ -309,7 +309,18 @@ export function BankConnectionsCard() {
               size="sm"
               variant="outline"
               disabled={syncing || !hasSyncableLinks}
-              onClick={() => syncAll.mutate()}
+              onClick={async () => {
+                // Le sincronizzazioni manuali hanno una quota giornaliera
+                // (4/utente): spenderne una per sbaglio è una seccatura.
+                const ok = await confirm({
+                  title: 'Sincronizzare ora tutti i collegamenti?',
+                  description:
+                    'Consuma una delle 4 sincronizzazioni manuali giornaliere. I movimenti scaricati finiscono in “Da confermare”, non diventano subito movimenti.',
+                  confirmLabel: 'Sincronizza',
+                });
+                if (!ok) return;
+                syncAll.mutate();
+              }}
             >
               <RefreshCw
                 className={cn('h-4 w-4 mr-2', syncAll.isPending && 'animate-spin')}
@@ -359,7 +370,16 @@ export function BankConnectionsCard() {
               }}
               onDismissRenewOutcome={() => setRenewOutcome(null)}
               onToggleLink={(id, syncEnabled) => toggleLink.mutate({ id, syncEnabled })}
-              onSyncLink={(id) => syncLink.mutate(id)}
+              onSyncLink={async (id) => {
+                const ok = await confirm({
+                  title: 'Sincronizzare ora questo conto?',
+                  description:
+                    'Consuma una delle 4 sincronizzazioni manuali giornaliere. I movimenti scaricati finiscono in “Da confermare”.',
+                  confirmLabel: 'Sincronizza',
+                });
+                if (!ok) return;
+                syncLink.mutate(id);
+              }}
               onRemoveLink={async (id, name) => {
                 const ok = await confirm({
                   title: 'Scollegare il conto?',

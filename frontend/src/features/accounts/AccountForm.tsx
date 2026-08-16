@@ -23,7 +23,8 @@ import {
 } from '@/components/ui/select';
 import { ColorPicker } from '@/components/shared/ColorPicker';
 import { IconPicker } from '@/components/shared/IconPicker';
-import { eurosToCents, centsToNumber } from '@/lib/utils/currency';
+import { useConfirm } from '@/components/shared/confirm';
+import { eurosToCents, centsToNumber, formatCents } from '@/lib/utils/currency';
 import { sortByName } from '@/lib/utils/sort';
 import type { Account, AccountType } from '@/types/domain';
 import { accountsApi } from './accountsApi';
@@ -55,6 +56,7 @@ interface Props {
 export function AccountForm({ open, onOpenChange, account, paymentCandidates }: Props) {
   const isEdit = !!account;
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
 
   const {
     register,
@@ -129,7 +131,27 @@ export function AccountForm({ open, onOpenChange, account, paymentCandidates }: 
     },
   });
 
-  const onSubmit = handleSubmit((values) => mutation.mutate(values));
+  const onSubmit = handleSubmit(async (values) => {
+    // Sovrascrivere il saldo è irreversibile: il valore precedente non è
+    // conservato da nessuna parte e i movimenti non vengono toccati (il
+    // saldo smette semplicemente di derivare da essi). Si chiede conferma
+    // solo quando cambia davvero; in creazione è un saldo iniziale, non
+    // una sovrascrittura, quindi non serve.
+    if (isEdit && account) {
+      const desiredCents = eurosToCents(Number(values.initialBalance ?? 0));
+      const currentCents = Number(account.balanceCents);
+      if (desiredCents !== currentCents) {
+        const ok = await confirm({
+          title: 'Sovrascrivere il saldo del conto?',
+          description: `Il saldo passerà da ${formatCents(currentCents)} a ${formatCents(desiredCents)}. Il valore precedente non viene conservato e i movimenti restano invariati.`,
+          confirmLabel: 'Sovrascrivi',
+          destructive: true,
+        });
+        if (!ok) return;
+      }
+    }
+    mutation.mutate(values);
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

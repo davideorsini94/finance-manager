@@ -162,7 +162,16 @@ export function ImportTemplatesPage() {
       columnMap,
     };
     if (editing) {
-      // No PATCH endpoint: ricrea sostituendo. Per ora cancella + crea.
+      // No PATCH endpoint: ricrea sostituendo. Per ora cancella + crea —
+      // quindi se la create fallisce il template è perso, e l'utente deve
+      // saperlo prima di iniziare.
+      const ok = await confirm({
+        title: `Salvare le modifiche a "${editing.name}"?`,
+        description:
+          'Il template viene ricreato da zero: se il salvataggio fallisce, la versione attuale va persa.',
+        confirmLabel: 'Salva',
+      });
+      if (!ok) return;
       await api.delete(`imports/templates/${editing.id}`).catch(() => undefined);
     }
     create.mutate(payload);

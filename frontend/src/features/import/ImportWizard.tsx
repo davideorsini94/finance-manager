@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Upload, FileText, CheckCircle2, X, Sparkles, Save } from 'lucide-react';
 import { authFetch } from '@/lib/auth-fetch';
+import { useConfirm } from '@/components/shared/confirm';
 import { sortByName } from '@/lib/utils/sort';
 
 type Step = 'upload' | 'mapping' | 'preview' | 'done';
@@ -39,6 +40,9 @@ interface Template {
 }
 
 export function ImportWizard() {
+  // `confirm` qui sotto è la funzione che esegue l'import: l'hook prende un
+  // nome diverso per non ombreggiarla.
+  const askConfirm = useConfirm();
   const [step, setStep] = useState<Step>('upload');
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -171,6 +175,16 @@ export function ImportWizard() {
       finalCategoryId: r.finalCategory?.id,
       skip: r.status === 'skipped' || r.status === 'duplicate',
     }));
+
+    // Crea movimenti reali in blocco: per disfarli vanno cancellati a mano.
+    const toImport = rows.filter((r) => !r.skip).length;
+    const ok = await askConfirm({
+      title: `Importare ${toImport} ${toImport === 1 ? 'movimento' : 'movimenti'}?`,
+      description:
+        'Entreranno nei tuoi movimenti e aggiorneranno i saldi dei conti. Per annullarli dovrai cancellarli uno per uno.',
+      confirmLabel: 'Importa',
+    });
+    if (!ok) return;
     await authFetch(`/api/imports/batches/${batchId}/confirm`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

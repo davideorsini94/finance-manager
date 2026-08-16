@@ -418,7 +418,17 @@ export function BankReviewPage() {
           size="sm"
           className="shrink-0"
           disabled={syncNow.isPending}
-          onClick={() => syncNow.mutate()}
+          onClick={async () => {
+            // Quota giornaliera delle sincronizzazioni manuali: 4/utente.
+            const ok = await confirm({
+              title: 'Sincronizzare ora?',
+              description:
+                'Consuma una delle 4 sincronizzazioni manuali giornaliere. I nuovi movimenti si aggiungono a questa coda, senza diventare movimenti veri.',
+              confirmLabel: 'Sincronizza',
+            });
+            if (!ok) return;
+            syncNow.mutate();
+          }}
         >
           <RefreshCw className={cn('mr-2 h-4 w-4', syncNow.isPending && 'animate-spin')} />
           {t('bankSync.syncNow')}
@@ -494,7 +504,17 @@ export function BankReviewPage() {
                             busy={busy}
                             onToggle={() => toggleRow(row.id)}
                             onCategory={() => setCategoryTarget(row.item)}
-                            onIgnore={() => ignoreMutation.mutate([row.item.id])}
+                            onIgnore={async () => {
+                              const ok = await confirm({
+                                title: 'Ignorare questo movimento?',
+                                description:
+                                  'Sparirà dalla coda e non diventerà un movimento. Puoi ripristinarlo dalla scheda “Ignorati”.',
+                                confirmLabel: 'Ignora',
+                                destructive: true,
+                              });
+                              if (!ok) return;
+                              ignoreMutation.mutate([row.item.id]);
+                            }}
                             onUnpair={() =>
                               patch.mutate([{ id: row.item.id, data: { pairWithStagedId: null } }])
                             }

@@ -148,7 +148,16 @@ export function ImportPage() {
               <X className="h-4 w-4 mr-2" /> Annulla
             </Button>
             <Button
-              onClick={() => confirm.mutate()}
+              onClick={async () => {
+                const ok = await askConfirm({
+                  title: `Importare ${acceptedCount} ${acceptedCount === 1 ? 'movimento' : 'movimenti'}?`,
+                  description:
+                    'Entreranno nei tuoi movimenti e aggiorneranno i saldi dei conti. Per annullarli dovrai cancellarli uno per uno.',
+                  confirmLabel: 'Importa',
+                });
+                if (!ok) return;
+                confirm.mutate();
+              }}
               disabled={confirm.isPending || acceptedCount === 0}
             >
               <Check className="h-4 w-4 mr-2" /> Importa {acceptedCount}

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSearch, useNavigate } from '@tanstack/react-router';
 import { CheckCircle2, XCircle, Crown, Shield, Eye } from 'lucide-react';
 import { api } from '@/lib/api/client';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { HTTPError } from 'ky';
 
 export function AcceptInvitePage() {
@@ -13,6 +14,9 @@ export function AcceptInvitePage() {
   const [result, setResult] = useState<{ accountId: string; accountName: string; role: string } | null>(
     null,
   );
+  // Rotta pubblica, fuori da AppShell: qui non c'è il ConfirmProvider, quindi
+  // niente hook `useConfirm` — si monta il dialog a mano (come ShareAccountDialog).
+  const [rejectOpen, setRejectOpen] = useState(false);
 
   useEffect(() => {
     if (!token) {
@@ -71,7 +75,7 @@ export function AcceptInvitePage() {
               </button>
               <button
                 type="button"
-                onClick={reject}
+                onClick={() => setRejectOpen(true)}
                 className="rounded-md border px-4 py-2 text-sm"
               >
                 Rifiuta
@@ -112,6 +116,20 @@ export function AcceptInvitePage() {
           </div>
         )}
       </div>
+
+      {/* Il rifiuto consuma il token: per rientrare serve un nuovo invito. */}
+      <ConfirmDialog
+        open={rejectOpen}
+        onOpenChange={setRejectOpen}
+        title="Rifiutare l’invito?"
+        description="L’invito verrà annullato. Per accedere al conto in seguito dovrai farti invitare di nuovo."
+        confirmLabel="Rifiuta"
+        destructive
+        onConfirm={() => {
+          setRejectOpen(false);
+          void reject();
+        }}
+      />
     </div>
   );
 }

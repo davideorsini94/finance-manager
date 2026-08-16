@@ -188,8 +188,11 @@ export function AccountsPage() {
                         onClick={async () => {
                           const ok = await confirm({
                             title: `Archiviare "${account.name}"?`,
+                            // Il ripristino NON è esposto da nessuna schermata
+                            // (soft-delete `archivedAt` senza UI di gestione):
+                            // il testo non deve promettere il contrario.
                             description:
-                              "Il conto sarà nascosto dalla lista. I movimenti restano in archivio e potrai ripristinarlo in seguito.",
+                              'Il conto sparirà dalla lista e dai selettori. I movimenti restano nel database, ma dall’app non c’è modo di ripristinare un conto archiviato.',
                             confirmLabel: 'Archivia',
                             destructive: true,
                           });

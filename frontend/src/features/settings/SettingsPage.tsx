@@ -206,12 +206,21 @@ export function SettingsPage() {
         </CardHeader>
         <CardContent>
           <form
-            onSubmit={passwordForm.handleSubmit((v) =>
+            onSubmit={passwordForm.handleSubmit(async (v) => {
+              // Il backend revoca tutti i refresh token: si viene buttati
+              // fuori da ogni dispositivo, telefono compreso.
+              const ok = await confirm({
+                title: 'Cambiare la password?',
+                description:
+                  'Verrai disconnesso da tutti i dispositivi (incluso questo) e dovrai rientrare con la nuova password.',
+                confirmLabel: 'Cambia password',
+              });
+              if (!ok) return;
               passwordMutation.mutate({
                 currentPassword: v.currentPassword,
                 newPassword: v.newPassword,
-              }),
-            )}
+              });
+            })}
             className="space-y-3"
           >
             <div className="space-y-2">

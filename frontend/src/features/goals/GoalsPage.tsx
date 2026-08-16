@@ -163,7 +163,18 @@ export function GoalsPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => toggleComplete.mutate({ id: g.id, isCompleted: true })}
+                        onClick={async () => {
+                          // Una volta completato il bottone sparisce e il form
+                          // non espone il campo: dalla UI non si torna indietro.
+                          const ok = await confirm({
+                            title: `Segnare "${g.name}" come completato?`,
+                            description:
+                              'L’obiettivo passerà tra quelli raggiunti. Dall’app non è possibile riportarlo tra quelli attivi.',
+                            confirmLabel: 'Completa',
+                          });
+                          if (!ok) return;
+                          toggleComplete.mutate({ id: g.id, isCompleted: true });
+                        }}
                       >
                         <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" /> Completa
                       </Button>
