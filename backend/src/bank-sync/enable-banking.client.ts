@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { createSign } from 'crypto';
+import { psuHeaders } from '../common/utils/psu-context';
 import { sanitizeExternalText } from '../common/utils/sanitize-text';
 import { BankSyncConfigService } from './bank-sync-config.service';
 
@@ -159,6 +160,11 @@ export class EnableBankingClient {
         headers: {
           Authorization: `Bearer ${token}`,
           Accept: 'application/json',
+          // Header PSU: presenti solo se dietro la chiamata c'è un utente
+          // online. È il segnale con cui l'ASPSP distingue un accesso
+          // presidiato (limiti larghi) da un fetch di sottofondo (4/giorno):
+          // senza, Fineco & co. rifiutano con 429 dopo pochissime chiamate.
+          ...psuHeaders(),
           ...(options.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
         },
         body: options.body !== undefined ? JSON.stringify(options.body) : undefined,

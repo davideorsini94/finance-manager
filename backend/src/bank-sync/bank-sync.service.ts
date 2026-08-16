@@ -29,6 +29,7 @@ import {
   BANK_PROVIDER,
   type BankProviderPort,
   type ConsentSession,
+  type ProviderAccountDetails,
   type ProviderAccountRef,
   type ProviderInstitution,
 } from './bank-provider.port';
@@ -368,11 +369,17 @@ export class BankSyncService {
     for (const ref of refs) {
       // I dettagli sono un "nice to have": se la banca non risponde per un
       // conto, mostriamo comunque la entry con quello che sappiamo già.
+      // Se il consenso ci ha già dato tutto (IBAN, nome, valuta) NON si
+      // richiama la banca: ogni chiamata pesa sui limiti PSD2 e alcune
+      // banche espongono lo stesso conto in più valute (Fineco: 4 entry con
+      // un solo IBAN), quindi aprire il wizard bruciava la quota del giorno.
       let detailed = ref;
-      try {
-        detailed = await this.provider.getAccountDetails(ref.uid);
-      } catch (e) {
-        this.logger.warn(`Dettagli conto ${ref.uid} non disponibili: ${(e as Error).message}`);
+      if (!isCompleteAccountRef(ref)) {
+        try {
+          detailed = await this.provider.getAccountDetails(ref.uid);
+        } catch (e) {
+          this.logger.warn(`Dettagli conto ${ref.uid} non disponibili: ${(e as Error).message}`);
+        }
       }
       items.push({
         uid: ref.uid,
@@ -432,7 +439,8 @@ export class BankSyncService {
         this.provider.listConsentAccounts(connection.providerConsentId!),
       );
     }
-    if (!refs.some((r) => r.uid === dto.providerAccountId)) {
+    const ref = refs.find((r) => r.uid === dto.providerAccountId);
+    if (!ref) {
       throw new NotFoundException('Conto bancario non presente in questo collegamento.');
     }
 
@@ -440,7 +448,25 @@ export class BankSyncService {
       throw new ConflictException('Questo conto bancario è già collegato.');
     }
 
-    const details = await this.remote(() => this.provider.getAccountDetails(dto.providerAccountId));
+    // I dati del conto arrivano dal consenso (già in DB). La chiamata alla
+    // banca serve solo ad arricchirli con l'intestatario ed è **best-effort**:
+    // prima era bloccante e un 429 da banca — anche solo per la quota
+    // giornaliera consumata dall'elenco conti — impediva di collegare un
+    // conto di cui sapevamo già tutto.
+    let details: ProviderAccountDetails = { ...ref, ownerName: null };
+    try {
+      const live = await this.provider.getAccountDetails(dto.providerAccountId);
+      details = {
+        ...live,
+        iban: live.iban ?? ref.iban,
+        name: live.name ?? ref.name,
+        currency: live.currency ?? ref.currency,
+      };
+    } catch (e) {
+      this.logger.warn(
+        `Dettagli conto ${dto.providerAccountId} non disponibili, uso i dati del consenso: ${(e as Error).message}`,
+      );
+    }
     const bankCurrency = details.currency?.toUpperCase() ?? null;
 
     // Dati del link indipendenti dal conto di destinazione.
@@ -879,6 +905,15 @@ function compactIban(value: string | null | undefined): string | null {
 }
 
 /** Rilegge `BankConnection.providerAccounts` (payload grezzo del provider). */
+/**
+ * Il riferimento salvato al momento del consenso basta a sé stesso: non
+ * serve richiamare la banca per ottenere dati che abbiamo già (ogni chiamata
+ * consuma i limiti di accesso PSD2 dell'ASPSP).
+ */
+function isCompleteAccountRef(ref: ProviderAccountRef): boolean {
+  return Boolean(ref.iban && ref.name && ref.currency);
+}
+
 function parseProviderAccounts(value: Prisma.JsonValue | null): ProviderAccountRef[] {
   if (!Array.isArray(value)) return [];
   return value
