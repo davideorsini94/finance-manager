@@ -27,6 +27,7 @@ import { LlmSettingsCard } from './LlmSettingsCard';
 import { BankSyncCredentialsCard } from './BankSyncCredentialsCard';
 import { BankConnectionsCard } from './BankConnectionsCard';
 import { InviteUsersCard } from './InviteUsersCard';
+import { ViewportDiagnosticsCard } from './ViewportDiagnosticsCard';
 import { useConfirm } from '@/components/shared/confirm';
 
 const profileSchema = z.object({
@@ -347,6 +348,9 @@ export function SettingsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Diagnostica viewport (debug problemi layout iOS/PWA) */}
+      <ViewportDiagnosticsCard />
     </div>
   );
 }
