@@ -17,7 +17,7 @@ Regole e pattern ricorrenti del progetto. Contesto generale in [[Architettura]].
 - Importi in centesimi ovunque, formattazione con `formatCents` → [[Database]]
 - Mobile-first, breakpoint `lg` per desktop; attenzione ai vincoli iOS → [[PWA e Mobile]]
 - Modalità demo: handler mock in `src/lib/demo/` — le nuove API vanno replicate lì se devono funzionare in demo
-- Popover dentro un Dialog Radix: usare `disablePortal` su `PopoverContent` (`components/ui/popover.tsx`) — altrimenti `react-remove-scroll` del Dialog blocca il touch-scroll sui contenuti portati fuori dal suo sottoalbero. Pattern usato da `CategoryPicker`, `IconPicker`, `ColorPicker` (`components/shared/`) → [[PWA e Mobile]]
+- Popover dentro un Dialog Radix: usare `disablePortal` su `PopoverContent` (`components/ui/popover.tsx`) — altrimenti `react-remove-scroll` del Dialog blocca il touch-scroll sui contenuti portati fuori dal suo sottoalbero. Pattern usato da `CategoryPicker`, `IconPicker`, `ColorPicker` (`components/shared/`) → [[PWA e Mobile]]. **Limite**: in un Dialog piccolo il popover inline viene tagliato dall'`overflow-y-auto` di default del `DialogContent` (peggio ancora su mobile a tastiera aperta). In quei casi niente popover: `CategoryPicker` ha la prop `inline` (ricerca+lista nel flusso del Dialog, che va reso `flex flex-col`; la lista si adatta con `min-h-28`/`max-h-72`) — usata dal `CategoryDialog` della coda di revisione.
 
 ## Backend
 

@@ -587,7 +587,6 @@ export function BankReviewPage() {
         <CategoryDialog
           item={categoryTarget}
           categories={categoriesQuery.data ?? []}
-          busy={patch.isPending}
           onClose={() => setCategoryTarget(null)}
           onSelect={(categoryId) =>
             patch.mutate([{ id: categoryTarget.id, data: { categoryId } }], {
@@ -1150,13 +1149,11 @@ function ConfirmSummary({
 function CategoryDialog({
   item,
   categories,
-  busy,
   onClose,
   onSelect,
 }: {
   item: ReviewItem;
   categories: Category[];
-  busy: boolean;
   onClose: () => void;
   onSelect: (categoryId: string | null) => void;
 }) {
@@ -1172,33 +1169,28 @@ function CategoryDialog({
         if (!next && !createOpen) onClose();
       }}
     >
-      <DialogContent className="max-w-md">
-        <DialogHeader>
+      {/* flex-col + picker `inline`: con la tastiera aperta su mobile il
+          viewport (dvh) cala, il pannello si restringe e a cedere è la lista
+          del picker (min-h-0, scrollabile) — niente popover tagliato dal
+          bordo del Dialog. */}
+      <DialogContent className="flex max-w-md flex-col">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Categoria</DialogTitle>
           <DialogDescription className="truncate">{itemLabel(item)}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
-          <CategoryPicker
-            value={item.finalCategory?.id ?? null}
-            onChange={(id) => onSelect(id)}
-            categories={categories}
-            onCreateOpenChange={setCreateOpen}
-          />
-          {item.finalCategory && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={busy}
-              onClick={() => onSelect(null)}
-            >
-              Rimuovi categoria
-            </Button>
-          )}
-        </div>
+        {/* Niente bottone "Rimuovi categoria": la voce "— Nessuna —" in cima
+            alla lista inline fa la stessa cosa e non ruba altezza al picker
+            quando la tastiera è aperta. */}
+        <CategoryPicker
+          inline
+          value={item.finalCategory?.id ?? null}
+          onChange={(id) => onSelect(id)}
+          categories={categories}
+          onCreateOpenChange={setCreateOpen}
+        />
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0">
           <Button type="button" variant="ghost" onClick={onClose}>
             Chiudi
           </Button>

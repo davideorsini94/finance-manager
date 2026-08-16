@@ -49,6 +49,15 @@ interface Props {
    * annidati).
    */
   onCreateOpenChange?: (open: boolean) => void;
+  /**
+   * Se true, niente Popover: ricerca + lista sono rese nel flusso del
+   * contenitore. Da usare nei Dialog piccoli e mono-scopo (es. CategoryDialog
+   * della coda di revisione): il popover `disablePortal` verrebbe tagliato
+   * dall'`overflow-y-auto` del DialogContent, soprattutto su mobile con la
+   * tastiera aperta. Il contenitore deve essere un flex-col: la lista ha
+   * `min-h-0` e si restringe (restando scrollabile) quando il viewport cala.
+   */
+  inline?: boolean;
 }
 
 /**
@@ -67,6 +76,7 @@ export function CategoryPicker({
   placeholder,
   allowCreate = true,
   onCreateOpenChange,
+  inline = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -127,121 +137,138 @@ export function CategoryPicker({
     setOpen(false);
   };
 
-  return (
+  // Pannello ricerca + lista + crea, condiviso tra le due modalità.
+  const panel = (
     <>
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            type="button"
-            variant="outline"
-            role="combobox"
-            aria-expanded={open}
-            className="w-full justify-between font-normal"
-          >
-            {selectedCategory ? (
-              <CategoryLabel category={selectedCategory} />
-            ) : (
-              <span className="text-muted-foreground">
-                {placeholder ?? 'Seleziona categoria'}
-              </span>
-            )}
-            <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent
-          className="w-[var(--radix-popover-trigger-width)] min-w-[16rem] max-w-[calc(100vw-2rem)] p-0"
-          align="start"
-          // Quando il picker è dentro un Radix Dialog (es. TransactionForm),
-          // `react-remove-scroll` del Dialog blocca wheel/touch sugli elementi
-          // portati fuori dal suo sottoalbero, rompendo lo scroll della lista.
-          // Rendendo il contenuto inline il popover finisce nella zona
-          // "allowed" e lo scroll torna a funzionare.
-          disablePortal
-        >
-          <div className="p-2 border-b">
-            <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                ref={searchInputRef}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Cerca categoria…"
-                className="pl-7 h-8 text-sm"
-              />
-              {query && (
-                <button
-                  type="button"
-                  onClick={() => setQuery('')}
-                  aria-label="Pulisci ricerca"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-          </div>
+      <div className="shrink-0 p-2 border-b">
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            ref={searchInputRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Cerca categoria…"
+            className="pl-7 h-8 text-sm"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery('')}
+              aria-label="Pulisci ricerca"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
 
-          <ul
-            className="max-h-72 overflow-y-auto py-1"
-            style={{ touchAction: 'pan-y' }}
-          >
-            {/* "Nessuna" — visibile solo quando non c'è una ricerca attiva */}
-            {!query.trim() && (
+      <ul
+        // Inline: la lista si restringe sotto le 18rem quando il contenitore
+        // (Dialog flex-col) viene schiacciato dalla tastiera, ma mai sotto
+        // ~3 righe (min-h-28): oltre quel punto scrolla il Dialog stesso.
+        className={cn('max-h-72 overflow-y-auto py-1', inline && 'min-h-28')}
+        style={{ touchAction: 'pan-y' }}
+      >
+        {/* "Nessuna" — visibile solo quando non c'è una ricerca attiva */}
+        {!query.trim() && (
+          <li>
+            <PickerItem
+              selected={value === null}
+              onSelect={() => handleSelect(null)}
+              text="— Nessuna —"
+              muted
+            />
+          </li>
+        )}
+
+        {filteredTree.length === 0 ? (
+          <li className="text-xs text-muted-foreground text-center py-4">
+            Nessuna corrispondenza
+          </li>
+        ) : (
+          filteredTree.map(({ parent, children }) => (
+            <Fragment key={parent.id}>
               <li>
                 <PickerItem
-                  selected={value === null}
-                  onSelect={() => handleSelect(null)}
-                  text="— Nessuna —"
-                  muted
+                  category={parent}
+                  selected={value === parent.id}
+                  onSelect={() => handleSelect(parent.id)}
                 />
               </li>
-            )}
+              {children.map((c) => (
+                <li key={c.id}>
+                  <PickerItem
+                    category={c}
+                    selected={value === c.id}
+                    onSelect={() => handleSelect(c.id)}
+                    indent
+                  />
+                </li>
+              ))}
+            </Fragment>
+          ))
+        )}
+      </ul>
 
-            {filteredTree.length === 0 ? (
-              <li className="text-xs text-muted-foreground text-center py-4">
-                Nessuna corrispondenza
-              </li>
-            ) : (
-              filteredTree.map(({ parent, children }) => (
-                <Fragment key={parent.id}>
-                  <li>
-                    <PickerItem
-                      category={parent}
-                      selected={value === parent.id}
-                      onSelect={() => handleSelect(parent.id)}
-                    />
-                  </li>
-                  {children.map((c) => (
-                    <li key={c.id}>
-                      <PickerItem
-                        category={c}
-                        selected={value === c.id}
-                        onSelect={() => handleSelect(c.id)}
-                        indent
-                      />
-                    </li>
-                  ))}
-                </Fragment>
-              ))
-            )}
-          </ul>
+      {allowCreate && (
+        <div className="shrink-0 border-t p-1">
+          <button
+            type="button"
+            onClick={openCreate}
+            className="flex w-full items-center gap-1.5 rounded-sm px-2 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-accent"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            {query.trim()
+              ? `Crea "${query.trim()}"`
+              : 'Crea nuova categoria'}
+          </button>
+        </div>
+      )}
+    </>
+  );
 
-          {allowCreate && (
-            <div className="border-t p-1">
-              <button
-                type="button"
-                onClick={openCreate}
-                className="flex w-full items-center gap-1.5 rounded-sm px-2 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-accent"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                {query.trim()
-                  ? `Crea "${query.trim()}"`
-                  : 'Crea nuova categoria'}
-              </button>
-            </div>
-          )}
-        </PopoverContent>
-      </Popover>
+  return (
+    <>
+      {inline ? (
+        // Niente min-h-0 qui: il minimo del wrapper resta il min-content dei
+        // figli (ricerca + lista min-h-28 + crea) — se il Dialog è più basso
+        // di così, a scrollare è il Dialog stesso, senza sovrapposizioni.
+        <div className="flex flex-col rounded-md border">{panel}</div>
+      ) : (
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              role="combobox"
+              aria-expanded={open}
+              className="w-full justify-between font-normal"
+            >
+              {selectedCategory ? (
+                <CategoryLabel category={selectedCategory} />
+              ) : (
+                <span className="text-muted-foreground">
+                  {placeholder ?? 'Seleziona categoria'}
+                </span>
+              )}
+              <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            className="w-[var(--radix-popover-trigger-width)] min-w-[16rem] max-w-[calc(100vw-2rem)] p-0"
+            align="start"
+            // Quando il picker è dentro un Radix Dialog (es. TransactionForm),
+            // `react-remove-scroll` del Dialog blocca wheel/touch sugli elementi
+            // portati fuori dal suo sottoalbero, rompendo lo scroll della lista.
+            // Rendendo il contenuto inline il popover finisce nella zona
+            // "allowed" e lo scroll torna a funzionare.
+            disablePortal
+          >
+            {panel}
+          </PopoverContent>
+        </Popover>
+      )}
 
       {allowCreate && (
         <QuickCreateDialog
