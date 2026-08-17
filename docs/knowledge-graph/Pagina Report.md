@@ -14,6 +14,7 @@ Route `/reports` — file `frontend/src/features/reports/ReportsPage.tsx` (la pa
 - **Drill-down**: `CategoryTree` → `CategoryRow` espande padre → sottocategorie → singoli movimenti (`GET transactions`). Il `DrillContext` porta periodo, conti **e flusso**: il `type` della query segue il flusso e il `queryKey` lo include (altrimenti uscite ed entrate della stessa categoria condividerebbero la cache). Anche i testi ("Caricamento spese/entrate…", "Nessuna spesa/entrata.") seguono il flusso.
 - **Vocabolario condiviso col dashboard**: tipo `Flow`, etichette `FLOW_UI`, props di selezione `flowSelectProps()` e hint `FlowHint` stanno in `frontend/src/features/dashboard/flow.tsx`; lo scroll assistito su mobile è `revealIfOffscreen()` in `frontend/src/lib/utils/reveal.ts`.
 - **Nodo "Senza categoria"** senza figli non è drillabile (non è filtrabile per categoria nulla).
+- **Modalità demo (v0.8.1)**: l'handler demo di `transactions` rispetta `categoryIds[]`, `accountIds[]` e `type` (prima solo i singolari, quindi il drill-down mostrava movimenti sbagliati) e `reports/compare` ha finalmente un handler — vedi [[Registro Modifiche]].
 
 ## Backend
 

@@ -40,6 +40,11 @@ export function demoHandle(ctx: Ctx): unknown | null {
     const all = demoDataset.transactions;
     const accountId = search.get('accountId');
     const categoryId = search.get('categoryId');
+    // Il drill-down dei report filtra per `categoryIds` multipli e per `type`:
+    // ignorarli mostrava movimenti di altre categorie e del verso sbagliato.
+    const categoryIds = search.getAll('categoryIds');
+    const accountIds = search.getAll('accountIds');
+    const type = search.get('type');
     const from = search.get('from');
     const to = search.get('to');
     const q = (search.get('search') ?? '').toLowerCase();
@@ -47,7 +52,11 @@ export function demoHandle(ctx: Ctx): unknown | null {
     const page = Number(search.get('page') ?? '1');
     const filtered = all.filter((tx) => {
       if (accountId && tx.accountId !== accountId) return false;
+      if (accountIds.length > 0 && !accountIds.includes(tx.accountId)) return false;
       if (categoryId && tx.categoryId !== categoryId) return false;
+      if (categoryIds.length > 0 && !(tx.categoryId && categoryIds.includes(tx.categoryId)))
+        return false;
+      if (type && tx.type !== type) return false;
       if (from && tx.transactionDate < from) return false;
       if (to && tx.transactionDate > to) return false;
       if (q && !(tx.description ?? '').toLowerCase().includes(q)) return false;
@@ -78,6 +87,11 @@ export function demoHandle(ctx: Ctx): unknown | null {
     const from = search.get('from') ?? isoDaysAgo(90);
     const to = search.get('to') ?? new Date().toISOString().slice(0, 10);
     return buildDashboard(from, to);
+  }
+  // `reports/compare` (confronto periodi della pagina Report) — non coperto
+  // finora: la richiesta usciva verso il backend e in demo tornava 401.
+  if (matches(pathname, 'reports/compare') && method === 'GET') {
+    return buildPeriodsCompare(search);
   }
   if (matches(pathname, 'reports/advanced/cashflow') && method === 'GET') {
     const months = Number(search.get('months') ?? '12');
@@ -337,6 +351,32 @@ function buildDashboard(from: string, to: string) {
     byCategoryTreeIncome: asCategoryTree(byCategoryIncome),
     daily,
     recent: txs.slice(0, 10),
+  };
+}
+
+/**
+ * `reports/compare`: due periodi arbitrari con totali e categorie per verso
+ * (`categories` uscite, `categoriesIncome` entrate — il selettore della pagina
+ * Report sceglie quale mostrare).
+ */
+function buildPeriodsCompare(search: URLSearchParams) {
+  const period = (fromKey: string, toKey: string, fallbackFrom: string) => {
+    const from = search.get(fromKey) ?? fallbackFrom;
+    const to = search.get(toKey) ?? new Date().toISOString().slice(0, 10);
+    const txs = demoDataset.transactions.filter(
+      (t) => t.transactionDate >= from && t.transactionDate <= to,
+    );
+    return {
+      from,
+      to,
+      totals: buildDashboard(from, to).totals,
+      categories: byCategoryFlat(txs, 'expense'),
+      categoriesIncome: byCategoryFlat(txs, 'income'),
+    };
+  };
+  return {
+    period1: period('period1From', 'period1To', isoDaysAgo(60)),
+    period2: period('period2From', 'period2To', isoDaysAgo(30)),
   };
 }
 
