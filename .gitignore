@@ -50,3 +50,7 @@ finance-manager-db-backup-*.dump
 # Chiavi private Enable Banking (mai committare)
 *.pem
 .playwright-mcp/
+
+# Artefatti delle verifiche a vista con Playwright (screenshot, snapshot)
+.playwright-mcp/
+/*.png
