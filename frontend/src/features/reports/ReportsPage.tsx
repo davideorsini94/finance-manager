@@ -482,7 +482,9 @@ function KpiCard({
     <Card
       className={cn(
         select && 'cursor-pointer transition-shadow hover:shadow-md',
-        select?.active && `ring-2 ${tone === 'emerald' ? FLOW_UI.income.ring : FLOW_UI.expense.ring}`,
+        // Outline e non ring: nel tema glass `fm-glass` sovrascrive il box-shadow.
+        select?.active &&
+          (tone === 'emerald' ? FLOW_UI.income.selected : FLOW_UI.expense.selected),
       )}
       {...(select ? flowSelectProps(select) : {})}
     >
@@ -526,7 +528,7 @@ function ComparisonColumn({
               hint: 'Mostra le entrate per categoria',
               onSelect: () => onSelectFlow('income'),
             }}
-            activeClassName="bg-emerald-500/10 ring-1 ring-emerald-500/40"
+            activeClassName={`${FLOW_UI.income.selectedTint} ${FLOW_UI.income.selected}`}
           />
           <TotalCell
             label="Uscite"
@@ -537,7 +539,7 @@ function ComparisonColumn({
               hint: 'Mostra le spese per categoria',
               onSelect: () => onSelectFlow('expense'),
             }}
-            activeClassName="bg-red-500/10 ring-1 ring-red-500/40"
+            activeClassName={`${FLOW_UI.expense.selectedTint} ${FLOW_UI.expense.selected}`}
           />
           <TotalCell label="Netto" value={totals.netCents} />
         </div>

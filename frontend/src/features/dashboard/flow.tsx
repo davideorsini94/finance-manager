@@ -23,8 +23,14 @@ export const FLOW_UI: Record<
     noneLabel: string;
     /** Testo a grafico vuoto. */
     emptyChart: string;
-    /** Ring della card KPI selezionata. */
-    ring: string;
+    /**
+     * Evidenziazione della card/voce selezionata. **Outline, non ring**: nel tema
+     * glass `fm-glass` sovrascrive il `box-shadow` della card e l'anello di
+     * Tailwind sparirebbe (stessa trappola delle card conto dei Movimenti).
+     */
+    selected: string;
+    /** Sfondo tenue per le voci selezionate compatte (colonne di confronto). */
+    selectedTint: string;
   }
 > = {
   expense: {
@@ -33,7 +39,8 @@ export const FLOW_UI: Record<
     itemsPlural: 'spese',
     noneLabel: 'Nessuna spesa.',
     emptyChart: 'Nessuna spesa nel periodo',
-    ring: 'ring-red-500/50',
+    selected: 'outline outline-2 outline-offset-2 outline-red-500',
+    selectedTint: 'bg-red-500/10',
   },
   income: {
     categoryTitle: 'Entrate per categoria',
@@ -41,7 +48,8 @@ export const FLOW_UI: Record<
     itemsPlural: 'entrate',
     noneLabel: 'Nessuna entrata.',
     emptyChart: 'Nessuna entrata nel periodo',
-    ring: 'ring-emerald-500/50',
+    selected: 'outline outline-2 outline-offset-2 outline-emerald-500',
+    selectedTint: 'bg-emerald-500/10',
   },
 };
 

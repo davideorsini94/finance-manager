@@ -173,7 +173,7 @@ export function DashboardPage() {
           select={{
             active: flow === 'income',
             onSelect: () => selectFlow('income'),
-            ringClassName: FLOW_UI.income.ring,
+            selectedClassName: FLOW_UI.income.selected,
             hint: 'Mostra le entrate per categoria',
           }}
         />
@@ -190,7 +190,7 @@ export function DashboardPage() {
           select={{
             active: flow === 'expense',
             onSelect: () => selectFlow('expense'),
-            ringClassName: FLOW_UI.expense.ring,
+            selectedClassName: FLOW_UI.expense.selected,
             hint: 'Mostra le spese per categoria',
           }}
         />
@@ -347,7 +347,8 @@ interface KpiCardProps {
   select?: {
     active: boolean;
     onSelect: () => void;
-    ringClassName: string;
+    /** Classi di evidenziazione a card selezionata (outline: vedi FLOW_UI). */
+    selectedClassName: string;
     hint: string;
   };
 }
@@ -362,7 +363,7 @@ function KpiCard({ label, value, valueClassName, spark, sparkColor, select }: Kp
       className={cn(
         'fm-glass fm-card-in relative overflow-hidden',
         select && 'cursor-pointer transition-shadow hover:shadow-md',
-        select?.active && `ring-2 ${select.ringClassName}`,
+        select?.active && select.selectedClassName,
       )}
       {...(select ? flowSelectProps(select) : {})}
     >
