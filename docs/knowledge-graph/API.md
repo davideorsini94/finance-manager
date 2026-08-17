@@ -14,7 +14,7 @@ Tutte le rotte sono servite dal [[Backend]] e proxate da nginx sotto `/api/` (es
 - **Credit cards** — `POST|GET|PATCH /credit-cards`
 - **Recurring** — CRUD `/recurring` + `POST /recurring/run-now`
 - **Budgets / Goals** — CRUD `/budgets`, `/goals`
-- **Reports** — `GET /reports/dashboard|monthly|annual|custom|compare` + `/reports/advanced/...`
+- **Reports** — `GET /reports/dashboard|monthly|annual|custom|compare` + `/reports/advanced/...`. `dashboard` accetta `from`, `to`, `accountIds[]`, `categoryIds[]` (categorie padre, espanse ai figli lato server) e ritorna `totals`, `byCategory` (piatto, uscite), `byCategoryTree` (uscite) **e `byCategoryTreeIncome`** (entrate, dal 2026-08-17: entrambi gli alberi nella stessa risposta così il selettore Entrate/Uscite della [[Pagina Dashboard]] non rifà la richiesta), `daily`, `recent`
 - **Chat** — `GET|POST /chat/sessions`, `GET|DELETE /chat/sessions/:id`, `POST /chat/sessions/:id/messages` (SSE streaming) → [[Chat LLM]]
 - **Settings LLM** — `GET /settings/llm` (attivo/installati, tutti gli utenti), `GET /settings/llm/catalog`, `GET /settings/llm/pull-status`, `POST /settings/llm/models/pull`, `DELETE /settings/llm/models/:name`, `PUT /settings/llm` (queste ultime tre admin-only) → [[Chat LLM]]
 - **Settings Sync bancario** (admin) — `GET|PUT|DELETE /settings/bank-sync` (GET → solo `hasCredentials`+ID mascherato, PEM mai restituita), `POST /settings/bank-sync/test`

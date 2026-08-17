@@ -7,6 +7,7 @@
  */
 
 import { demoDataset } from './data';
+import type { Transaction } from '@/types/domain';
 
 interface Ctx {
   pathname: string;
@@ -295,24 +296,8 @@ function buildDashboard(from: string, to: string) {
     if (t.type === 'income') income += c;
     else if (t.type === 'expense') expense += c < 0n ? -c : c;
   }
-  const byCatMap = new Map<
-    string,
-    { categoryId: string | null; categoryName: string; color: string | null; amountCents: bigint; count: number }
-  >();
-  for (const t of txs) {
-    if (t.type !== 'expense') continue;
-    const id = t.categoryId ?? '__none__';
-    const name = t.category?.name ?? 'Senza categoria';
-    const color = t.category?.color ?? null;
-    const cur = byCatMap.get(id) ?? { categoryId: t.categoryId, categoryName: name, color, amountCents: 0n, count: 0 };
-    const c = BigInt(t.amountCents);
-    cur.amountCents += c < 0n ? -c : c;
-    cur.count++;
-    byCatMap.set(id, cur);
-  }
-  const byCategory = Array.from(byCatMap.values())
-    .sort((a, b) => Number(b.amountCents - a.amountCents))
-    .map((r) => ({ ...r, amountCents: r.amountCents.toString() }));
+  const byCategory = byCategoryFlat(txs, 'expense');
+  const byCategoryIncome = byCategoryFlat(txs, 'income');
 
   // Daily series
   const dailyMap = new Map<string, { incomeCents: bigint; expenseCents: bigint }>();
@@ -347,9 +332,49 @@ function buildDashboard(from: string, to: string) {
       txCount: txs.length,
     },
     byCategory,
+    // Le categorie demo sono piatte: gli alberi hanno solo nodi top-level.
+    byCategoryTree: asCategoryTree(byCategory),
+    byCategoryTreeIncome: asCategoryTree(byCategoryIncome),
     daily,
     recent: txs.slice(0, 10),
   };
+}
+
+/**
+ * Aggregato per categoria (valore assoluto) del dataset demo. `type` sceglie il
+ * verso: la dashboard usa uscite ed entrate per il selettore sulle card KPI.
+ */
+function byCategoryFlat(txs: Transaction[], type: 'expense' | 'income') {
+  const byCatMap = new Map<
+    string,
+    { categoryId: string | null; categoryName: string; color: string | null; amountCents: bigint; count: number }
+  >();
+  for (const t of txs) {
+    if (t.type !== type) continue;
+    const id = t.categoryId ?? '__none__';
+    const name = t.category?.name ?? 'Senza categoria';
+    const color = t.category?.color ?? null;
+    const cur = byCatMap.get(id) ?? { categoryId: t.categoryId, categoryName: name, color, amountCents: 0n, count: 0 };
+    const c = BigInt(t.amountCents);
+    cur.amountCents += c < 0n ? -c : c;
+    cur.count++;
+    byCatMap.set(id, cur);
+  }
+  return Array.from(byCatMap.values())
+    .sort((a, b) => Number(b.amountCents - a.amountCents))
+    .map((r) => ({ ...r, amountCents: r.amountCents.toString() }));
+}
+
+/** Riporta l'aggregato piatto nella forma ad albero attesa dalla dashboard. */
+function asCategoryTree(items: ReturnType<typeof byCategoryFlat>) {
+  return items.map((i) => ({
+    categoryIds: i.categoryId ? [i.categoryId] : [],
+    categoryName: i.categoryName,
+    color: i.color,
+    amountCents: i.amountCents,
+    count: i.count,
+    children: [],
+  }));
 }
 
 function buildAnnual(year: number) {

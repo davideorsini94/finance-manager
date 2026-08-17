@@ -48,6 +48,9 @@ export interface DashboardData {
   /** Spesa per categoria in forma gerarchica (padre → figli) per il toggle
    *  "categorie padre / dettaglio sottocategorie" sulla dashboard. */
   byCategoryTree: CategoryNode[];
+  /** Come `byCategoryTree` ma sulle entrate: vista attivata cliccando la card
+   *  "Entrate" sulla dashboard (stessi filtri conti/periodo/categorie). */
+  byCategoryTreeIncome: CategoryNode[];
   daily: DailyPoint[];
   recent: Transaction[];
 }

@@ -19,6 +19,13 @@ export interface CategoryBreakdownItem {
 }
 
 /**
+ * Verso del flusso di cassa per gli aggregati per categoria: uscite (default,
+ * storico) oppure entrate. La dashboard usa entrambi per il selettore
+ * "Entrate / Uscite" sulle card KPI.
+ */
+export type CategoryFlow = 'expense' | 'income';
+
+/**
  * Nodo gerarchico della spesa per categoria. I nodi top-level sono le categorie
  * padre (o le categorie senza padre); `children` contiene le sottocategorie con
  * spesa nel periodo. Un nodo foglia (`children` vuoto) con `categoryId` valorizzato
@@ -168,11 +175,15 @@ export class ReportsService {
   }
 
   /**
-   * Spesa raggruppata in modo gerarchico: categorie padre al primo livello, con
-   * le sottocategorie (e l'eventuale spesa assegnata direttamente al padre) nei
-   * `children`. Solo type=expense. Le uscite senza categoria confluiscono in un
-   * nodo "Senza categoria". Pensato per la sezione "Top categorie" del report,
-   * dove l'utente può espandere padre → sottocategorie → singole spese.
+   * Importi raggruppati in modo gerarchico: categorie padre al primo livello, con
+   * le sottocategorie (e l'eventuale importo assegnato direttamente al padre) nei
+   * `children`. I movimenti senza categoria confluiscono in un nodo "Senza
+   * categoria". Pensato per la sezione "Top categorie" del report e per la torta
+   * della dashboard, dove l'utente può espandere padre → sottocategorie.
+   *
+   * `flow` sceglie il verso: `expense` (default, comportamento storico) oppure
+   * `income`. Gli importi tornano sempre in valore assoluto — le uscite sono
+   * negative a DB, le entrate positive.
    */
   async categoryBreakdownTree(
     userId: string,
@@ -180,13 +191,15 @@ export class ReportsService {
     to: Date,
     accountIds?: string[],
     categoryIds?: string[],
+    flow: CategoryFlow = 'expense',
   ): Promise<CategoryNode[]> {
+    const isIncome = flow === 'income';
     const grouped = await this.prisma.transaction.groupBy({
       by: ['categoryId'],
       where: this.accessibleTxWhere(
         userId,
         {
-          type: TransactionType.expense,
+          type: isIncome ? TransactionType.income : TransactionType.expense,
           transactionDate: { gte: from, lte: to },
         },
         accountIds,
@@ -254,7 +267,8 @@ export class ReportsService {
     };
 
     for (const g of grouped) {
-      const amount = -(g._sum.amountCents ?? 0n); // le uscite sono negative → valore assoluto
+      const sum = g._sum.amountCents ?? 0n;
+      const amount = isIncome ? sum : -sum; // le uscite sono negative → valore assoluto
       if (amount === 0n) continue;
       const count = g._count._all;
       const cat = g.categoryId ? catById.get(g.categoryId) : undefined;
@@ -307,12 +321,12 @@ export class ReportsService {
         }));
         total += subs.reduce((acc, s) => acc + s.amount, 0n);
         count += subs.reduce((acc, s) => acc + s.count, 0);
-        // Se il padre ha anche spese assegnate direttamente, le mostriamo come
+        // Se il padre ha anche movimenti assegnati direttamente, li mostriamo come
         // voce a sé drillabile (id = id delle categorie padre coinvolte).
         if (t.direct > 0n) {
           children.push({
             categoryIds: [...t.directIds],
-            categoryName: 'Spese dirette',
+            categoryName: isIncome ? 'Entrate dirette' : 'Spese dirette',
             color: t.color,
             amountCents: t.direct.toString(),
             count: t.directCount,
@@ -482,22 +496,26 @@ export class ReportsService {
     // movimenti dei figli di X (categorie a 2 livelli → basta un'espansione).
     const effectiveCategoryIds = await this.expandWithChildren(userId, categoryIds);
 
-    const [totals, byCategory, byCategoryTree, daily, recent] = await Promise.all([
-      this.periodTotals(userId, from, to, accountIds, effectiveCategoryIds),
-      this.categoryBreakdown(userId, from, to, accountIds, effectiveCategoryIds),
-      this.categoryBreakdownTree(userId, from, to, accountIds, effectiveCategoryIds),
-      this.dailyTimeSeries(userId, from, to, accountIds, effectiveCategoryIds),
-      this.prisma.transaction.findMany({
-        where: this.accessibleTxWhere(userId, {}, accountIds, effectiveCategoryIds),
-        orderBy: [{ transactionDate: 'desc' }, { createdAt: 'desc' }],
-        take: 10,
-        include: {
-          category: { select: { id: true, name: true, color: true, icon: true, isIncome: true } },
-          account: { select: { id: true, name: true, type: true } },
-          attachments: { select: { id: true } },
-        },
-      }),
-    ]);
+    // Calcoliamo entrambi gli alberi (uscite + entrate) in un colpo: il selettore
+    // Entrate/Uscite della dashboard cambia solo la vista, senza refetch.
+    const [totals, byCategory, byCategoryTree, byCategoryTreeIncome, daily, recent] =
+      await Promise.all([
+        this.periodTotals(userId, from, to, accountIds, effectiveCategoryIds),
+        this.categoryBreakdown(userId, from, to, accountIds, effectiveCategoryIds),
+        this.categoryBreakdownTree(userId, from, to, accountIds, effectiveCategoryIds),
+        this.categoryBreakdownTree(userId, from, to, accountIds, effectiveCategoryIds, 'income'),
+        this.dailyTimeSeries(userId, from, to, accountIds, effectiveCategoryIds),
+        this.prisma.transaction.findMany({
+          where: this.accessibleTxWhere(userId, {}, accountIds, effectiveCategoryIds),
+          orderBy: [{ transactionDate: 'desc' }, { createdAt: 'desc' }],
+          take: 10,
+          include: {
+            category: { select: { id: true, name: true, color: true, icon: true, isIncome: true } },
+            account: { select: { id: true, name: true, type: true } },
+            attachments: { select: { id: true } },
+          },
+        }),
+      ]);
 
     return {
       from: from.toISOString().slice(0, 10),
@@ -507,6 +525,8 @@ export class ReportsService {
       totals,
       byCategory,
       byCategoryTree,
+      // Stesso albero, ma sulle entrate: vista "Entrate per categoria" della dashboard.
+      byCategoryTreeIncome,
       daily,
       recent,
     };

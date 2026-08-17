@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -31,6 +31,14 @@ const PRESETS = [
   { label: 'YTD', days: -1 },
 ];
 
+/** Verso mostrato dalla card "per categoria" (torta + lista). */
+type Flow = 'expense' | 'income';
+
+const FLOW_LABELS: Record<Flow, { title: string; empty: string }> = {
+  expense: { title: 'Spese per categoria', empty: 'Nessuna spesa nel periodo' },
+  income: { title: 'Entrate per categoria', empty: 'Nessuna entrata nel periodo' },
+};
+
 export function DashboardPage() {
   const [from, setFrom] = useState(isoDaysAgo(30));
   const [to, setTo] = useState(new Date().toISOString().slice(0, 10));
@@ -38,6 +46,10 @@ export function DashboardPage() {
   const [categoryIds, setCategoryIds] = useState<string[]>([]);
   // Toggle "categoria padre" (aggregato) vs "dettaglio sottocategorie".
   const [categoryDetail, setCategoryDetail] = useState(false);
+  // Le card KPI Entrate/Uscite fanno da selettore per la card "per categoria":
+  // default uscite (vista storica della dashboard).
+  const [flow, setFlow] = useState<Flow>('expense');
+  const breakdownRef = useRef<HTMLDivElement>(null);
 
   const accountsQuery = useQuery({
     queryKey: ['accounts'],
@@ -83,11 +95,29 @@ export function DashboardPage() {
     [categories],
   );
 
-  // Breakdown spese per il grafico/lista, derivato dall'albero in base al toggle.
+  // Breakdown per il grafico/lista: albero scelto dal flusso (uscite/entrate),
+  // appiattito in base al toggle padre/sottocategorie. Entrambi gli alberi
+  // arrivano già filtrati per conti, periodo e categorie selezionati in alto.
+  const categoryTree = flow === 'income' ? data?.byCategoryTreeIncome : data?.byCategoryTree;
   const categoryBreakdown = useMemo(
-    () => buildCategoryBreakdown(data?.byCategoryTree ?? [], categoryDetail),
-    [data?.byCategoryTree, categoryDetail],
+    () => buildCategoryBreakdown(categoryTree ?? [], categoryDetail),
+    [categoryTree, categoryDetail],
   );
+
+  /**
+   * Cambia flusso dal click su una card KPI. Su mobile la card del dettaglio sta
+   * sotto la piega: se non è (quasi) in vista la porto in vista, altrimenti il
+   * click sembra non fare nulla.
+   */
+  const selectFlow = (next: Flow) => {
+    setFlow(next);
+    const el = breakdownRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    if (rect.top < 0 || rect.top > window.innerHeight * 0.6) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
 
   const setPreset = (days: number) => {
     if (days < 0) {
@@ -143,101 +173,57 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* KPI cards */}
+      {/* KPI cards — Entrate/Uscite selezionano il flusso della card "per categoria" */}
       <StaggerList className="grid gap-4 md:grid-cols-3">
-        <Card className="fm-glass fm-card-in relative overflow-hidden">
-          <CardHeader className="pb-2">
-            <CardDescription className="uppercase tracking-wider text-[11px] font-semibold">
-              Entrate
-            </CardDescription>
-            <CardTitle className="text-3xl font-num text-emerald-600 dark:text-emerald-400">
-              {data ? (
-                <AnimatedNumber
-                  value={Number(data.totals.incomeCents) / 100}
-                  prefix="€ "
-                  decimals={2}
-                />
-              ) : (
-                '—'
-              )}
-            </CardTitle>
-          </CardHeader>
-          {data?.daily && data.daily.length > 1 && (
-            <div className="absolute bottom-3 right-3 opacity-60">
-              <SparkLine
-                data={data.daily.map((d) => Number(d.incomeCents) / 100)}
-                color="hsl(var(--pos))"
-                width={110}
-                height={32}
-              />
-            </div>
-          )}
-        </Card>
-        <Card className="fm-glass fm-card-in relative overflow-hidden">
-          <CardHeader className="pb-2">
-            <CardDescription className="uppercase tracking-wider text-[11px] font-semibold">
-              Uscite
-            </CardDescription>
-            <CardTitle className="text-3xl font-num text-red-600 dark:text-red-400">
-              {data ? (
-                <AnimatedNumber
-                  value={Number(data.totals.expenseCents) / 100}
-                  prefix="€ "
-                  decimals={2}
-                />
-              ) : (
-                '—'
-              )}
-            </CardTitle>
-          </CardHeader>
-          {data?.daily && data.daily.length > 1 && (
-            <div className="absolute bottom-3 right-3 opacity-60">
-              <SparkLine
-                data={data.daily.map((d) => Math.abs(Number(d.expenseCents)) / 100)}
-                color="hsl(var(--neg))"
-                width={110}
-                height={32}
-              />
-            </div>
-          )}
-        </Card>
-        <Card className="fm-glass fm-card-in relative overflow-hidden">
-          <CardHeader className="pb-2">
-            <CardDescription className="uppercase tracking-wider text-[11px] font-semibold">
-              Netto
-            </CardDescription>
-            <CardTitle
-              className={cn(
-                'text-3xl font-num',
-                data && Number(data.totals.netCents) >= 0
-                  ? 'text-emerald-600 dark:text-emerald-400'
-                  : 'text-red-600 dark:text-red-400',
-              )}
-            >
-              {data ? (
-                <AnimatedNumber
-                  value={Number(data.totals.netCents) / 100}
-                  prefix="€ "
-                  decimals={2}
-                />
-              ) : (
-                '—'
-              )}
-            </CardTitle>
-          </CardHeader>
-          {data?.daily && data.daily.length > 1 && (
-            <div className="absolute bottom-3 right-3 opacity-60">
-              <SparkLine
-                data={data.daily.map(
-                  (d) => (Number(d.incomeCents) + Number(d.expenseCents)) / 100,
-                )}
-                color="hsl(var(--primary))"
-                width={110}
-                height={32}
-              />
-            </div>
-          )}
-        </Card>
+        <KpiCard
+          label="Entrate"
+          value={data ? Number(data.totals.incomeCents) / 100 : null}
+          valueClassName="text-emerald-600 dark:text-emerald-400"
+          spark={
+            data?.daily && data.daily.length > 1
+              ? data.daily.map((d) => Number(d.incomeCents) / 100)
+              : undefined
+          }
+          sparkColor="hsl(var(--pos))"
+          select={{
+            active: flow === 'income',
+            onSelect: () => selectFlow('income'),
+            ringClassName: 'ring-emerald-500/50',
+            hint: 'Mostra le entrate per categoria',
+          }}
+        />
+        <KpiCard
+          label="Uscite"
+          value={data ? Number(data.totals.expenseCents) / 100 : null}
+          valueClassName="text-red-600 dark:text-red-400"
+          spark={
+            data?.daily && data.daily.length > 1
+              ? data.daily.map((d) => Math.abs(Number(d.expenseCents)) / 100)
+              : undefined
+          }
+          sparkColor="hsl(var(--neg))"
+          select={{
+            active: flow === 'expense',
+            onSelect: () => selectFlow('expense'),
+            ringClassName: 'ring-red-500/50',
+            hint: 'Mostra le spese per categoria',
+          }}
+        />
+        <KpiCard
+          label="Netto"
+          value={data ? Number(data.totals.netCents) / 100 : null}
+          valueClassName={
+            data && Number(data.totals.netCents) >= 0
+              ? 'text-emerald-600 dark:text-emerald-400'
+              : 'text-red-600 dark:text-red-400'
+          }
+          spark={
+            data?.daily && data.daily.length > 1
+              ? data.daily.map((d) => (Number(d.incomeCents) + Number(d.expenseCents)) / 100)
+              : undefined
+          }
+          sparkColor="hsl(var(--primary))"
+        />
       </StaggerList>
 
       <StaggerList className="grid gap-4 lg:grid-cols-2">
@@ -251,11 +237,11 @@ export function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="fm-glass fm-card-in">
+        <Card ref={breakdownRef} className="fm-glass fm-card-in scroll-mt-4">
           <CardHeader>
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
-                <CardTitle className="text-base">Spese per categoria</CardTitle>
+                <CardTitle className="text-base">{FLOW_LABELS[flow].title}</CardTitle>
                 <CardDescription>
                   {categoryDetail ? 'Dettaglio sottocategorie' : 'Per categoria padre'} nel periodo
                 </CardDescription>
@@ -300,7 +286,7 @@ export function DashboardPage() {
           <CardContent>
             {data ? (
               <>
-                <CategoryPieChart data={categoryBreakdown} />
+                <CategoryPieChart data={categoryBreakdown} emptyLabel={FLOW_LABELS[flow].empty} />
                 <CategoryBreakdownList items={categoryBreakdown} />
               </>
             ) : (
@@ -365,8 +351,78 @@ function Skel() {
   return <Skeleton height={260} rounded="md" />;
 }
 
+interface KpiCardProps {
+  label: string;
+  /** null finché i dati non sono arrivati (mostra "—"). */
+  value: number | null;
+  valueClassName: string;
+  spark?: number[];
+  sparkColor: string;
+  /** Se presente la card fa da selettore per la vista "per categoria" sotto. */
+  select?: {
+    active: boolean;
+    onSelect: () => void;
+    ringClassName: string;
+    hint: string;
+  };
+}
+
 /**
- * Trasforma l'albero spese in una lista piatta per grafico/legenda:
+ * Card KPI del periodo. Con `select` diventa cliccabile (e raggiungibile da
+ * tastiera): Entrate/Uscite scelgono il flusso mostrato dalla torta per categoria.
+ */
+function KpiCard({ label, value, valueClassName, spark, sparkColor, select }: KpiCardProps) {
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (!select) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      select.onSelect();
+    }
+  };
+
+  return (
+    <Card
+      className={cn(
+        'fm-glass fm-card-in relative overflow-hidden',
+        select && 'cursor-pointer transition-shadow hover:shadow-md',
+        select?.active && `ring-2 ${select.ringClassName}`,
+      )}
+      role={select ? 'button' : undefined}
+      tabIndex={select ? 0 : undefined}
+      aria-pressed={select ? select.active : undefined}
+      title={select?.hint}
+      onClick={select?.onSelect}
+      onKeyDown={select ? onKeyDown : undefined}
+    >
+      <CardHeader className="pb-2">
+        <CardDescription className="flex items-center gap-1.5 uppercase tracking-wider text-[11px] font-semibold">
+          {label}
+          {select && (
+            <span
+              className={cn(
+                'text-[10px] font-medium normal-case tracking-normal',
+                select.active ? 'text-foreground/70' : 'text-muted-foreground/60',
+              )}
+            >
+              {select.active ? '· in dettaglio' : '· vedi dettaglio'}
+            </span>
+          )}
+        </CardDescription>
+        <CardTitle className={cn('text-3xl font-num', valueClassName)}>
+          {value !== null ? <AnimatedNumber value={value} prefix="€ " decimals={2} /> : '—'}
+        </CardTitle>
+      </CardHeader>
+      {spark && spark.length > 1 && (
+        <div className="absolute bottom-3 right-3 opacity-60">
+          <SparkLine data={spark} color={sparkColor} width={110} height={32} />
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/**
+ * Trasforma l'albero (uscite o entrate) in una lista piatta per grafico/legenda:
  *  - detail = false → una voce per categoria padre (totale figli incluso)
  *  - detail = true  → una voce per ogni sottocategoria (i padri senza figli
  *    restano come voce singola), con etichetta "Padre · Figlio".

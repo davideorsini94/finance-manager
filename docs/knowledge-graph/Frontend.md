@@ -14,7 +14,7 @@ SPA React 19 + Vite + TypeScript in `frontend/`. UI Tailwind + shadcn/ui (Radix)
 
 ## Route principali
 
-`/` Dashboard · `/accounts` Conti · `/categories` Categorie · `/transactions` [[Pagina Movimenti]] · `/budget` Budget · `/recurring` Ricorrenze · `/goals` Obiettivi · `/reports` (+ `/reports/advanced`) Report · `/projections` Proiezioni · `/chat` [[Chat LLM]] · `/import` (+ wizard, templates) [[Import CSV-OFX]] · `/settings` Impostazioni · `/login`, `/accept-invite`, `/reset-password` (pubbliche)
+`/` [[Pagina Dashboard]] · `/accounts` Conti · `/categories` Categorie · `/transactions` [[Pagina Movimenti]] · `/budget` Budget · `/recurring` Ricorrenze · `/goals` Obiettivi · `/reports` (+ `/reports/advanced`) Report · `/projections` Proiezioni · `/chat` [[Chat LLM]] · `/import` (+ wizard, templates) [[Import CSV-OFX]] · `/settings` Impostazioni · `/login`, `/accept-invite`, `/reset-password` (pubbliche)
 
 ## Store globali (Zustand)
 

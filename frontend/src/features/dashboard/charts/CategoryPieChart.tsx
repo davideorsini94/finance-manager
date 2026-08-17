@@ -16,9 +16,15 @@ const FALLBACK_PALETTE = [
 interface Props {
   data: CategoryBreakdownItem[];
   maxSlices?: number;
+  /** Messaggio a dati vuoti: la torta serve sia alle uscite sia alle entrate. */
+  emptyLabel?: string;
 }
 
-export function CategoryPieChart({ data, maxSlices = 8 }: Props) {
+export function CategoryPieChart({
+  data,
+  maxSlices = 8,
+  emptyLabel = 'Nessuna spesa nel periodo',
+}: Props) {
   const sorted = [...data].sort((a, b) => Number(BigInt(b.amountCents) - BigInt(a.amountCents)));
   const top = sorted.slice(0, maxSlices);
   const others = sorted.slice(maxSlices);
@@ -37,7 +43,7 @@ export function CategoryPieChart({ data, maxSlices = 8 }: Props) {
   if (slices.length === 0) {
     return (
       <p className="flex h-[260px] items-center justify-center text-sm text-muted-foreground">
-        Nessuna spesa nel periodo
+        {emptyLabel}
       </p>
     );
   }

@@ -422,6 +422,13 @@ La pagina iniziale dopo il login mostra:
 
 Tre card grandi: **Entrate**, **Uscite**, **Netto** del periodo selezionato.
 
+Le card **Entrate** e **Uscite** sono **cliccabili**: scelgono cosa mostra la
+card "per categoria" più sotto (torta + lista delle categorie). Cliccando
+*Entrate* vedi le entrate divise per categoria, cliccando *Uscite* torni alle
+spese (la vista predefinita). La card selezionata è evidenziata da un bordo
+colorato. In entrambi i casi valgono i filtri in alto: conti, periodo e
+categorie.
+
 ### Filtri di periodo
 
 In alto a destra:
@@ -432,7 +439,10 @@ In alto a destra:
 ### Grafici
 
 - **Andamento patrimonio**: area chart del saldo cumulativo nel periodo
-- **Spese per categoria**: pie chart con i colori delle categorie
+- **Spese / Entrate per categoria**: pie chart con i colori delle categorie e
+  lista con gli importi sotto; il verso (spese o entrate) si sceglie cliccando
+  le card KPI in cima. Il selettore **Padre / Sottocategorie** decide se
+  aggregare per categoria padre o mostrare il dettaglio dei figli
 - **Entrate vs uscite**: bar chart per giornata
 
 ### Ultime operazioni
