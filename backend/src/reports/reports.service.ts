@@ -126,8 +126,10 @@ export class ReportsService {
   }
 
   /**
-   * Spesa raggruppata per categoria, escluse uscite senza categoria? Le includiamo come "Senza categoria".
-   * Solo type=expense.
+   * Importi raggruppati per categoria (lista piatta); i movimenti senza categoria
+   * confluiscono in "Senza categoria". `flow` sceglie il verso: `expense`
+   * (default, comportamento storico) oppure `income`. Importi sempre in valore
+   * assoluto.
    */
   async categoryBreakdown(
     userId: string,
@@ -135,13 +137,15 @@ export class ReportsService {
     to: Date,
     accountIds?: string[],
     categoryIds?: string[],
+    flow: CategoryFlow = 'expense',
   ): Promise<CategoryBreakdownItem[]> {
+    const isIncome = flow === 'income';
     const grouped = await this.prisma.transaction.groupBy({
       by: ['categoryId'],
       where: this.accessibleTxWhere(
         userId,
         {
-          type: TransactionType.expense,
+          type: isIncome ? TransactionType.income : TransactionType.expense,
           transactionDate: { gte: from, lte: to },
         },
         accountIds,
@@ -161,7 +165,8 @@ export class ReportsService {
     return grouped
       .map((g) => {
         const cat = g.categoryId ? byId.get(g.categoryId) : undefined;
-        const amount = -(g._sum.amountCents ?? 0n);
+        const sum = g._sum.amountCents ?? 0n;
+        const amount = isIncome ? sum : -sum; // le uscite sono negative a DB
         return {
           categoryId: g.categoryId,
           categoryName: cat?.name ?? 'Senza categoria',
@@ -461,15 +466,19 @@ export class ReportsService {
     p2: { from: Date; to: Date },
     accountIds?: string[],
   ) {
-    const [p1Totals, p2Totals, p1Cats, p2Cats] = await Promise.all([
+    // `categoriesIncome` accanto a `categories`: il selettore Entrate/Uscite
+    // della pagina Report cambia solo la vista, senza rifare la richiesta.
+    const [p1Totals, p2Totals, p1Cats, p2Cats, p1CatsIn, p2CatsIn] = await Promise.all([
       this.periodTotals(userId, p1.from, p1.to, accountIds),
       this.periodTotals(userId, p2.from, p2.to, accountIds),
       this.categoryBreakdown(userId, p1.from, p1.to, accountIds),
       this.categoryBreakdown(userId, p2.from, p2.to, accountIds),
+      this.categoryBreakdown(userId, p1.from, p1.to, accountIds, undefined, 'income'),
+      this.categoryBreakdown(userId, p2.from, p2.to, accountIds, undefined, 'income'),
     ]);
     return {
-      period1: { ...p1, totals: p1Totals, categories: p1Cats },
-      period2: { ...p2, totals: p2Totals, categories: p2Cats },
+      period1: { ...p1, totals: p1Totals, categories: p1Cats, categoriesIncome: p1CatsIn },
+      period2: { ...p2, totals: p2Totals, categories: p2Cats, categoriesIncome: p2CatsIn },
     };
   }
 

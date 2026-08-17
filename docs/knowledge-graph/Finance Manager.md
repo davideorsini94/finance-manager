@@ -26,6 +26,7 @@ Questa è la nota-hub del grafo di conoscenza: da qui si raggiunge tutto il rest
 ### Aree funzionali principali
 
 - [[Pagina Dashboard]] — home: KPI, filtri e torta per categoria (entrate/uscite)
+- [[Pagina Report]] — riepiloghi annuale/mensile, confronto periodi, drill-down categorie
 - [[Pagina Movimenti]] — la pagina più usata (filtri, card conti, quick-add)
 - [[Condivisione Conti]] — membri, inviti, ruoli
 - [[Chat LLM]] — Ollama + tool calling

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,8 @@ import { SparkLine } from '@/components/shared/animated/SparkLine';
 import { StaggerList } from '@/components/shared/animated/StaggerList';
 import { Skeleton } from '@/components/shared/animated/Skeleton';
 import { cn } from '@/lib/utils/cn';
+import { revealIfOffscreen } from '@/lib/utils/reveal';
+import { FLOW_UI, FlowHint, flowSelectProps, type Flow } from './flow';
 
 function isoDaysAgo(days: number): string {
   return new Date(Date.now() - days * 86400_000).toISOString().slice(0, 10);
@@ -30,14 +32,6 @@ const PRESETS = [
   { label: '90g', days: 90 },
   { label: 'YTD', days: -1 },
 ];
-
-/** Verso mostrato dalla card "per categoria" (torta + lista). */
-type Flow = 'expense' | 'income';
-
-const FLOW_LABELS: Record<Flow, { title: string; empty: string }> = {
-  expense: { title: 'Spese per categoria', empty: 'Nessuna spesa nel periodo' },
-  income: { title: 'Entrate per categoria', empty: 'Nessuna entrata nel periodo' },
-};
 
 export function DashboardPage() {
   const [from, setFrom] = useState(isoDaysAgo(30));
@@ -104,19 +98,10 @@ export function DashboardPage() {
     [categoryTree, categoryDetail],
   );
 
-  /**
-   * Cambia flusso dal click su una card KPI. Su mobile la card del dettaglio sta
-   * sotto la piega: se non è (quasi) in vista la porto in vista, altrimenti il
-   * click sembra non fare nulla.
-   */
+  /** Cambia flusso dal click su una card KPI, mostrando la card del dettaglio. */
   const selectFlow = (next: Flow) => {
     setFlow(next);
-    const el = breakdownRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    if (rect.top < 0 || rect.top > window.innerHeight * 0.6) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    revealIfOffscreen(breakdownRef.current);
   };
 
   const setPreset = (days: number) => {
@@ -188,7 +173,7 @@ export function DashboardPage() {
           select={{
             active: flow === 'income',
             onSelect: () => selectFlow('income'),
-            ringClassName: 'ring-emerald-500/50',
+            ringClassName: FLOW_UI.income.ring,
             hint: 'Mostra le entrate per categoria',
           }}
         />
@@ -205,7 +190,7 @@ export function DashboardPage() {
           select={{
             active: flow === 'expense',
             onSelect: () => selectFlow('expense'),
-            ringClassName: 'ring-red-500/50',
+            ringClassName: FLOW_UI.expense.ring,
             hint: 'Mostra le spese per categoria',
           }}
         />
@@ -241,7 +226,7 @@ export function DashboardPage() {
           <CardHeader>
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
-                <CardTitle className="text-base">{FLOW_LABELS[flow].title}</CardTitle>
+                <CardTitle className="text-base">{FLOW_UI[flow].categoryTitle}</CardTitle>
                 <CardDescription>
                   {categoryDetail ? 'Dettaglio sottocategorie' : 'Per categoria padre'} nel periodo
                 </CardDescription>
@@ -286,7 +271,7 @@ export function DashboardPage() {
           <CardContent>
             {data ? (
               <>
-                <CategoryPieChart data={categoryBreakdown} emptyLabel={FLOW_LABELS[flow].empty} />
+                <CategoryPieChart data={categoryBreakdown} emptyLabel={FLOW_UI[flow].emptyChart} />
                 <CategoryBreakdownList items={categoryBreakdown} />
               </>
             ) : (
@@ -372,14 +357,6 @@ interface KpiCardProps {
  * tastiera): Entrate/Uscite scelgono il flusso mostrato dalla torta per categoria.
  */
 function KpiCard({ label, value, valueClassName, spark, sparkColor, select }: KpiCardProps) {
-  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (!select) return;
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      select.onSelect();
-    }
-  };
-
   return (
     <Card
       className={cn(
@@ -387,26 +364,12 @@ function KpiCard({ label, value, valueClassName, spark, sparkColor, select }: Kp
         select && 'cursor-pointer transition-shadow hover:shadow-md',
         select?.active && `ring-2 ${select.ringClassName}`,
       )}
-      role={select ? 'button' : undefined}
-      tabIndex={select ? 0 : undefined}
-      aria-pressed={select ? select.active : undefined}
-      title={select?.hint}
-      onClick={select?.onSelect}
-      onKeyDown={select ? onKeyDown : undefined}
+      {...(select ? flowSelectProps(select) : {})}
     >
       <CardHeader className="pb-2">
         <CardDescription className="flex items-center gap-1.5 uppercase tracking-wider text-[11px] font-semibold">
           {label}
-          {select && (
-            <span
-              className={cn(
-                'text-[10px] font-medium normal-case tracking-normal',
-                select.active ? 'text-foreground/70' : 'text-muted-foreground/60',
-              )}
-            >
-              {select.active ? '· in dettaglio' : '· vedi dettaglio'}
-            </span>
-          )}
+          {select && <FlowHint active={select.active} />}
         </CardDescription>
         <CardTitle className={cn('text-3xl font-num', valueClassName)}>
           {value !== null ? <AnimatedNumber value={value} prefix="€ " decimals={2} /> : '—'}

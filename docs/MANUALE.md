@@ -454,21 +454,34 @@ uscite, grigio giroconti).
 
 ## 14. Report e confronti
 
-Pagina **Report**, due modalità:
+Pagina **Report**, tre modalità (menu in alto a destra) più il filtro conti.
+
+> 💡 In tutte le modalità le voci **Entrate** e **Uscite** sono **cliccabili**:
+> scelgono se le categorie mostrate sotto (lista "Top categorie" o torta) sono
+> quelle delle entrate o quelle delle spese. Di default vedi le spese. La voce
+> selezionata è evidenziata, e vale anche per il drill-down: aprendo una
+> categoria vedi i movimenti di quel verso.
 
 ### Riepilogo annuale
 
 - Scegli l'anno
 - Vedi totali entrate/uscite/netto dell'intero anno
 - Bar chart con i 12 mesi affiancati
-- Lista delle top categorie con percentuale e barra
+- Lista delle **top categorie** con percentuale e barra: clicca una categoria
+  per aprire le sottocategorie e poi i singoli movimenti
+
+### Riepilogo mensile
+
+Come l'annuale ma su un singolo mese (anno + mese), con il bar chart
+giornaliero al posto di quello dei 12 mesi.
 
 ### Confronto periodi
 
 Imposta due intervalli di date arbitrari (es. *Aprile vs Maggio*, *2025 vs
 2026*) e confrontali side-by-side:
 
-- Totali per ogni periodo
+- Totali per ogni periodo (clicca *Entrate* o *Uscite* per cambiare il verso
+  delle torte di **entrambi** i periodi, così il confronto resta omogeneo)
 - Pie chart delle categorie per ogni periodo
 - **Delta**: differenza assoluta + percentuale colorata (verde se aumentato
   per le entrate / diminuito per le uscite, rosso il contrario)

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { ChevronRight, Loader2 } from 'lucide-react';
 import {
@@ -32,18 +32,28 @@ import {
   type CategoryBreakdownItem,
   type CategoryNode,
 } from '@/features/dashboard/dashboardApi';
+import {
+  FLOW_UI,
+  FlowHint,
+  flowSelectProps,
+  type Flow,
+} from '@/features/dashboard/flow';
 import { transactionsApi } from '@/features/transactions/transactionsApi';
 import { formatCents } from '@/lib/utils/currency';
+import { cn } from '@/lib/utils/cn';
+import { revealIfOffscreen } from '@/lib/utils/reveal';
 import type { PageResult, Transaction } from '@/types/domain';
 
 type Mode = 'annual' | 'monthly' | 'compare';
 
-/** Contesto periodo/conti propagato al drill-down delle singole spese. */
+/** Contesto periodo/conti/flusso propagato al drill-down dei singoli movimenti. */
 interface DrillContext {
   from: string;
   to: string;
   accountIds: string[];
   accountIdsKey: string[];
+  /** Uscite o entrate: filtra le transazioni del drill-down e i testi. */
+  flow: Flow;
 }
 
 const PALETTE = [
@@ -59,6 +69,22 @@ export function ReportsPage() {
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [accountIds, setAccountIds] = useState<string[]>([]);
+  // Come sulla dashboard: le card KPI Entrate/Uscite scelgono il verso degli
+  // aggregati per categoria (default uscite). Vale per tutte le modalità.
+  const [flow, setFlow] = useState<Flow>('expense');
+  const breakdownRef = useRef<HTMLDivElement>(null);
+
+  /** Cambia flusso dal click su una card, mostrando il dettaglio per categoria. */
+  const selectFlow = (next: Flow) => {
+    setFlow(next);
+    revealIfOffscreen(breakdownRef.current);
+  };
+  /** Props delle due card KPI cliccabili, uguali in tutte le modalità. */
+  const kpiSelect = (target: Flow) => ({
+    active: flow === target,
+    onSelect: () => selectFlow(target),
+    hint: `Mostra le ${FLOW_UI[target].name} per categoria`,
+  });
 
   const today = new Date().toISOString().slice(0, 10);
   const monthAgo = new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10);
@@ -100,12 +126,14 @@ export function ReportsPage() {
     to: `${year}-12-31`,
     accountIds,
     accountIdsKey,
+    flow,
   };
   const monthlyCtx: DrillContext = {
     from: `${year}-${String(month).padStart(2, '0')}-01`,
     to: monthlyQuery.data?.to?.slice(0, 10) ?? lastDayOfMonth(year, month),
     accountIds,
     accountIdsKey,
+    flow,
   };
 
   const compareQuery = useQuery({
@@ -161,9 +189,20 @@ export function ReportsPage() {
 
           {annualQuery.data && (
             <div className="space-y-4">
+              {/* Entrate/Uscite selezionano il verso di "Top categorie" */}
               <div className="grid gap-4 md:grid-cols-3">
-                <KpiCard label="Entrate" value={annualQuery.data.totals.incomeCents} tone="emerald" />
-                <KpiCard label="Uscite" value={annualQuery.data.totals.expenseCents} tone="red" />
+                <KpiCard
+                  label="Entrate"
+                  value={annualQuery.data.totals.incomeCents}
+                  tone="emerald"
+                  select={kpiSelect('income')}
+                />
+                <KpiCard
+                  label="Uscite"
+                  value={annualQuery.data.totals.expenseCents}
+                  tone="red"
+                  select={kpiSelect('expense')}
+                />
                 <KpiCard label="Netto" value={annualQuery.data.totals.netCents} tone="primary" />
               </div>
 
@@ -204,15 +243,24 @@ export function ReportsPage() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card ref={breakdownRef} className="scroll-mt-4">
                 <CardHeader>
-                  <CardTitle className="text-base">Top categorie</CardTitle>
+                  <CardTitle className="text-base">
+                    Top categorie · {FLOW_UI[flow].name}
+                  </CardTitle>
                   <CardDescription>
-                    Clicca una categoria per espandere le sottocategorie e le singole spese
+                    Clicca una categoria per espandere le sottocategorie e i singoli movimenti
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <CategoryTree data={annualQuery.data.byCategoryTree} ctx={annualCtx} />
+                  <CategoryTree
+                    data={
+                      flow === 'income'
+                        ? annualQuery.data.byCategoryTreeIncome
+                        : annualQuery.data.byCategoryTree
+                    }
+                    ctx={annualCtx}
+                  />
                 </CardContent>
               </Card>
             </div>
@@ -251,8 +299,18 @@ export function ReportsPage() {
           {monthlyQuery.data && (
             <div className="space-y-4">
               <div className="grid gap-4 md:grid-cols-3">
-                <KpiCard label="Entrate" value={monthlyQuery.data.totals.incomeCents} tone="emerald" />
-                <KpiCard label="Uscite" value={monthlyQuery.data.totals.expenseCents} tone="red" />
+                <KpiCard
+                  label="Entrate"
+                  value={monthlyQuery.data.totals.incomeCents}
+                  tone="emerald"
+                  select={kpiSelect('income')}
+                />
+                <KpiCard
+                  label="Uscite"
+                  value={monthlyQuery.data.totals.expenseCents}
+                  tone="red"
+                  select={kpiSelect('expense')}
+                />
                 <KpiCard label="Netto" value={monthlyQuery.data.totals.netCents} tone="primary" />
               </div>
 
@@ -292,15 +350,24 @@ export function ReportsPage() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card ref={breakdownRef} className="scroll-mt-4">
                 <CardHeader>
-                  <CardTitle className="text-base">Top categorie</CardTitle>
+                  <CardTitle className="text-base">
+                    Top categorie · {FLOW_UI[flow].name}
+                  </CardTitle>
                   <CardDescription>
-                    Clicca una categoria per espandere le sottocategorie e le singole spese
+                    Clicca una categoria per espandere le sottocategorie e i singoli movimenti
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <CategoryTree data={monthlyQuery.data.byCategoryTree} ctx={monthlyCtx} />
+                  <CategoryTree
+                    data={
+                      flow === 'income'
+                        ? monthlyQuery.data.byCategoryTreeIncome
+                        : monthlyQuery.data.byCategoryTree
+                    }
+                    ctx={monthlyCtx}
+                  />
                 </CardContent>
               </Card>
             </div>
@@ -333,16 +400,30 @@ export function ReportsPage() {
 
           {compareQuery.data && (
             <>
-              <div className="grid gap-4 md:grid-cols-2">
+              {/* Anche qui Entrate/Uscite sono cliccabili: cambiano la torta di
+                  ENTRAMBE le colonne, così il confronto resta omogeneo. */}
+              <div ref={breakdownRef} className="grid gap-4 md:grid-cols-2 scroll-mt-4">
                 <ComparisonColumn
                   title="Periodo 1"
                   totals={compareQuery.data.period1.totals}
-                  categories={compareQuery.data.period1.categories}
+                  categories={
+                    flow === 'income'
+                      ? compareQuery.data.period1.categoriesIncome
+                      : compareQuery.data.period1.categories
+                  }
+                  flow={flow}
+                  onSelectFlow={selectFlow}
                 />
                 <ComparisonColumn
                   title="Periodo 2"
                   totals={compareQuery.data.period2.totals}
-                  categories={compareQuery.data.period2.categories}
+                  categories={
+                    flow === 'income'
+                      ? compareQuery.data.period2.categoriesIncome
+                      : compareQuery.data.period2.categories
+                  }
+                  flow={flow}
+                  onSelectFlow={selectFlow}
                 />
               </div>
               <Card>
@@ -375,7 +456,22 @@ export function ReportsPage() {
   );
 }
 
-function KpiCard({ label, value, tone }: { label: string; value: string; tone: 'emerald' | 'red' | 'primary' }) {
+/**
+ * Card KPI del report. Con `select` diventa cliccabile (e raggiungibile da
+ * tastiera): Entrate/Uscite scelgono il verso di "Top categorie", come sulla
+ * dashboard.
+ */
+function KpiCard({
+  label,
+  value,
+  tone,
+  select,
+}: {
+  label: string;
+  value: string;
+  tone: 'emerald' | 'red' | 'primary';
+  select?: { active: boolean; hint: string; onSelect: () => void };
+}) {
   const cls =
     tone === 'emerald'
       ? 'text-emerald-600 dark:text-emerald-400'
@@ -383,9 +479,18 @@ function KpiCard({ label, value, tone }: { label: string; value: string; tone: '
         ? 'text-red-600 dark:text-red-400'
         : '';
   return (
-    <Card>
+    <Card
+      className={cn(
+        select && 'cursor-pointer transition-shadow hover:shadow-md',
+        select?.active && `ring-2 ${tone === 'emerald' ? FLOW_UI.income.ring : FLOW_UI.expense.ring}`,
+      )}
+      {...(select ? flowSelectProps(select) : {})}
+    >
       <CardHeader className="pb-2">
-        <CardDescription>{label}</CardDescription>
+        <CardDescription className="flex items-center gap-1.5">
+          {label}
+          {select && <FlowHint active={select.active} />}
+        </CardDescription>
         <CardTitle className={`text-2xl tabular-nums ${cls}`}>{formatCents(value)}</CardTitle>
       </CardHeader>
     </Card>
@@ -396,10 +501,14 @@ function ComparisonColumn({
   title,
   totals,
   categories,
+  flow,
+  onSelectFlow,
 }: {
   title: string;
   totals: { incomeCents: string; expenseCents: string; netCents: string };
   categories: CategoryBreakdownItem[];
+  flow: Flow;
+  onSelectFlow: (next: Flow) => void;
 }) {
   return (
     <Card>
@@ -408,27 +517,34 @@ function ComparisonColumn({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-3 gap-2 text-center text-sm">
-          <div>
-            <p className="text-muted-foreground">Entrate</p>
-            <p className="font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
-              {formatCents(totals.incomeCents)}
-            </p>
-          </div>
-          <div>
-            <p className="text-muted-foreground">Uscite</p>
-            <p className="font-semibold tabular-nums text-red-600 dark:text-red-400">
-              {formatCents(totals.expenseCents)}
-            </p>
-          </div>
-          <div>
-            <p className="text-muted-foreground">Netto</p>
-            <p className="font-semibold tabular-nums">{formatCents(totals.netCents)}</p>
-          </div>
+          <TotalCell
+            label="Entrate"
+            value={totals.incomeCents}
+            valueClassName="text-emerald-600 dark:text-emerald-400"
+            select={{
+              active: flow === 'income',
+              hint: 'Mostra le entrate per categoria',
+              onSelect: () => onSelectFlow('income'),
+            }}
+            activeClassName="bg-emerald-500/10 ring-1 ring-emerald-500/40"
+          />
+          <TotalCell
+            label="Uscite"
+            value={totals.expenseCents}
+            valueClassName="text-red-600 dark:text-red-400"
+            select={{
+              active: flow === 'expense',
+              hint: 'Mostra le spese per categoria',
+              onSelect: () => onSelectFlow('expense'),
+            }}
+            activeClassName="bg-red-500/10 ring-1 ring-red-500/40"
+          />
+          <TotalCell label="Netto" value={totals.netCents} />
         </div>
         <div className="h-[200px]">
           {categories.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center pt-12">
-              Nessuna spesa nel periodo
+              {FLOW_UI[flow].emptyChart}
             </p>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
@@ -468,8 +584,49 @@ function ComparisonColumn({
 }
 
 /**
- * Lista gerarchica delle categorie di spesa: categorie padre → sottocategorie →
- * singole transazioni. Ogni livello si espande al click.
+ * Cella di un totale nella colonna di confronto. Con `select` è un `<button>`
+ * che cambia il verso della torta sotto (in questa modalità non ci sono card KPI
+ * grandi: il click sta sui totali).
+ */
+function TotalCell({
+  label,
+  value,
+  valueClassName,
+  select,
+  activeClassName,
+}: {
+  label: string;
+  value: string;
+  valueClassName?: string;
+  select?: { active: boolean; hint: string; onSelect: () => void };
+  activeClassName?: string;
+}) {
+  const content = (
+    <>
+      <p className="text-muted-foreground">{label}</p>
+      <p className={cn('font-semibold tabular-nums', valueClassName)}>{formatCents(value)}</p>
+    </>
+  );
+  if (!select) return <div className="rounded-md px-1 py-1">{content}</div>;
+  return (
+    <button
+      type="button"
+      onClick={select.onSelect}
+      aria-pressed={select.active}
+      title={select.hint}
+      className={cn(
+        'rounded-md px-1 py-1 transition-colors',
+        select.active ? activeClassName : 'hover:bg-muted/60',
+      )}
+    >
+      {content}
+    </button>
+  );
+}
+
+/**
+ * Lista gerarchica delle categorie: categorie padre → sottocategorie → singoli
+ * movimenti (uscite o entrate secondo `ctx.flow`). Ogni livello si espande al click.
  */
 function CategoryTree({ data, ctx }: { data: CategoryNode[]; ctx: DrillContext }) {
   if (data.length === 0) return <p className="text-sm text-muted-foreground">Nessun dato.</p>;
@@ -506,11 +663,13 @@ function CategoryRow({
   const pct = total > 0 ? (Number(node.amountCents) / total) * 100 : 0;
 
   const txQuery = useQuery({
-    queryKey: ['report-tx', node.categoryIds, ctx.from, ctx.to, ctx.accountIdsKey],
+    // `ctx.flow` fa parte della chiave: uscite ed entrate della stessa categoria
+    // sono due risultati diversi e non devono condividere la cache.
+    queryKey: ['report-tx', node.categoryIds, ctx.from, ctx.to, ctx.accountIdsKey, ctx.flow],
     queryFn: () =>
       transactionsApi.list({
         categoryIds: node.categoryIds,
-        type: 'expense',
+        type: ctx.flow,
         from: ctx.from,
         to: ctx.to,
         accountIds: ctx.accountIds.length > 0 ? ctx.accountIds : undefined,
@@ -560,7 +719,7 @@ function CategoryRow({
 
       {open && isDrillable && (
         <div className="ml-4 border-l pl-2">
-          <TransactionRows query={txQuery} />
+          <TransactionRows query={txQuery} flow={ctx.flow} />
         </div>
       )}
     </li>
@@ -569,14 +728,17 @@ function CategoryRow({
 
 function TransactionRows({
   query,
+  flow,
 }: {
   query: UseQueryResult<PageResult<Transaction>>;
+  flow: Flow;
 }) {
+  const plural = FLOW_UI[flow].itemsPlural;
   if (query.isLoading) {
     return (
       <div className="flex items-center gap-2 px-2 py-2 text-sm text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" />
-        Caricamento spese…
+        Caricamento {plural}…
       </div>
     );
   }
@@ -585,7 +747,7 @@ function TransactionRows({
   }
   const items = query.data?.items ?? [];
   if (items.length === 0) {
-    return <p className="px-2 py-2 text-sm text-muted-foreground">Nessuna spesa.</p>;
+    return <p className="px-2 py-2 text-sm text-muted-foreground">{FLOW_UI[flow].noneLabel}</p>;
   }
   const total = query.data?.total ?? items.length;
   return (
@@ -611,7 +773,7 @@ function TransactionRows({
       ))}
       {total > items.length && (
         <li className="px-2 py-1.5 text-xs text-muted-foreground">
-          …e altre {total - items.length} spese (mostrate le {items.length} più recenti)
+          …e altre {total - items.length} {plural} (mostrate le {items.length} più recenti)
         </li>
       )}
     </ul>

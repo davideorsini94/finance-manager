@@ -68,6 +68,8 @@ export interface AnnualReport {
   byMonth: MonthlyAggregate[];
   byCategory: CategoryBreakdownItem[];
   byCategoryTree: CategoryNode[];
+  /** Albero entrate: vista attivata cliccando la card "Entrate" del report. */
+  byCategoryTreeIncome: CategoryNode[];
 }
 
 export interface MonthlyReport {
@@ -76,6 +78,8 @@ export interface MonthlyReport {
   totals: PeriodTotals;
   byCategory: CategoryBreakdownItem[];
   byCategoryTree: CategoryNode[];
+  /** Albero entrate: vista attivata cliccando la card "Entrate" del report. */
+  byCategoryTreeIncome: CategoryNode[];
   daily: DailyPoint[];
 }
 
@@ -87,9 +91,18 @@ export interface CustomReport {
   daily: DailyPoint[];
 }
 
+/** `categories` = uscite, `categoriesIncome` = entrate (selettore lato UI). */
+interface ComparePeriod {
+  from: Date;
+  to: Date;
+  totals: PeriodTotals;
+  categories: CategoryBreakdownItem[];
+  categoriesIncome: CategoryBreakdownItem[];
+}
+
 export interface CompareReport {
-  period1: { from: Date; to: Date; totals: PeriodTotals; categories: CategoryBreakdownItem[] };
-  period2: { from: Date; to: Date; totals: PeriodTotals; categories: CategoryBreakdownItem[] };
+  period1: ComparePeriod;
+  period2: ComparePeriod;
 }
 
 export const reportsApi = {

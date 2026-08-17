@@ -409,6 +409,9 @@ function buildAnnual(year: number) {
     totals: dash.totals,
     byMonth,
     byCategory: dash.byCategory,
+    // "Top categorie" del report annuale legge gli alberi (uscite/entrate).
+    byCategoryTree: dash.byCategoryTree,
+    byCategoryTreeIncome: dash.byCategoryTreeIncome,
   };
 }
 
