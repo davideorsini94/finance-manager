@@ -722,6 +722,12 @@ dall'admin in **Impostazioni → Modello AI**:
 
 Pagina **Impostazioni** (icona ingranaggio nella nav).
 
+Le sezioni sono **comprimibili ed espandibili**: tocca il titolo di una
+sezione per aprirla o chiuderla (la tua scelta viene ricordata). Anche da
+chiusa, accanto al titolo vedi lo stato di configurazione (es. "Configurato",
+"OpenCode Go connesso"); i valori sensibili (chiavi API, password) non vengono
+mai mostrati in chiaro, solo mascherati.
+
 ### Profilo
 
 Cambia il tuo **nome completo** visibile agli altri membri condivisi.

@@ -14,7 +14,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { CollapsibleCard } from '@/components/ui/collapsible-card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -86,19 +86,17 @@ export function InviteUsersCard() {
   const target = invites.find((i) => i.id === revokeId);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2">
+    <CollapsibleCard
+      title={
+        <>
           <UserPlus className="h-4 w-4" />
           Inviti utenti
-        </CardTitle>
-        <CardDescription>
-          La registrazione è solo su invito. Inserisci l'email di chi vuoi invitare:
-          se SMTP è configurato la persona riceverà un'email con il link, altrimenti
-          ti viene mostrato il link da copiare e inviare a mano (es. su WhatsApp).
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+        </>
+      }
+      description="La registrazione è solo su invito. Inserisci l'email di chi vuoi invitare: se SMTP è configurato la persona riceverà un'email con il link, altrimenti ti viene mostrato il link da copiare e inviare a mano (es. su WhatsApp)."
+      storageKey="fm-cfg-inviti"
+    >
+      <div className="space-y-4">
         <form onSubmit={onSubmit} className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <div className="flex-1 space-y-2">
             <Label htmlFor="invite-email">Email del nuovo utente</Label>
@@ -213,7 +211,7 @@ export function InviteUsersCard() {
             </ul>
           )}
         </div>
-      </CardContent>
+      </div>
 
       <ConfirmDialog
         open={!!revokeId}
@@ -232,6 +230,6 @@ export function InviteUsersCard() {
         loading={revoke.isPending}
         onConfirm={() => revokeId && revoke.mutate(revokeId)}
       />
-    </Card>
+    </CollapsibleCard>
   );
 }

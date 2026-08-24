@@ -8,9 +8,9 @@ import { useDropzone } from 'react-dropzone';
 import { Download, Upload, AlertTriangle, Save, KeyRound } from 'lucide-react';
 import { useNavigate } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { CollapsibleCard } from '@/components/ui/collapsible-card';
 import {
   Select,
   SelectContent,
@@ -125,36 +125,31 @@ export function SettingsPage() {
       <h1 className="text-2xl font-semibold tracking-tight">Impostazioni</h1>
 
       {/* Profilo */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Profilo</CardTitle>
-          <CardDescription>{user?.email}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form
-            onSubmit={profileForm.handleSubmit((v) => profileMutation.mutate(v))}
-            className="space-y-3"
-          >
-            <div className="space-y-2">
-              <Label htmlFor="fullName">Nome completo</Label>
-              <Input id="fullName" {...profileForm.register('fullName')} />
-            </div>
-            {profileMutation.isSuccess && (
-              <p className="text-xs text-emerald-600">Profilo aggiornato.</p>
-            )}
-            <Button type="submit" disabled={profileMutation.isPending}>
-              <Save className="h-4 w-4 mr-2" /> Salva
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+      <CollapsibleCard
+        title="Profilo"
+        description={user?.email}
+        storageKey="fm-cfg-profilo"
+      >
+        <form
+          onSubmit={profileForm.handleSubmit((v) => profileMutation.mutate(v))}
+          className="space-y-3"
+        >
+          <div className="space-y-2">
+            <Label htmlFor="fullName">Nome completo</Label>
+            <Input id="fullName" {...profileForm.register('fullName')} />
+          </div>
+          {profileMutation.isSuccess && (
+            <p className="text-xs text-emerald-600">Profilo aggiornato.</p>
+          )}
+          <Button type="submit" disabled={profileMutation.isPending}>
+            <Save className="h-4 w-4 mr-2" /> Salva
+          </Button>
+        </form>
+      </CollapsibleCard>
 
       {/* Aspetto */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Aspetto</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
+      <CollapsibleCard title="Aspetto" storageKey="fm-cfg-aspetto">
+        <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label>Tema</Label>
             <Select
@@ -190,84 +185,83 @@ export function SettingsPage() {
               </SelectContent>
             </Select>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </CollapsibleCard>
 
       {/* Password */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
+      <CollapsibleCard
+        title={
+          <>
             <KeyRound className="h-4 w-4" />
             Cambia password
-          </CardTitle>
-          <CardDescription>
-            Dopo il cambio, tutte le sessioni vengono terminate e dovrai effettuare nuovamente il login.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form
-            onSubmit={passwordForm.handleSubmit(async (v) => {
-              // Il backend revoca tutti i refresh token: si viene buttati
-              // fuori da ogni dispositivo, telefono compreso.
-              const ok = await confirm({
-                title: 'Cambiare la password?',
-                description:
-                  'Verrai disconnesso da tutti i dispositivi (incluso questo) e dovrai rientrare con la nuova password.',
-                confirmLabel: 'Cambia password',
-              });
-              if (!ok) return;
-              passwordMutation.mutate({
-                currentPassword: v.currentPassword,
-                newPassword: v.newPassword,
-              });
-            })}
-            className="space-y-3"
-          >
+          </>
+        }
+        description="Dopo il cambio, tutte le sessioni vengono terminate e dovrai effettuare nuovamente il login."
+        defaultOpen={false}
+        storageKey="fm-cfg-password"
+      >
+        <form
+          onSubmit={passwordForm.handleSubmit(async (v) => {
+            // Il backend revoca tutti i refresh token: si viene buttati
+            // fuori da ogni dispositivo, telefono compreso.
+            const ok = await confirm({
+              title: 'Cambiare la password?',
+              description:
+                'Verrai disconnesso da tutti i dispositivi (incluso questo) e dovrai rientrare con la nuova password.',
+              confirmLabel: 'Cambia password',
+            });
+            if (!ok) return;
+            passwordMutation.mutate({
+              currentPassword: v.currentPassword,
+              newPassword: v.newPassword,
+            });
+          })}
+          className="space-y-3"
+        >
+          <div className="space-y-2">
+            <Label htmlFor="currentPassword">Password attuale</Label>
+            <PasswordInput
+              id="currentPassword"
+              autoComplete="current-password"
+              stripWhitespaceOnPaste={false}
+              {...passwordForm.register('currentPassword')}
+            />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="currentPassword">Password attuale</Label>
+              <Label htmlFor="newPassword">Nuova password</Label>
               <PasswordInput
-                id="currentPassword"
-                autoComplete="current-password"
+                id="newPassword"
+                autoComplete="new-password"
                 stripWhitespaceOnPaste={false}
-                {...passwordForm.register('currentPassword')}
+                {...passwordForm.register('newPassword')}
               />
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="newPassword">Nuova password</Label>
-                <PasswordInput
-                  id="newPassword"
-                  autoComplete="new-password"
-                  stripWhitespaceOnPaste={false}
-                  {...passwordForm.register('newPassword')}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Conferma</Label>
-                <PasswordInput
-                  id="confirmPassword"
-                  autoComplete="new-password"
-                  stripWhitespaceOnPaste={false}
-                  {...passwordForm.register('confirmPassword')}
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Conferma</Label>
+              <PasswordInput
+                id="confirmPassword"
+                autoComplete="new-password"
+                stripWhitespaceOnPaste={false}
+                {...passwordForm.register('confirmPassword')}
+              />
             </div>
-            {passwordForm.formState.errors.confirmPassword && (
-              <p className="text-xs text-destructive">
-                {passwordForm.formState.errors.confirmPassword.message}
-              </p>
-            )}
-            {passwordMutation.isError && (
-              <p className="text-xs text-destructive">
-                {(passwordMutation.error as Error).message}
-              </p>
-            )}
-            <Button type="submit" disabled={passwordMutation.isPending}>
-              Cambia password
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+          </div>
+          {passwordForm.formState.errors.confirmPassword && (
+            <p className="text-xs text-destructive">
+              {passwordForm.formState.errors.confirmPassword.message}
+            </p>
+          )}
+          {passwordMutation.isError && (
+            <p className="text-xs text-destructive">
+              {(passwordMutation.error as Error).message}
+            </p>
+          )}
+          <Button type="submit" disabled={passwordMutation.isPending}>
+            Cambia password
+          </Button>
+        </form>
+      </CollapsibleCard>
 
       {/* Collegamenti bancari (tutti gli utenti: ognuno gestisce i propri) */}
       <BankConnectionsCard />
@@ -286,15 +280,17 @@ export function SettingsPage() {
 
       {/* Backup / Restore (solo admin) */}
       {isAdmin && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Backup &amp; Restore</CardTitle>
-            <CardDescription>
-              Esporta tutti i dati (database + allegati MinIO) in un file .zip, oppure
-              ripristina da un backup precedente. Solo amministratori.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <CollapsibleCard
+          title={
+            <>
+              <Download className="h-4 w-4" />
+              Backup &amp; Restore
+            </>
+          }
+          description="Esporta tutti i dati (database + allegati MinIO) in un file .zip, oppure ripristina da un backup precedente. Solo amministratori."
+          storageKey="fm-cfg-backup"
+        >
+          <div className="space-y-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <Button
                 onClick={async () => {
@@ -354,8 +350,8 @@ export function SettingsPage() {
                 {restoreResult}
               </p>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </CollapsibleCard>
       )}
 
       {/* Diagnostica viewport (debug problemi layout iOS/PWA) */}

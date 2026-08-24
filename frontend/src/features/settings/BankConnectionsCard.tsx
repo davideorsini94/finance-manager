@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { CollapsibleCard } from '@/components/ui/collapsible-card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils/cn';
 import { formatDate } from '@/lib/utils/date';
@@ -278,59 +278,62 @@ export function BankConnectionsCard() {
   const hasSyncableLinks = connections.some((c) => c.links.some((l) => l.syncEnabled));
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Building2 className="h-4 w-4" />
-              Collegamenti bancari
-            </CardTitle>
-            <CardDescription>
-              Collega i tuoi conti bancari in <strong>sola lettura</strong> per importare
-              automaticamente i movimenti. Ogni utente gestisce i propri collegamenti; il consenso
-              va rinnovato periodicamente (di norma ogni 90 giorni).
-            </CardDescription>
-          </div>
-          <div className="flex shrink-0 flex-col items-end gap-2">
-            {reviewCount > 0 && (
-              /* Scorciatoia alla coda di revisione (Fase 4). */
-              <Link
-                to="/bank-review"
-                className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900 transition-colors hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-200 dark:hover:bg-amber-900/60"
-                title="Movimenti importati dalla banca in attesa di revisione"
-              >
-                <ClipboardList className="h-3.5 w-3.5" />
-                {reviewCount} da rivedere
-              </Link>
-            )}
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={syncing || !hasSyncableLinks}
-              onClick={async () => {
-                // Le sincronizzazioni manuali hanno una quota giornaliera
-                // (4/utente): spenderne una per sbaglio è una seccatura.
-                const ok = await confirm({
-                  title: 'Sincronizzare ora tutti i collegamenti?',
-                  description:
-                    'Consuma una delle 4 sincronizzazioni manuali giornaliere. I movimenti scaricati finiscono in “Da confermare”, non diventano subito movimenti.',
-                  confirmLabel: 'Sincronizza',
-                });
-                if (!ok) return;
-                syncAll.mutate();
-              }}
+    <>
+      <CollapsibleCard
+      title={
+        <>
+          <Building2 className="h-4 w-4" />
+          Collegamenti bancari
+        </>
+      }
+      description={
+        <>
+          Collega i tuoi conti bancari in <strong>sola lettura</strong> per importare
+          automaticamente i movimenti. Ogni utente gestisce i propri collegamenti; il consenso
+          va rinnovato periodicamente (di norma ogni 90 giorni).
+        </>
+      }
+      action={
+        <div className="flex flex-col items-end gap-2">
+          {reviewCount > 0 && (
+            /* Scorciatoia alla coda di revisione (Fase 4). */
+            <Link
+              to="/bank-review"
+              className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900 transition-colors hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-200 dark:hover:bg-amber-900/60"
+              title="Movimenti importati dalla banca in attesa di revisione"
             >
-              <RefreshCw
-                className={cn('h-4 w-4 mr-2', syncAll.isPending && 'animate-spin')}
-              />
-              {t('bankSync.syncNow')}
-            </Button>
-          </div>
+              <ClipboardList className="h-3.5 w-3.5" />
+              {reviewCount} da rivedere
+            </Link>
+          )}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={syncing || !hasSyncableLinks}
+            onClick={async () => {
+              // Le sincronizzazioni manuali hanno una quota giornaliera
+              // (4/utente): spenderne una per sbaglio è una seccatura.
+              const ok = await confirm({
+                title: 'Sincronizzare ora tutti i collegamenti?',
+                description:
+                  'Consuma una delle 4 sincronizzazioni manuali giornaliere. I movimenti scaricati finiscono in “Da confermare”, non diventano subito movimenti.',
+                confirmLabel: 'Sincronizza',
+              });
+              if (!ok) return;
+              syncAll.mutate();
+            }}
+          >
+            <RefreshCw
+              className={cn('h-4 w-4 mr-2', syncAll.isPending && 'animate-spin')}
+            />
+            {t('bankSync.syncNow')}
+          </Button>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
+      }
+      storageKey="fm-cfg-bank-conn"
+    >
+      <div className="space-y-4">
         {connectionsQuery.isLoading && (
           <p className="text-sm text-muted-foreground">Caricamento…</p>
         )}
@@ -425,7 +428,7 @@ export function BankConnectionsCard() {
         >
           <Plus className="h-4 w-4 mr-2" /> Collega una banca
         </Button>
-      </CardContent>
+      </div>
 
       <BankLinkWizard
         open={wizardOpen}
@@ -435,7 +438,8 @@ export function BankConnectionsCard() {
         }}
         resume={wizardResume}
       />
-    </Card>
+      </CollapsibleCard>
+    </>
   );
 }
 

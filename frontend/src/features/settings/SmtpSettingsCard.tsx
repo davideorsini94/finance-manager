@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Mail, Send, Trash2, Save, Lock, CheckCircle2, AlertCircle, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { CollapsibleCard } from '@/components/ui/collapsible-card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -129,9 +129,9 @@ export function SmtpSettingsCard() {
   const hasPassword = settingsQuery.data?.hasPassword;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2">
+    <CollapsibleCard
+      title={
+        <>
           <Mail className="h-4 w-4" />
           Server SMTP (invio email)
           {configured ? (
@@ -139,13 +139,12 @@ export function SmtpSettingsCard() {
           ) : (
             <Badge variant="outline" className="ml-1">Non configurato</Badge>
           )}
-        </CardTitle>
-        <CardDescription>
-          Usato per inviare gli inviti via email. La password è cifrata at-rest in DB
-          (AES-256-GCM derivata dal segreto JWT). Solo amministratori possono modificare.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+        </>
+      }
+      description="Usato per inviare gli inviti via email. La password è cifrata at-rest in DB (AES-256-GCM derivata dal segreto JWT). Solo amministratori possono modificare."
+      storageKey="fm-cfg-smtp"
+    >
+      <div className="space-y-4">
         <ProviderHint host={watch('host')} />
 
         <form onSubmit={onSubmit} className="space-y-4">
@@ -310,8 +309,8 @@ export function SmtpSettingsCard() {
             )}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </CollapsibleCard>
   );
 }
 

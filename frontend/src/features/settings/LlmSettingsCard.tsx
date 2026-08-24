@@ -14,7 +14,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { CollapsibleCard } from '@/components/ui/collapsible-card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Label } from '@/components/ui/label';
@@ -220,9 +220,9 @@ export function LlmSettingsCard() {
   const installedTags = new Set(installed.map((m) => m.name));
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2 flex-wrap">
+    <CollapsibleCard
+      title={
+        <>
           <Cpu className="h-4 w-4" />
           Modello AI
           {provider === 'ollama' &&
@@ -237,15 +237,12 @@ export function LlmSettingsCard() {
               OpenCode {settings.opencode.tier === 'go' ? 'Go' : 'Zen'} connesso
             </Badge>
           )}
-        </CardTitle>
-        <CardDescription>
-          Modello usato per la chat AI e la categorizzazione automatica delle transazioni. Due
-          provider: <b>Ollama</b> (locale, container dedicato) o <b>OpenCode</b> (cloud, con la tua
-          API key: i modelli mostrati dipendono dalla tipologia di chiave). Modifiche riservate
-          agli amministratori.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
+        </>
+      }
+      description="Modello usato per la chat AI e la categorizzazione automatica delle transazioni. Due provider: Ollama (locale, container dedicato) o OpenCode (cloud, con la tua API key: i modelli mostrati dipendono dalla tipologia di chiave). Modifiche riservate agli amministratori."
+      storageKey="fm-cfg-llm"
+    >
+      <div className="space-y-6">
         {/* Selettore provider */}
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm text-muted-foreground">Provider:</span>
@@ -648,7 +645,7 @@ export function LlmSettingsCard() {
             </div>
           </>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </CollapsibleCard>
   );
 }

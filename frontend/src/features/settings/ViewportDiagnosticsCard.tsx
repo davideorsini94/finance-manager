@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { CollapsibleCard } from '@/components/ui/collapsible-card';
 
 /**
  * Diagnostica del viewport, pensata per il debug dei problemi iOS standalone
@@ -107,16 +107,13 @@ export function ViewportDiagnosticsCard() {
     : [];
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Diagnostica schermo</CardTitle>
-        <CardDescription>
-          Valori live del viewport, per il debug dei problemi di layout su
-          iPhone (bande nere, spazio non usato). I valori si aggiornano da
-          soli quando il viewport cambia (rotazione, tastiera).
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
+    <CollapsibleCard
+      title="Diagnostica schermo"
+      description="Valori live del viewport, per il debug dei problemi di layout su iPhone (bande nere, spazio non usato). I valori si aggiornano da soli quando il viewport cambia (rotazione, tastiera)."
+      defaultOpen={false}
+      storageKey="fm-cfg-diag"
+    >
+      <div className="space-y-3">
         {/* Sonde invisibili per misurare le unità viewport in px reali */}
         <div ref={probeRef} aria-hidden className="pointer-events-none fixed left-0 top-0 w-0 invisible">
           <div className="fm-probe-dvh absolute w-0 h-[100dvh]" />
@@ -137,7 +134,7 @@ export function ViewportDiagnosticsCard() {
           <RefreshCw className="h-3.5 w-3.5 mr-2" />
           Aggiorna
         </Button>
-      </CardContent>
-    </Card>
+      </div>
+    </CollapsibleCard>
   );
 }

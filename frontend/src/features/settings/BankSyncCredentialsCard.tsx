@@ -14,7 +14,7 @@ import {
   Info,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { CollapsibleCard } from '@/components/ui/collapsible-card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -97,9 +97,9 @@ export function BankSyncCredentialsCard() {
   const configured = !!status?.hasCredentials;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2 flex-wrap">
+    <CollapsibleCard
+      title={
+        <>
           <Landmark className="h-4 w-4" />
           Credenziali Enable Banking
           {configured ? (
@@ -107,15 +107,12 @@ export function BankSyncCredentialsCard() {
           ) : (
             <Badge variant="outline" className="ml-1">Non configurate</Badge>
           )}
-        </CardTitle>
-        <CardDescription>
-          Credenziali dell&apos;applicazione registrata su enablebanking.com, usate per
-          collegare i conti bancari in sola lettura. La chiave privata è cifrata at-rest in
-          DB (AES-256-GCM derivata dal segreto JWT) e non è più visualizzabile dopo il
-          salvataggio. Solo amministratori.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+        </>
+      }
+      description="Credenziali dell'applicazione registrata su enablebanking.com, usate per collegare i conti bancari in sola lettura. La chiave privata è cifrata at-rest in DB (AES-256-GCM derivata dal segreto JWT) e non è più visualizzabile dopo il salvataggio. Solo amministratori."
+      storageKey="fm-cfg-banksync"
+    >
+      <div className="space-y-4">
         {configured && (
           <div className="rounded-md border p-3 flex flex-wrap items-center gap-2 text-sm">
             <Lock className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -243,7 +240,7 @@ export function BankSyncCredentialsCard() {
             {(remove.error as Error).message}
           </p>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </CollapsibleCard>
   );
 }
