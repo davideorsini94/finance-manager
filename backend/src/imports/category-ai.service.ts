@@ -94,11 +94,12 @@ export class CategoryAiService {
         return inputs.map((i) => this.heuristic(i));
       }
       try {
+        // Niente `temperature`/`response_format`: alcuni modelli reasoning li
+        // rifiutano. Il prompt chiede JSON puro e `parseResponse` estrae
+        // comunque l'array dal testo (anche con wrapper).
         const text = await this.opencode.chat(config.tier, config.apiKey, {
           model: config.model,
           messages: [{ role: 'user', content: prompt }],
-          temperature: 0,
-          response_format: { type: 'json_object' },
         });
         const suggestions = this.parseResponse(text, inputs, categories);
         this.logger.log(

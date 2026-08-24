@@ -514,6 +514,11 @@ totali periodi, categorie, budget). **Non inventa cifre**: se ti dà un
 numero, l'ha letto dal database. La risposta arriva token-per-token (come
 ChatGPT) per non farti aspettare.
 
+Mentre lavora, sopra la risposta vedi un indicatore che ti dice cosa sta
+facendo ("sto pensando…", "sto consultando le tue transazioni…") con un
+cronometro: la chat non sembra mai "ferma". Se qualcosa va storto, compare
+un messaggio chiaro con il motivo dell'errore.
+
 ### Sessioni
 
 A sinistra hai l'elenco delle conversazioni precedenti. Si auto-titolano

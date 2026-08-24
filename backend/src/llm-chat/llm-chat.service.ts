@@ -26,6 +26,18 @@ interface ChatTurn {
   tool_calls?: Array<{ id: string; name: string; arguments: Record<string, unknown> }>;
 }
 
+/**
+ * Evento SSE prodotto dallo stream della risposta. `status` segnala al
+ * frontend cosa sta facendo il backend (es. esecuzione di un tool) così la UI
+ * non sembra "ferma" mentre il modello lavora.
+ */
+export interface ChatStreamEvent {
+  delta: string;
+  done: boolean;
+  status?: 'thinking' | 'tool';
+  tool?: string;
+}
+
 @Injectable()
 export class LlmChatService {
   private readonly logger = new Logger(LlmChatService.name);
@@ -164,7 +176,7 @@ Esempi:
     userId: string,
     sessionId: string,
     userMessage: string,
-  ): AsyncGenerator<{ delta: string; done: boolean }> {
+  ): AsyncGenerator<ChatStreamEvent> {
     const session = await this.getSession(userId, sessionId);
 
     const config = await this.llmConfig.getActiveConfig();
@@ -217,14 +229,12 @@ Esempi:
       if (config.provider === 'opencode') {
         // OpenAI-compatible: i tool call in streaming arrivano in delta
         // incrementali (index + arguments spezzati): si accumulano per index.
+        // Niente `temperature`: alcuni modelli reasoning la rifiutano.
         const acc = new Map<number, { id: string; name: string; arguments: string }>();
         for await (const chunk of this.opencode.streamChat(config.tier!, config.apiKey!, {
           model: config.model,
           messages: history.map(toOpenAiMessage),
           tools,
-          // temperature bassa: tool calling più consistente, risposte
-          // numeriche più affidabili.
-          temperature: 0.2,
         })) {
           if (chunk.content) {
             roundContent += chunk.content;
@@ -296,10 +306,14 @@ Esempi:
           .join(', ')}`,
       );
 
-      // Esegui i tool call e aggiungi i risultati alla history
+      // Esegui i tool call e aggiungi i risultati alla history. Prima di ogni
+      // esecuzione viene emesso un evento `status: tool` così il frontend può
+      // mostrare cosa sta facendo ("consulto le tue transazioni…") invece di un
+      // puntino che gira a vuoto.
       history.push({ role: 'assistant', content: roundContent, tool_calls: collected });
 
       for (const call of collected) {
+        yield { delta: '', done: false, status: 'tool', tool: call.name };
         const result = await this.toolRegistry.execute(call.name, call.arguments, userId);
         const resultContent = JSON.stringify(result);
         history.push({ role: 'tool', content: resultContent, tool_call_id: call.id });

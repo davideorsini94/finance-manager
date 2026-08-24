@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
-import { Plus, Send, Trash2, MessageSquare } from 'lucide-react';
+import { Plus, Send, Trash2, MessageSquare, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils/cn';
 import { chatApi, type ChatMessage } from './chatApi';
-import { useChatStream } from './useChatStream';
+import { useChatStream, type ChatWorking } from './useChatStream';
+import { llmApi } from '@/features/settings/llmApi';
 import { useConfirm } from '@/components/shared/confirm';
 
 export function ChatPage() {
@@ -47,6 +48,19 @@ export function ChatPage() {
   });
 
   const stream = useChatStream();
+
+  const llmQuery = useQuery({
+    queryKey: ['llm-settings'],
+    queryFn: () => llmApi.get(),
+    staleTime: 60_000,
+  });
+  const modelLabel = (() => {
+    const s = llmQuery.data;
+    if (!s?.activeModel) return null;
+    return s.provider === 'opencode'
+      ? `OpenCode ${s.opencode.tier === 'go' ? 'Go' : 'Zen'} · ${s.activeModel}`
+      : `Ollama · ${s.activeModel}`;
+  })();
 
   useEffect(() => {
     if (!activeId && sessionsQuery.data && sessionsQuery.data.length > 0) {
@@ -164,13 +178,13 @@ export function ChatPage() {
                   Crea una nuova conversazione per iniziare.
                 </p>
               ) : messages.length === 0 && !stream.pending ? (
-                <ExamplePrompts onPick={(t) => setInput(t)} />
+                <ExamplePrompts onPick={(t) => setInput(t)} modelLabel={modelLabel} />
               ) : (
                 <>
                   {messages.map((m) => (
                     <MessageBubble key={m.id} message={m} />
                   ))}
-                  {stream.isStreaming && !stream.pending && <ThinkingBubble />}
+                  {stream.working && !stream.pending && <WorkingBubble working={stream.working} />}
                   {stream.pending && (
                     <MessageBubble
                       message={{
@@ -185,8 +199,16 @@ export function ChatPage() {
                     />
                   )}
                   {stream.error && (
-                    <div className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
-                      {stream.error}
+                    <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm">
+                      <p className="font-medium text-destructive flex items-center gap-1.5">
+                        <AlertCircle className="h-4 w-4 shrink-0" />
+                        Non sono riuscito a rispondere
+                      </p>
+                      <p className="text-muted-foreground mt-1 whitespace-pre-wrap">{stream.error}</p>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Puoi riprovare riscrivendo la domanda. Se l&apos;errore persiste, verifica
+                        nelle Impostazioni che il modello AI sia configurato.
+                      </p>
                     </div>
                   )}
                 </>
@@ -224,33 +246,73 @@ export function ChatPage() {
   );
 }
 
+/** Etichette amichevoli per i tool del backend. */
+const TOOL_LABELS: Record<string, string> = {
+  list_transactions: 'sto consultando le tue transazioni…',
+  period_totals: 'sto calcolando i totali del periodo…',
+  category_breakdown: 'sto raggruppando le spese per categoria…',
+  list_accounts: 'sto leggendo i saldi dei tuoi conti…',
+  list_categories: 'sto leggendo le tue categorie…',
+  budget_status: 'sto confrontando il budget…',
+};
+
+function workingLabel(working: ChatWorking): string {
+  if (working.phase === 'tool') {
+    return TOOL_LABELS[working.tool] ?? `sto eseguendo ${working.tool}…`;
+  }
+  return 'sto pensando…';
+}
+
 /**
- * Bubble mostrato mentre attendiamo il primo token (latenza iniziale del modello,
- * o esecuzione di un tool call lato server che blocca lo stream). Tre puntini
- * animati, stesso allineamento dei messaggi assistant.
+ * Bubble mostrato mentre il backend lavora senza aver ancora prodotto testo:
+ * attesa del primo token (modello reasoning lento) o esecuzione di un tool
+ * call. Mostra cosa sta facendo e un cronometro, così la chat non sembra
+ * "ferma" o rotta.
  */
-function ThinkingBubble() {
+function WorkingBubble({ working }: { working: ChatWorking }) {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const start = Date.now();
+    const t = setInterval(() => setElapsed(Math.floor((Date.now() - start) / 1000)), 1000);
+    return () => clearInterval(t);
+  }, []);
+
   return (
     <div className="flex justify-start">
       <div className="rounded-lg bg-secondary px-3 py-2.5 text-sm text-secondary-foreground inline-flex items-center gap-2">
-        <span className="inline-flex gap-1" aria-label="Sta pensando">
-          <span
-            className="h-1.5 w-1.5 rounded-full bg-current animate-bounce"
-            style={{ animationDelay: '0ms' }}
-          />
-          <span
-            className="h-1.5 w-1.5 rounded-full bg-current animate-bounce"
-            style={{ animationDelay: '150ms' }}
-          />
-          <span
-            className="h-1.5 w-1.5 rounded-full bg-current animate-bounce"
-            style={{ animationDelay: '300ms' }}
-          />
+        {working.phase === 'tool' ? (
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+        ) : (
+          <span className="inline-flex gap-1" aria-label="Sta lavorando">
+            <span
+              className="h-1.5 w-1.5 rounded-full bg-current animate-bounce"
+              style={{ animationDelay: '0ms' }}
+            />
+            <span
+              className="h-1.5 w-1.5 rounded-full bg-current animate-bounce"
+              style={{ animationDelay: '150ms' }}
+            />
+            <span
+              className="h-1.5 w-1.5 rounded-full bg-current animate-bounce"
+              style={{ animationDelay: '300ms' }}
+            />
+          </span>
+        )}
+        <span className="text-xs text-muted-foreground">{workingLabel(working)}</span>
+        <span className="text-[11px] text-muted-foreground/70 tabular-nums">
+          {formatElapsed(elapsed)}
         </span>
-        <span className="text-xs text-muted-foreground">sto pensando…</span>
       </div>
     </div>
   );
+}
+
+/** `12s` → `1m 05s`, poi `4m 30s`. */
+function formatElapsed(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}m ${String(s).padStart(2, '0')}s`;
 }
 
 /**
@@ -290,7 +352,13 @@ function MessageBubble({ message, streaming }: { message: ChatMessage; streaming
   );
 }
 
-function ExamplePrompts({ onPick }: { onPick: (text: string) => void }) {
+function ExamplePrompts({
+  onPick,
+  modelLabel,
+}: {
+  onPick: (text: string) => void;
+  modelLabel: string | null;
+}) {
   const examples = [
     'Quanto ho speso questo mese in totale?',
     'Quali sono le mie 3 categorie con più uscite negli ultimi 30 giorni?',
@@ -314,10 +382,8 @@ function ExamplePrompts({ onPick }: { onPick: (text: string) => void }) {
         ))}
       </div>
       <p className="text-xs text-muted-foreground text-center pt-4">
-        <Badge variant="outline">
-          Locale · Ollama
-        </Badge>{' '}
-        I dati restano sul tuo server. Solo i tuoi conti accessibili sono visibili all'assistente.
+        {modelLabel && <Badge variant="outline" className="mr-1">{modelLabel}</Badge>}
+        Solo i tuoi conti accessibili sono visibili all'assistente.
       </p>
     </div>
   );

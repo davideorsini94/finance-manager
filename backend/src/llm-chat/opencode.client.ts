@@ -66,6 +66,13 @@ const DEFAULT_GO_URL = 'https://opencode.ai/zen/go/v1';
 /** Modello presente su entrambe le tier: usato come probe per la chiave. */
 const PROBE_MODEL = 'deepseek-v4-flash';
 
+/**
+ * Se lo stream non produce NESSUNA riga per questo intervallo, viene
+ * abortito: un modello reasoning che non emette token, o una connessione
+ * rimasta appesa dal gateway, non devono bloccare la chat per sempre.
+ */
+const STREAM_IDLE_TIMEOUT_MS = 120_000;
+
 @Injectable()
 export class OpencodeClient {
   private readonly logger = new Logger(OpencodeClient.name);
@@ -138,11 +145,15 @@ export class OpencodeClient {
     apiKey: string,
     body: Omit<OpenAiChatBody, 'stream'>,
   ): AsyncGenerator<OpenAiStreamChunk> {
-    // Il timeout copre solo l'apertura della connessione (i primi header): una
-    // volta che il body stream è iniziato non deve più scattare, altrimenti le
-    // risposte lunghe verrebbero troncate a metà.
-    const connectAbort = new AbortController();
-    const connectTimer = setTimeout(() => connectAbort.abort(), 60_000);
+    // Due watchdog:
+    // 1. Connessione: il timeout copre solo l'apertura (i primi header), così
+    //    una risposta lunga non viene troncata.
+    // 2. Idle: se l'endpoint non invia NESSUNA riga per troppo tempo (es. un
+    //    modello reasoning che non produce output, o una connessione lasciata
+    //    appesa dal gateway) si abortisce con un errore riconoscibile invece
+    //    di restare bloccati per sempre — è il caso che ha "fregato" la chat.
+    const abort = new AbortController();
+    const connectTimer = setTimeout(() => abort.abort(), 60_000);
     let res: Response;
     try {
       res = await fetch(`${this.baseUrlFor(tier)}/chat/completions`, {
@@ -152,8 +163,15 @@ export class OpencodeClient {
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({ ...body, stream: true }),
-        signal: connectAbort.signal,
+        signal: abort.signal,
       });
+    } catch {
+      if (abort.signal.aborted) {
+        throw new ServiceUnavailableException(
+          'OpenCode non risponde (connessione in timeout): riprova tra qualche secondo.',
+        );
+      }
+      throw new ServiceUnavailableException('OpenCode non raggiungibile.');
     } finally {
       clearTimeout(connectTimer);
     }
@@ -167,49 +185,95 @@ export class OpencodeClient {
       throw new ServiceUnavailableException('OpenCode non ha restituito uno stream.');
     }
 
+    let lastDataAt = Date.now();
+    const idleTimer = setInterval(() => {
+      if (Date.now() - lastDataAt > STREAM_IDLE_TIMEOUT_MS) abort.abort();
+    }, 5_000);
+
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
+    let sawSse = false;
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-
-      let sepIdx = buffer.indexOf('\n\n');
-      while (sepIdx !== -1) {
-        const block = buffer.slice(0, sepIdx);
-        buffer = buffer.slice(sepIdx + 2);
-        for (const line of block.split('\n')) {
-          if (!line.startsWith('data: ')) continue;
-          const payload = line.slice(6).trim();
-          if (payload === '[DONE]') return;
-          if (!payload) continue;
-          try {
-            const parsed = JSON.parse(payload) as {
-              choices?: Array<{
-                delta?: {
-                  content?: string | null;
-                  tool_calls?: Array<OpenAiToolCallDelta & { function?: { name?: string; arguments?: string } }>;
-                };
-              }>;
-              error?: { message?: string };
-            };
-            if (parsed.error?.message) {
-              throw new Error(parsed.error.message);
-            }
-            const delta = parsed.choices?.[0]?.delta;
-            if (!delta) continue;
-            if (delta.content) yield { content: delta.content };
-            if (delta.tool_calls?.length) yield { toolCalls: delta.tool_calls };
-          } catch (e) {
+    try {
+      while (true) {
+        let value: Uint8Array | undefined;
+        let done: boolean;
+        try {
+          ({ done, value } = await reader.read());
+        } catch {
+          if (abort.signal.aborted) {
             throw new ServiceUnavailableException(
-              `Risposta OpenCode non valida: ${(e as Error).message}`,
+              'OpenCode non ha risposto in tempo (nessun dato per oltre 2 minuti): riprova.',
             );
           }
+          throw new ServiceUnavailableException('Connessione a OpenCode interrotta.');
         }
-        sepIdx = buffer.indexOf('\n\n');
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        lastDataAt = Date.now();
+
+        let sepIdx = buffer.indexOf('\n\n');
+        while (sepIdx !== -1) {
+          const block = buffer.slice(0, sepIdx);
+          buffer = buffer.slice(sepIdx + 2);
+          for (const line of block.split('\n')) {
+            if (!line.startsWith('data: ')) continue;
+            sawSse = true;
+            const payload = line.slice(6).trim();
+            if (payload === '[DONE]') return;
+            if (!payload) continue;
+            try {
+              const parsed = JSON.parse(payload) as {
+                choices?: Array<{
+                  delta?: {
+                    content?: string | null;
+                    tool_calls?: Array<OpenAiToolCallDelta & { function?: { name?: string; arguments?: string } }>;
+                  };
+                }>;
+                error?: { message?: string };
+              };
+              if (parsed.error?.message) {
+                throw new Error(parsed.error.message);
+              }
+              const delta = parsed.choices?.[0]?.delta;
+              if (!delta) continue;
+              if (delta.content) yield { content: delta.content };
+              if (delta.tool_calls?.length) yield { toolCalls: delta.tool_calls };
+            } catch (e) {
+              throw new ServiceUnavailableException(
+                `Risposta OpenCode non valida: ${(e as Error).message}`,
+              );
+            }
+          }
+          sepIdx = buffer.indexOf('\n\n');
+        }
       }
+
+      // Fallback "non-SSE": alcuni modelli reasoning tramite il gateway possono
+      // rispondere con un singolo JSON (niente `data:`), con la connessione che
+      // si chiude subito. In quel caso il buffer contiene la risposta completa:
+      // la si parsa come chat.completions non-stream invece di restituire nulla.
+      if (!sawSse && buffer.trim()) {
+        const parsed = JSON.parse(buffer) as {
+          choices?: Array<{ message?: { content?: string | null; tool_calls?: OpenAiToolCall[] } }>;
+          error?: { message?: string };
+        };
+        if (parsed.error?.message) throw new Error(parsed.error.message);
+        const message = parsed.choices?.[0]?.message;
+        if (message?.content) yield { content: message.content };
+        if (message?.tool_calls?.length) {
+          yield {
+            toolCalls: message.tool_calls.map((tc, i) => ({
+              index: i,
+              id: tc.id,
+              function: { name: tc.function.name, arguments: tc.function.arguments },
+            })),
+          };
+        }
+      }
+    } finally {
+      clearInterval(idleTimer);
     }
   }
 
