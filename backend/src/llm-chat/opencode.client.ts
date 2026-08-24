@@ -47,6 +47,8 @@ export interface OpenAiMessage {
 /** Chunk normalizzato prodotto dal parse dello stream SSE. */
 export interface OpenAiStreamChunk {
   content?: string;
+  /** Token di ragionamento (modelli reasoning): segnala attività, non testo di risposta. */
+  thinking?: string;
   toolCalls?: OpenAiToolCallDelta[];
 }
 
@@ -72,6 +74,18 @@ const PROBE_MODEL = 'deepseek-v4-flash';
  * rimasta appesa dal gateway, non devono bloccare la chat per sempre.
  */
 const STREAM_IDLE_TIMEOUT_MS = 120_000;
+
+/**
+ * Se per questo intervallo lo stream produce solo "ragionamento" o delta vuoti
+ * senza MAI arrivare a contenuto o tool call, viene abortito. Copre il caso
+ * (frequente con i modelli reasoning tramite il gateway) in cui i bytes
+ * continuano ad arrivare — quindi l'idle timeout sopra non scatta — ma non
+ * esce nessuna risposta.
+ */
+const STREAM_NO_OUTPUT_TIMEOUT_MS = 120_000;
+
+/** Tetto assoluto di durata per una singola chiamata in streaming. */
+const STREAM_TOTAL_TIMEOUT_MS = 480_000;
 
 @Injectable()
 export class OpencodeClient {
@@ -186,8 +200,17 @@ export class OpencodeClient {
     }
 
     let lastDataAt = Date.now();
-    const idleTimer = setInterval(() => {
-      if (Date.now() - lastDataAt > STREAM_IDLE_TIMEOUT_MS) abort.abort();
+    let lastOutputAt = Date.now();
+    const startedAt = Date.now();
+    const watchdog = setInterval(() => {
+      const now = Date.now();
+      if (now - lastDataAt > STREAM_IDLE_TIMEOUT_MS) {
+        abort.abort();
+      } else if (now - lastOutputAt > STREAM_NO_OUTPUT_TIMEOUT_MS) {
+        abort.abort();
+      } else if (now - startedAt > STREAM_TOTAL_TIMEOUT_MS) {
+        abort.abort();
+      }
     }, 5_000);
 
     const reader = res.body.getReader();
@@ -203,8 +226,9 @@ export class OpencodeClient {
           ({ done, value } = await reader.read());
         } catch {
           if (abort.signal.aborted) {
+            const sinceStart = Date.now() - startedAt;
             throw new ServiceUnavailableException(
-              'OpenCode non ha risposto in tempo (nessun dato per oltre 2 minuti): riprova.',
+              `OpenCode non ha risposto in tempo (${Math.round(sinceStart / 1000)}s senza una risposta): riprova.`,
             );
           }
           throw new ServiceUnavailableException('Connessione a OpenCode interrotta.');
@@ -228,6 +252,7 @@ export class OpencodeClient {
                 choices?: Array<{
                   delta?: {
                     content?: string | null;
+                    reasoning_content?: string | null;
                     tool_calls?: Array<OpenAiToolCallDelta & { function?: { name?: string; arguments?: string } }>;
                   };
                 }>;
@@ -238,8 +263,21 @@ export class OpencodeClient {
               }
               const delta = parsed.choices?.[0]?.delta;
               if (!delta) continue;
-              if (delta.content) yield { content: delta.content };
-              if (delta.tool_calls?.length) yield { toolCalls: delta.tool_calls };
+              // reasoning_content: i modelli reasoning "pensano" prima di
+              // rispondere. Viene inoltrato come segnale di attività (la UI
+              // mostra "sto ragionando…") e fa avanzare l'orologio di output.
+              if (delta.reasoning_content) {
+                lastOutputAt = Date.now();
+                yield { thinking: delta.reasoning_content };
+              }
+              if (delta.content) {
+                lastOutputAt = Date.now();
+                yield { content: delta.content };
+              }
+              if (delta.tool_calls?.length) {
+                lastOutputAt = Date.now();
+                yield { toolCalls: delta.tool_calls };
+              }
             } catch (e) {
               throw new ServiceUnavailableException(
                 `Risposta OpenCode non valida: ${(e as Error).message}`,
@@ -273,7 +311,7 @@ export class OpencodeClient {
         }
       }
     } finally {
-      clearInterval(idleTimer);
+      clearInterval(watchdog);
     }
   }
 

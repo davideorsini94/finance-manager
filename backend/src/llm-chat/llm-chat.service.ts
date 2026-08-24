@@ -231,11 +231,22 @@ Esempi:
         // incrementali (index + arguments spezzati): si accumulano per index.
         // Niente `temperature`: alcuni modelli reasoning la rifiutano.
         const acc = new Map<number, { id: string; name: string; arguments: string }>();
+        const roundStartedAt = Date.now();
+        let lastThinkingAt = 0;
         for await (const chunk of this.opencode.streamChat(config.tier!, config.apiKey!, {
           model: config.model,
           messages: history.map(toOpenAiMessage),
           tools,
         })) {
+          if (chunk.thinking) {
+            // Il reasoning arriva token per token: lo segnaliamo al frontend
+            // al massimo ogni 2s, per non inondare la UI di eventi.
+            const now = Date.now();
+            if (now - lastThinkingAt > 2000) {
+              lastThinkingAt = now;
+              yield { delta: '', done: false, status: 'thinking' };
+            }
+          }
           if (chunk.content) {
             roundContent += chunk.content;
             assistantBuffer += chunk.content;
@@ -252,6 +263,9 @@ Esempi:
             }
           }
         }
+        this.logger.debug(
+          `Round ${round} OpenCode completato in ${Math.round((Date.now() - roundStartedAt) / 1000)}s (${acc.size} tool call, ${roundContent.length} char)`,
+        );
         for (const [, tc] of acc) {
           collected.push({ id: tc.id, name: tc.name, arguments: parseToolArgs(tc.arguments) });
         }
@@ -330,12 +344,20 @@ Esempi:
       }
     }
 
-    // Salva il messaggio assistant finale
-    if (assistantBuffer.trim()) {
-      await this.prisma.chatMessage.create({
-        data: { sessionId, role: ChatRole.assistant, content: assistantBuffer },
-      });
+    // Risposta completamente vuota (nessun token mai generato, es. stream
+    // finito senza contenuto né tool call): non lasciamo la chat in silenzio,
+    // si trasforma in un errore parlante lato frontend.
+    if (!assistantBuffer.trim()) {
+      this.logger.warn(`Risposta LLM vuota per la sessione ${sessionId} (provider ${config.provider})`);
+      throw new ServiceUnavailableException(
+        'Il modello non ha prodotto nessuna risposta (nessun token generato). Riprova o scegli un altro modello nelle Impostazioni.',
+      );
     }
+
+    // Salva il messaggio assistant finale
+    await this.prisma.chatMessage.create({
+      data: { sessionId, role: ChatRole.assistant, content: assistantBuffer },
+    });
 
     // Auto-titola la sessione se ancora senza titolo
     if (!session.title && userMessage) {

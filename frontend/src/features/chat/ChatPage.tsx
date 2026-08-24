@@ -18,6 +18,7 @@ export function ChatPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const [showSidebar, setShowSidebar] = useState(false);
+  const [lastSent, setLastSent] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const sessionsQuery = useQuery({
@@ -83,7 +84,11 @@ export function ChatPage() {
     }
     const text = input.trim();
     setInput('');
+    // Mostra subito il messaggio dell'utente (il refetch della sessione con il
+    // messaggio salvato arriva a stream finito): così si vede che è partito.
+    setLastSent(text);
     await stream.send(sessionId, text);
+    setLastSent(null);
     stream.reset();
     void queryClient.invalidateQueries({ queryKey: ['chat', 'session', sessionId] });
     void queryClient.invalidateQueries({ queryKey: ['chat', 'sessions'] });
@@ -177,13 +182,25 @@ export function ChatPage() {
                 <p className="text-sm text-muted-foreground text-center py-12">
                   Crea una nuova conversazione per iniziare.
                 </p>
-              ) : messages.length === 0 && !stream.pending ? (
+              ) : messages.length === 0 && !stream.pending && !stream.isStreaming ? (
                 <ExamplePrompts onPick={(t) => setInput(t)} modelLabel={modelLabel} />
               ) : (
                 <>
                   {messages.map((m) => (
                     <MessageBubble key={m.id} message={m} />
                   ))}
+                  {lastSent && stream.isStreaming && (
+                    <MessageBubble
+                      message={{
+                        id: 'last-sent',
+                        sessionId: activeId,
+                        role: 'user',
+                        content: lastSent,
+                        toolName: null,
+                        createdAt: new Date().toISOString(),
+                      }}
+                    />
+                  )}
                   {stream.working && !stream.pending && <WorkingBubble working={stream.working} />}
                   {stream.pending && (
                     <MessageBubble
