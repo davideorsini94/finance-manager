@@ -153,6 +153,37 @@ export class OpencodeClient {
     return (json.data ?? []).map((m) => m.id).filter((id): id is string => !!id);
   }
 
+  /**
+   * Verifica che il gateway sappia servire **questo** modello con **questa**
+   * chiave: `GET /models` non è un indicatore di disponibilità (elenca modelli
+   * che poi rispondono 500/503/400). Micro-chiamata da 1 token.
+   */
+  async probeModel(
+    tier: OpencodeTier,
+    apiKey: string,
+    model: string,
+  ): Promise<{ ok: true } | { ok: false; status: number; detail: string }> {
+    try {
+      const res = await fetch(`${this.baseUrlFor(tier)}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: 'ping' }],
+          max_tokens: 1,
+        }),
+        signal: AbortSignal.timeout(45_000),
+      });
+      if (res.ok) return { ok: true };
+      return { ok: false, status: res.status, detail: await readErrorBody(res) };
+    } catch (e) {
+      return { ok: false, status: 0, detail: (e as Error).message || 'nessuna risposta' };
+    }
+  }
+
   /** Chat completions in streaming (SSE) con supporto tool-calling. */
   async *streamChat(
     tier: OpencodeTier,
@@ -191,9 +222,7 @@ export class OpencodeClient {
     }
 
     if (!res.ok) {
-      throw new ServiceUnavailableException(
-        `OpenCode non raggiungibile (HTTP ${res.status}): ${await readErrorBody(res)}`,
-      );
+      throw gatewayError(body.model, res.status, await readErrorBody(res));
     }
     if (!res.body) {
       throw new ServiceUnavailableException('OpenCode non ha restituito uno stream.');
@@ -332,9 +361,7 @@ export class OpencodeClient {
     });
 
     if (!res.ok) {
-      throw new ServiceUnavailableException(
-        `OpenCode non raggiungibile (HTTP ${res.status}): ${await readErrorBody(res)}`,
-      );
+      throw gatewayError(body.model, res.status, await readErrorBody(res));
     }
     const json = (await res.json()) as {
       choices?: Array<{ message?: { content?: string | null } }>;
@@ -343,6 +370,25 @@ export class OpencodeClient {
     if (json.error?.message) throw new ServiceUnavailableException(json.error.message);
     return json.choices?.[0]?.message?.content ?? '';
   }
+}
+
+/**
+ * Errore di una chiamata a `chat/completions` reso comprensibile. Il gateway
+ * OpenCode elenca in `GET /models` anche modelli che poi **non sa servire** (con
+ * questa chiave o del tutto): rispondono 500 "Internal server error", 503
+ * "Endpoint is unavailable", 400 "Unsupported model", 403 (opt-in richiesto).
+ * Senza il nome del modello e il suggerimento di cambiarlo, l'utente legge solo
+ * "Internal server error" e non ha idea di cosa fare.
+ */
+function gatewayError(model: string, status: number, detail: string): ServiceUnavailableException {
+  const base = `Il modello "${model}" non è utilizzabile su OpenCode (HTTP ${status}: ${detail}).`;
+  const hint =
+    status === 403
+      ? ' Richiede un opt-in esplicito sul tuo workspace OpenCode.'
+      : status === 401
+        ? ' Controlla la chiave API e il credito del workspace nelle Impostazioni.'
+        : ' Scegline un altro nelle Impostazioni → Modello AI: il gateway lo elenca ma non lo serve.';
+  return new ServiceUnavailableException(base + hint);
 }
 
 /** Legge il body di errore senza andare in crash se non è JSON. */

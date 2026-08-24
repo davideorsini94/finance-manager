@@ -69,6 +69,12 @@ export function ChatPage() {
     }
   }, [activeId, sessionsQuery.data]);
 
+  // Cambio conversazione: azzera anche l'errore, altrimenti quello dell'ultimo
+  // invio resterebbe appeso sotto i messaggi di un'altra chat.
+  useEffect(() => {
+    stream.reset();
+  }, [activeId, stream.reset]);
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -89,7 +95,9 @@ export function ChatPage() {
     setLastSent(text);
     await stream.send(sessionId, text);
     setLastSent(null);
-    stream.reset();
+    // Solo il testo in streaming: l'eventuale errore deve restare visibile
+    // (il refetch qui sotto porta il messaggio salvato, non l'errore).
+    stream.clearPending();
     void queryClient.invalidateQueries({ queryKey: ['chat', 'session', sessionId] });
     void queryClient.invalidateQueries({ queryKey: ['chat', 'sessions'] });
   };

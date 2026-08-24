@@ -353,6 +353,15 @@ export class LlmModelsService {
   }
 
   /** Seleziona il modello OpenCode attivo e attiva il provider opencode. */
+  /**
+   * Salva il modello OpenCode attivo, **provandolo prima sul gateway**.
+   *
+   * `GET /models` elenca anche modelli che poi non vengono serviti (500
+   * "Internal server error", 503 "Endpoint is unavailable", 400 "Unsupported
+   * model", 403 opt-in richiesto). Sceglierne uno lasciava la chat muta: il
+   * fallimento arrivava solo al primo messaggio, per ogni messaggio. Meglio
+   * rifiutare qui, quando l'admin sta scegliendo e può leggere il perché.
+   */
   async selectOpencodeModel(
     userId: string,
     model: string,
@@ -360,6 +369,25 @@ export class LlmModelsService {
     if (!isOpencodeCatalogModel(model)) {
       throw new BadRequestException('Modello non presente nel catalogo OpenCode.');
     }
+
+    const key = await this.llmConfig.getOpencodeKey();
+    if (key) {
+      const tier = (await this.opencode.probeTier(key)) ?? undefined;
+      if (tier) {
+        const probe = await this.opencode.probeModel(tier, key, model);
+        if (!probe.ok) {
+          this.logger.warn(
+            `Modello OpenCode ${model} rifiutato dal gateway (HTTP ${probe.status}): ${probe.detail}`,
+          );
+          throw new BadRequestException(
+            `Il gateway OpenCode elenca "${model}" ma non lo serve (HTTP ${probe.status}: ${probe.detail}). Scegli un altro modello.`,
+          );
+        }
+      }
+      // Senza tier valida non si può provare nulla: si salva comunque, il test
+      // della chiave dirà all'admin cosa non torna.
+    }
+
     await this.llmConfig.setProvider(userId, 'opencode');
     const saved = await this.llmConfig.setOpencodeModel(userId, model);
     this.logger.log(`Modello OpenCode attivo impostato a ${saved.model} da utente ${userId}`);

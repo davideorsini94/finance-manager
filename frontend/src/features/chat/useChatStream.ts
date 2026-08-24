@@ -24,6 +24,14 @@ export interface UseChatStream {
   /** Stato di lavoro: `null` quando stiamo mostrando testo o non stiamo streaming. */
   working: ChatWorking | null;
   send: (sessionId: string, content: string) => Promise<void>;
+  /**
+   * Scarta il testo in streaming (il messaggio salvato arriva dal refetch) SENZA
+   * toccare `error`: va chiamata a stream finito. Se azzerasse anche l'errore,
+   * questo verrebbe cancellato nello stesso istante in cui è stato impostato e
+   * la chat resterebbe muta — è il bug che rendeva invisibili i fallimenti.
+   */
+  clearPending: () => void;
+  /** Azzera tutto, errore compreso: cambio conversazione. */
   reset: () => void;
 }
 
@@ -57,6 +65,12 @@ export function useChatStream(): UseChatStream {
       idleTimerRef.current = null;
     }
   }, []);
+
+  const clearPending = useCallback(() => {
+    clearIdleTimer();
+    setPending('');
+    setWorking(null);
+  }, [clearIdleTimer]);
 
   const reset = useCallback(() => {
     clearIdleTimer();
@@ -172,5 +186,5 @@ export function useChatStream(): UseChatStream {
     [clearIdleTimer],
   );
 
-  return { pending, isStreaming, error, working, send, reset };
+  return { pending, isStreaming, error, working, send, clearPending, reset };
 }
