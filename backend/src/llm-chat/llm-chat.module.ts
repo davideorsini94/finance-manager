@@ -6,13 +6,14 @@ import { LlmChatService } from './llm-chat.service';
 import { LlmSettingsController } from './llm-settings.controller';
 import { LlmConfigService } from './llm-config.service';
 import { LlmModelsService } from './llm-models.service';
+import { OpencodeClient } from './opencode.client';
 import { ToolRegistry } from './tools/tool-registry';
 
 @Module({
   imports: [ReportsModule, BudgetsModule],
   controllers: [LlmChatController, LlmSettingsController],
-  providers: [LlmChatService, LlmConfigService, LlmModelsService, ToolRegistry],
+  providers: [LlmChatService, LlmConfigService, LlmModelsService, OpencodeClient, ToolRegistry],
   // Esportato per ImportsModule (CategoryAiService deve risolvere il modello attivo).
-  exports: [LlmConfigService],
+  exports: [LlmConfigService, OpencodeClient],
 })
 export class LlmChatModule {}

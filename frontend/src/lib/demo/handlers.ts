@@ -172,6 +172,28 @@ export function demoHandle(ctx: Ctx): unknown | null {
   if (matches(pathname, 'settings/llm/models') && method === 'DELETE') {
     return demoRemoveModel(pathname);
   }
+  if (matches(pathname, 'settings/llm/provider') && method === 'PUT') {
+    return demoSetProvider(body);
+  }
+  if (matches(pathname, 'settings/llm/opencode/key') && method === 'PUT') {
+    return demoSetOpencodeKey(body);
+  }
+  if (matches(pathname, 'settings/llm/opencode/key') && method === 'DELETE') {
+    demoOpencodeConfigured = false;
+    demoOpencodeModel = null;
+    return { ok: true, demo: true };
+  }
+  if (matches(pathname, 'settings/llm/opencode/models') && method === 'GET') {
+    return DEMO_OPENCODE_MODELS;
+  }
+  if (matches(pathname, 'settings/llm/opencode/model') && method === 'PUT') {
+    return demoSelectOpencodeModel(body);
+  }
+  if (matches(pathname, 'settings/llm/opencode/test') && method === 'POST') {
+    return demoOpencodeConfigured
+      ? { ok: true, tier: demoOpencodeTier }
+      : { ok: false, tier: null, error: 'Chiave API non configurata (demo).' };
+  }
   if (matches(pathname, 'settings/llm') && method === 'GET') {
     return demoLlmSettings();
   }
@@ -678,10 +700,47 @@ const DEMO_LLM_CATALOG = [
 ] as const;
 
 const DEMO_DEFAULT_MODEL = 'qwen2.5:7b-instruct-q4_K_M';
+let demoProvider: 'ollama' | 'opencode' = 'ollama';
 let demoInstalledModels: string[] = [DEMO_DEFAULT_MODEL];
 let demoActiveModel: string = DEMO_DEFAULT_MODEL;
 let demoPull: { model: string; startedAt: number } | null = null;
+let demoOpencodeConfigured = false;
+let demoOpencodeTier: 'zen' | 'go' = 'go';
+let demoOpencodeModel: string | null = null;
 const DEMO_PULL_DURATION_MS = 10_000; // download "finto" compresso a 10s
+
+const DEMO_OPENCODE_MODELS = [
+  {
+    modelId: 'deepseek-v4-flash',
+    displayName: 'DeepSeek V4 Flash',
+    family: 'DeepSeek',
+    inputPrice: 0.44,
+    outputPrice: 1.32,
+    quality: 'eccellente',
+    description: 'Il miglior compromesso costo/prestazioni, ottimo tool-calling. Consigliato.',
+    recommended: true,
+  },
+  {
+    modelId: 'gpt-5.6-luna',
+    displayName: 'GPT-5.6 Luna',
+    family: 'OpenAI',
+    inputPrice: 0.2,
+    outputPrice: 1.2,
+    quality: 'molto buona',
+    description: 'Il GPT più economico della famiglia 5.6.',
+    recommended: false,
+  },
+  {
+    modelId: 'claude-sonnet-5',
+    displayName: 'Claude Sonnet 5',
+    family: 'Anthropic',
+    inputPrice: 2.0,
+    outputPrice: 10.0,
+    quality: 'eccellente',
+    description: 'Il miglior rapporto qualità/prezzo di Claude.',
+    recommended: false,
+  },
+] as const;
 
 function demoSizeBytes(tag: string): number {
   const item = DEMO_LLM_CATALOG.find((c) => c.tag === tag);
@@ -699,6 +758,7 @@ function demoModelFromBody(body: unknown): string | undefined {
 
 function demoLlmSettings() {
   return {
+    provider: demoProvider,
     activeModel: demoActiveModel,
     source: 'db' as const,
     serverOk: true,
@@ -709,7 +769,40 @@ function demoLlmSettings() {
       quantization: 'Q4_K_M',
       modifiedAt: '2026-01-15T09:00:00.000Z',
     })),
+    opencode: {
+      configured: demoOpencodeConfigured,
+      apiKeyMasked: demoOpencodeConfigured ? 'sk-…abcd' : null,
+      tier: demoOpencodeConfigured ? demoOpencodeTier : null,
+      model: demoOpencodeModel,
+    },
   };
+}
+
+function demoSetProvider(body: unknown) {
+  const provider = (body as { provider?: string })?.provider;
+  if (provider === 'opencode' || provider === 'ollama') {
+    demoProvider = provider;
+    demoActiveModel =
+      provider === 'opencode' ? (demoOpencodeModel ?? '') : (demoInstalledModels[0] ?? DEMO_DEFAULT_MODEL);
+  }
+  return { provider: demoProvider };
+}
+
+function demoSetOpencodeKey(body: unknown) {
+  const tier = (body as { tier?: string })?.tier;
+  if (tier === 'zen' || tier === 'go') demoOpencodeTier = tier;
+  demoOpencodeConfigured = true;
+  return { tier: demoOpencodeTier, apiKeyMasked: 'sk-…abcd' };
+}
+
+function demoSelectOpencodeModel(body: unknown) {
+  const model = (body as { model?: string })?.model;
+  if (model) {
+    demoOpencodeModel = model;
+    demoProvider = 'opencode';
+    demoActiveModel = model;
+  }
+  return { activeModel: demoOpencodeModel ?? '' };
 }
 
 function demoPullStatus() {

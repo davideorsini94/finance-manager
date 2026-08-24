@@ -19,7 +19,7 @@ PostgreSQL 16, schema gestito con Prisma: `backend/prisma/schema.prisma`. Migraz
 - **ChatSession / ChatMessage** → [[Chat LLM]]
 - **RefreshToken** (rotation + family detection), **InviteToken**, **PasswordResetToken** → [[Autenticazione e Sicurezza]]
 - **SmtpConfig** — singleton, password cifrata AES-256-GCM
-- **LlmConfig** — singleton (`id: "singleton"`), `model` nullable (NULL = usa `OLLAMA_MODEL` d'ambiente) → [[Chat LLM]]
+- **LlmConfig** — singleton (`id: "singleton"`), due provider mutuamente esclusivi: `provider` (`ollama` default | `opencode`). Ollama: `model` nullable (NULL = usa `OLLAMA_MODEL` d'ambiente). OpenCode: `opencodeApiKeyEncrypted` (chiave cifrata at-rest, contesto `fm-opencode-v1`), `opencodeTier` (`zen`/`go`, auto-rilevata dalla chiave), `opencodeModel` (dal catalogo della tier) → [[Chat LLM]]
 - **BankSyncConfig** — singleton, credenziali Enable Banking (`appId` + chiave privata PEM cifrata AES-256-GCM, contesto dedicato `fm-banksync-v1`); esclusa dal backup come `SmtpConfig`
 - **BankConnection** — un consenso PSD2 per utente (`userId`, istituto, `reference` = state anti-CSRF monouso, `status`: pending/linked/expired/suspended/revoked/error, `consentExpiresAt`)
 - **BankAccountLink** — mappatura 1:1 conto app ↔ conto banca (`accountId` unique, solo `type=checking`), `syncEnabled`, cursore `lastBookedDate` per il sync incrementale, `lastBalanceCents`/`lastBalanceAt` (Fase 5: ultimo saldo dichiarato dalla banca, per la riconciliazione visiva col saldo dell'`Account`)

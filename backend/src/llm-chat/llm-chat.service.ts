@@ -10,23 +10,39 @@ import { Ollama, type Message, type ToolCall } from 'ollama';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccountPolicyService } from '../common/services/account-policy.service';
 import { LlmConfigService } from './llm-config.service';
+import { OpencodeClient, type OpenAiMessage, type OpenAiToolDef } from './opencode.client';
 import { ToolRegistry } from './tools/tool-registry';
+
+/**
+ * Turno di conversazione in formato neutro: sia Ollama sia OpenCode consumano
+ * lo stesso contenuto, convertito per-provider a ogni round. Gli arguments dei
+ * tool sono sempre oggetti (Ollama li dà come oggetti, OpenCode come stringa
+ * JSON da parsare).
+ */
+interface ChatTurn {
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content?: string | null;
+  tool_call_id?: string;
+  tool_calls?: Array<{ id: string; name: string; arguments: Record<string, unknown> }>;
+}
 
 @Injectable()
 export class LlmChatService {
   private readonly logger = new Logger(LlmChatService.name);
-  private readonly ollama: Ollama;
+  private readonly ollama: Ollama | null;
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly config: ConfigService,
+    config: ConfigService,
     private readonly toolRegistry: ToolRegistry,
     private readonly policy: AccountPolicyService,
     private readonly llmConfig: LlmConfigService,
+    private readonly opencode: OpencodeClient,
   ) {
     // L'host resta fisso (topologia docker); il modello no: è scelto a runtime
     // dalle impostazioni ed è quindi risolto a ogni richiesta.
-    this.ollama = new Ollama({ host: this.config.getOrThrow<string>('OLLAMA_BASE_URL') });
+    const host = config.get<string>('OLLAMA_BASE_URL');
+    this.ollama = host ? new Ollama({ host }) : null;
   }
 
   async listSessions(userId: string) {
@@ -139,6 +155,10 @@ Esempi:
   /**
    * Async generator che produce token via SSE. Gestisce internamente eventuali
    * tool call (loop fino a 6 round) e salva i messaggi finali a fine streaming.
+   *
+   * Il provider è risolto a ogni richiesta (`LlmConfigService`): se è
+   * `opencode` Ollama non viene mai contattato, quindi spento o irraggiungibile
+   * non manda in errore la chat.
    */
   async *streamReply(
     userId: string,
@@ -147,10 +167,15 @@ Esempi:
   ): AsyncGenerator<{ delta: string; done: boolean }> {
     const session = await this.getSession(userId, sessionId);
 
-    const { model } = await this.llmConfig.getActiveModel();
-    if (!model) {
+    const config = await this.llmConfig.getActiveConfig();
+    if (!config.model) {
       throw new ServiceUnavailableException(
         'Nessun modello LLM configurato: selezionane uno in Impostazioni.',
+      );
+    }
+    if (config.provider === 'opencode' && (!config.apiKey || !config.tier)) {
+      throw new ServiceUnavailableException(
+        'Chiave API OpenCode non configurata: impostala in Impostazioni.',
       );
     }
 
@@ -161,7 +186,7 @@ Esempi:
 
     const systemPrompt = await this.buildSystemPrompt(userId);
 
-    const history: Message[] = [
+    const history: ChatTurn[] = [
       { role: 'system', content: systemPrompt },
       // Tieni solo gli ultimi 12 messaggi user/assistant per non saturare
       // la context window di modelli piccoli (qwen2.5:7b ha 32k ma con
@@ -173,8 +198,8 @@ Esempi:
       { role: 'user', content: userMessage },
     ];
 
-    const tools = this.toolRegistry.getDefinitions().map((t) => ({
-      type: 'function' as const,
+    const tools: OpenAiToolDef[] = this.toolRegistry.getDefinitions().map((t) => ({
+      type: 'function',
       function: {
         name: t.name,
         description: t.description,
@@ -186,71 +211,106 @@ Esempi:
     const MAX_ROUNDS = 6;
 
     for (let round = 0; round < MAX_ROUNDS; round++) {
-      const stream = await this.ollama.chat({
-        model,
-        messages: history,
-        tools,
-        stream: true,
-        // temperature bassa: tool calling più consistente, risposte
-        // numeriche più affidabili. num_ctx: garantisce abbastanza
-        // contesto per system prompt + history + tool results.
-        options: {
-          temperature: 0.2,
-          top_p: 0.9,
-          num_ctx: 8192,
-        },
-      });
-
-      const collectedToolCalls: ToolCall[] = [];
       let roundContent = '';
+      const collected: Array<{ id: string; name: string; arguments: Record<string, unknown> }> = [];
 
-      for await (const part of stream) {
-        if (part.message?.tool_calls?.length) {
-          collectedToolCalls.push(...part.message.tool_calls);
+      if (config.provider === 'opencode') {
+        // OpenAI-compatible: i tool call in streaming arrivano in delta
+        // incrementali (index + arguments spezzati): si accumulano per index.
+        const acc = new Map<number, { id: string; name: string; arguments: string }>();
+        for await (const chunk of this.opencode.streamChat(config.tier!, config.apiKey!, {
+          model: config.model,
+          messages: history.map(toOpenAiMessage),
+          tools,
+          // temperature bassa: tool calling più consistente, risposte
+          // numeriche più affidabili.
+          temperature: 0.2,
+        })) {
+          if (chunk.content) {
+            roundContent += chunk.content;
+            assistantBuffer += chunk.content;
+            yield { delta: chunk.content, done: false };
+          }
+          if (chunk.toolCalls) {
+            for (const tc of chunk.toolCalls) {
+              const cur =
+                acc.get(tc.index) ?? { id: tc.id ?? syntheticId(round, tc.index), name: '', arguments: '' };
+              if (tc.id) cur.id = tc.id;
+              if (tc.function?.name) cur.name += tc.function.name;
+              if (tc.function?.arguments) cur.arguments += tc.function.arguments;
+              acc.set(tc.index, cur);
+            }
+          }
         }
-        const delta = part.message?.content ?? '';
-        if (delta) {
-          roundContent += delta;
-          assistantBuffer += delta;
-          yield { delta, done: false };
+        for (const [, tc] of acc) {
+          collected.push({ id: tc.id, name: tc.name, arguments: parseToolArgs(tc.arguments) });
+        }
+      } else {
+        if (!this.ollama) {
+          throw new ServiceUnavailableException(
+            'Server Ollama non configurato (OLLAMA_BASE_URL mancante).',
+          );
+        }
+        const stream = await this.ollama.chat({
+          model: config.model,
+          messages: history.map(toOllamaMessage),
+          tools,
+          stream: true,
+          // temperature bassa: tool calling più consistente, risposte
+          // numeriche più affidabili. num_ctx: garantisce abbastanza
+          // contesto per system prompt + history + tool results.
+          options: {
+            temperature: 0.2,
+            top_p: 0.9,
+            num_ctx: 8192,
+          },
+        });
+
+        for await (const part of stream) {
+          if (part.message?.tool_calls?.length) {
+            for (const t of part.message.tool_calls) {
+              collected.push({
+                id: syntheticId(round, collected.length),
+                name: t.function.name,
+                arguments: (t.function.arguments ?? {}) as Record<string, unknown>,
+              });
+            }
+          }
+          const delta = part.message?.content ?? '';
+          if (delta) {
+            roundContent += delta;
+            assistantBuffer += delta;
+            yield { delta, done: false };
+          }
         }
       }
 
-      if (collectedToolCalls.length === 0) {
+      if (collected.length === 0) {
         // Nessun tool call: la risposta è completa
         break;
       }
 
       this.logger.debug(
-        `Round ${round}: ${collectedToolCalls.length} tool call(s) — ${collectedToolCalls
-          .map((c) => c.function.name)
+        `Round ${round}: ${collected.length} tool call(s) — ${collected
+          .map((c) => c.name)
           .join(', ')}`,
       );
 
       // Esegui i tool call e aggiungi i risultati alla history
-      history.push({
-        role: 'assistant',
-        content: roundContent,
-        tool_calls: collectedToolCalls,
-      } as Message);
+      history.push({ role: 'assistant', content: roundContent, tool_calls: collected });
 
-      for (const call of collectedToolCalls) {
-        const fnName = call.function.name;
-        const args = (call.function.arguments ?? {}) as Record<string, unknown>;
-        const result = await this.toolRegistry.execute(fnName, args, userId);
+      for (const call of collected) {
+        const result = await this.toolRegistry.execute(call.name, call.arguments, userId);
         const resultContent = JSON.stringify(result);
-        history.push({
-          role: 'tool',
-          content: resultContent,
-        } as Message);
+        history.push({ role: 'tool', content: resultContent, tool_call_id: call.id });
 
         await this.prisma.chatMessage.create({
           data: {
             sessionId,
             role: ChatRole.tool,
             content: resultContent,
-            toolName: fnName,
-            toolArgs: args as object,
+            toolName: call.name,
+            toolArgs: call.arguments as object,
           },
         });
       }
@@ -278,5 +338,52 @@ Esempi:
     }
 
     yield { delta: '', done: true };
+  }
+}
+
+/** Converte un turno neutro nel formato `Message` di Ollama. */
+function toOllamaMessage(t: ChatTurn): Message {
+  if (t.role === 'assistant' && t.tool_calls?.length) {
+    return {
+      role: 'assistant',
+      content: t.content ?? '',
+      tool_calls: t.tool_calls.map((tc) => ({
+        function: { name: tc.name, arguments: tc.arguments },
+      })) as ToolCall[],
+    };
+  }
+  return { role: t.role as 'system' | 'user' | 'assistant' | 'tool', content: t.content ?? '' };
+}
+
+/** Converte un turno neutro nel formato OpenAI-compatible (`chat/completions`). */
+function toOpenAiMessage(t: ChatTurn): OpenAiMessage {
+  if (t.role === 'assistant' && t.tool_calls?.length) {
+    return {
+      role: 'assistant',
+      content: t.content ?? '',
+      tool_calls: t.tool_calls.map((tc) => ({
+        id: tc.id,
+        type: 'function',
+        function: { name: tc.name, arguments: JSON.stringify(tc.arguments) },
+      })),
+    };
+  }
+  if (t.role === 'tool') {
+    return { role: 'tool', content: t.content ?? '', tool_call_id: t.tool_call_id };
+  }
+  return { role: t.role, content: t.content ?? '' };
+}
+
+/** ID sintetico per i tool call che non lo espongono (es. Ollama). */
+function syntheticId(round: number, index: number): string {
+  return `call_${round}_${index}`;
+}
+
+/** Gli arguments di OpenAI arrivano come stringa JSON: li si parsano con fallback. */
+function parseToolArgs(raw: string): Record<string, unknown> {
+  try {
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    return {};
   }
 }

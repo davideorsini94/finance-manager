@@ -588,15 +588,28 @@ model SmtpConfig {
   @@map("smtp_config")
 }
 
-/// Modello Ollama attivo (singleton: id = "singleton"). Selezionabile solo
-/// dall'admin via Settings. `model` a NULL significa "usa la variabile
-/// d'ambiente OLLAMA_MODEL": così un'installazione che non ha mai toccato le
-/// impostazioni continua a funzionare con il default del compose.
+/// Configurazione del modello LLM (singleton: id = "singleton").
+/// Modificabile solo dall'admin via Settings.
+///
+/// Due provider mutuamente esclusivi:
+/// - `ollama` (default): `model` a NULL significa "usa la variabile
+///   d'ambiente OLLAMA_MODEL", così un'installazione che non ha mai toccato le
+///   impostazioni continua a funzionare con il default del compose.
+/// - `opencode` (OpenCode Zen/Go, API OpenAI-compatible): richiede una API key
+///   cifrata at-rest (AES-256-GCM, contesto `fm-opencode-v1`) e un modello
+///   scelto dal catalogo della tier rilevata (`opencodeModel`). `opencodeTier`
+///   (zen|go) indica quale endpoint usare: viene auto-rilevato dalla chiave al
+///   salvataggio. Con questo provider Ollama non deve nemmeno essere in
+///   esecuzione.
 model LlmConfig {
-  id        String   @id @default("singleton")
-  model     String?
-  updatedBy String?  @map("updated_by") @db.Uuid
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+  id                      String   @id @default("singleton")
+  provider                String   @default("ollama") @map("provider")
+  model                   String?
+  opencodeApiKeyEncrypted String?  @map("opencode_api_key_encrypted")
+  opencodeTier            String?  @map("opencode_tier")
+  opencodeModel           String?  @map("opencode_model")
+  updatedBy               String?  @map("updated_by") @db.Uuid
+  updatedAt               DateTime @updatedAt @map("updated_at") @db.Timestamptz()
 
   @@map("llm_config")
 }

@@ -674,9 +674,22 @@ un movimento mancante o inserito due volte a mano.
 
 ## 18. Modelli AI (Ollama)
 
-L'AI locale (usata per la chat, sezione 15, e per suggerire le categorie
-nell'import CSV/OFX e nella coda "Da confermare") gira su **Ollama**, con il
-modello scelto dall'admin in **Impostazioni → Modello AI locale**.
+L'AI (usata per la chat, sezione 15, e per suggerire le categorie nell'import
+CSV/OFX e nella coda "Da confermare") può usare **due provider**, scelti
+dall'admin in **Impostazioni → Modello AI**:
+
+- **Ollama (locale)** — il modello gira sul tuo server, con il modello scelto
+  dall'admin. Sezione dedicata qui sotto.
+- **OpenCode (cloud)** — usa un **modello su internet** con la tua **API key**
+  OpenCode (Zen o Go). Alla prima configurazione la chiave viene verificata e
+  la **tipologia viene rilevata da sola** (Zen o Go, forzabile a mano con il
+  selettore "Tipologia"): i modelli mostrati sono quelli della tua tipologia
+  di chiave, con **costo** (dollari per 1 milione di token) e **qualità**
+  accanto a ciascuno. La chiave è cifrata e non viene mai mostrata per intero.
+  Con OpenCode attivo **non è necessario che Ollama sia in esecuzione**: se è
+  spento, chat e categorizzazione continuano a funzionare.
+
+### Ollama (locale)
 
 - **Modello attivo**: mostrato in cima alla card, con lo stato del server
   Ollama (raggiungibile o no).
@@ -883,7 +896,10 @@ restano completamente privati. Anche le **categorie**, i **budget**, gli
 **obiettivi** e le **chat AI** sono sempre personali, non si vedono.
 
 ### L'AI ha accesso a Internet?
-No. Gira interamente in locale (Ollama). Non manda nulla all'esterno.
+Dipende dal provider (sezione 18). Con **Ollama (locale)** no: gira sul tuo
+server e non manda nulla all'esterno. Con **OpenCode (cloud)** i prompt vengono
+inviati ai server OpenCode con la tua API key — attivalo solo se sei a
+conforto con questo (i tuoi dati finanziari vengono usati solo per rispondere).
 
 ### Posso esportare singoli movimenti?
 Per ora puoi solo fare il backup completo (sezione 21). Esportazione

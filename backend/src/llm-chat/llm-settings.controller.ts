@@ -8,20 +8,28 @@ import {
   Param,
   Post,
   Put,
+  Query,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { UserRole } from '@prisma/client';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
 import { LlmModelsService } from './llm-models.service';
-import { PullModelDto, SetActiveModelDto } from './dto/llm-settings.dto';
+import {
+  PullModelDto,
+  SetActiveModelDto,
+  SetOpencodeKeyDto,
+  SetOpencodeModelDto,
+  SetProviderDto,
+} from './dto/llm-settings.dto';
 
 /**
- * Impostazioni del modello LLM locale (Ollama).
+ * Impostazioni del modello LLM: locale (Ollama) o cloud (OpenCode Zen/Go).
  *
  * Le GET sono aperte a qualsiasi utente autenticato (la card in Impostazioni
- * mostra a tutti quale modello è attivo); download, eliminazione e selezione
- * sono admin-only, come le altre impostazioni di sistema.
+ * mostra a tutti quale modello è attivo); modifica di provider, chiave API,
+ * download, eliminazione e selezione sono admin-only, come le altre
+ * impostazioni di sistema.
  */
 @Controller('settings/llm')
 export class LlmSettingsController {
@@ -40,6 +48,12 @@ export class LlmSettingsController {
   @Get('pull-status')
   pullStatus() {
     return this.models.getPullStatus();
+  }
+
+  /** Elenco modelli della tier OpenCode (query `?tier=zen|go`). */
+  @Get('opencode/models')
+  opencodeModels(@Query('tier') tier?: string) {
+    return this.models.getOpencodeModels(tier === 'go' ? 'go' : tier === 'zen' ? 'zen' : undefined);
   }
 
   @Roles(UserRole.admin)
@@ -65,5 +79,39 @@ export class LlmSettingsController {
   @Put()
   setActive(@CurrentUser() user: AuthUser, @Body() dto: SetActiveModelDto) {
     return this.models.setActiveModel(user.id, dto.model);
+  }
+
+  @Roles(UserRole.admin)
+  @Put('provider')
+  setProvider(@CurrentUser() user: AuthUser, @Body() dto: SetProviderDto) {
+    return this.models.setProvider(user.id, dto.provider);
+  }
+
+  @Roles(UserRole.admin)
+  @Put('opencode/key')
+  saveOpencodeKey(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: SetOpencodeKeyDto,
+  ) {
+    return this.models.saveOpencodeApiKey(user.id, dto.apiKey, dto.tier);
+  }
+
+  @Roles(UserRole.admin)
+  @Delete('opencode/key')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  removeOpencodeKey() {
+    return this.models.removeOpencodeKey();
+  }
+
+  @Roles(UserRole.admin)
+  @Put('opencode/model')
+  selectOpencodeModel(@CurrentUser() user: AuthUser, @Body() dto: SetOpencodeModelDto) {
+    return this.models.selectOpencodeModel(user.id, dto.model);
+  }
+
+  @Roles(UserRole.admin)
+  @Post('opencode/test')
+  testOpencode() {
+    return this.models.testOpencode();
   }
 }

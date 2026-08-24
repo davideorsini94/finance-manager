@@ -1,5 +1,8 @@
 import { api } from '@/lib/api/client';
 
+export type LlmProvider = 'ollama' | 'opencode';
+export type OpencodeTier = 'zen' | 'go';
+
 export interface InstalledModel {
   name: string;
   sizeBytes: number;
@@ -8,11 +11,31 @@ export interface InstalledModel {
   modifiedAt?: string;
 }
 
+export interface OpencodeModelEntry {
+  modelId: string;
+  displayName: string;
+  family: string | null;
+  /** USD per 1M token di input. `null` se non nel catalogo metadati. */
+  inputPrice: number | null;
+  /** USD per 1M token di output. `null` se non nel catalogo metadati. */
+  outputPrice: number | null;
+  quality: string | null;
+  description: string | null;
+  recommended: boolean;
+}
+
 export interface LlmSettings {
+  provider: LlmProvider;
   activeModel: string;
   source: 'db' | 'env';
   serverOk: boolean;
   installed: InstalledModel[];
+  opencode: {
+    configured: boolean;
+    apiKeyMasked: string | null;
+    tier: OpencodeTier | null;
+    model: string | null;
+  };
 }
 
 export interface CatalogItem {
@@ -48,4 +71,22 @@ export const llmApi = {
   remove: (name: string) => api.delete(`settings/llm/models/${encodeURIComponent(name)}`),
   select: (model: string) =>
     api.put('settings/llm', { json: { model } }).json<{ activeModel: string }>(),
+  // ---- OpenCode (Zen/Go) ----
+  setProvider: (provider: LlmProvider) =>
+    api.put('settings/llm/provider', { json: { provider } }).json<{ provider: LlmProvider }>(),
+  opencodeModels: (tier?: OpencodeTier) =>
+    api
+      .get(tier ? `settings/llm/opencode/models?tier=${tier}` : 'settings/llm/opencode/models')
+      .json<OpencodeModelEntry[]>(),
+  saveOpencodeKey: (apiKey: string, tier?: OpencodeTier) =>
+    api
+      .put('settings/llm/opencode/key', { json: { apiKey, ...(tier ? { tier } : {}) } })
+      .json<{ tier: OpencodeTier; apiKeyMasked: string }>(),
+  removeOpencodeKey: () => api.delete('settings/llm/opencode/key'),
+  selectOpencodeModel: (model: string) =>
+    api
+      .put('settings/llm/opencode/model', { json: { model } })
+      .json<{ activeModel: string }>(),
+  testOpencode: () =>
+    api.post('settings/llm/opencode/test').json<{ ok: boolean; tier: OpencodeTier | null; error?: string }>(),
 };

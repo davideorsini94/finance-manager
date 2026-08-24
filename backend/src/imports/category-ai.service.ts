@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Ollama } from 'ollama';
 import { ConfigService } from '@nestjs/config';
 import { LlmConfigService } from '../llm-chat/llm-config.service';
+import { OpencodeClient } from '../llm-chat/opencode.client';
 
 interface SuggestionInput {
   description: string;
@@ -49,9 +50,9 @@ const OLLAMA_KEEP_ALIVE = '30m';
 
 /**
  * Suggerisce una categoria a partire dalla descrizione di una transazione,
- * usando Ollama (LLM locale). In batch: 1 chiamata per fino a
- * `CATEGORY_BATCH_SIZE` righe. Fallback heuristic se Ollama non risponde / non
- * disponibile.
+ * usando il provider LLM attivo (Ollama locale o OpenCode cloud, come da
+ * Impostazioni). In batch: 1 chiamata per fino a `CATEGORY_BATCH_SIZE` righe.
+ * Fallback heuristic se il provider non risponde / non è disponibile.
  */
 @Injectable()
 export class CategoryAiService {
@@ -61,6 +62,7 @@ export class CategoryAiService {
   constructor(
     config: ConfigService,
     private readonly llmConfig: LlmConfigService,
+    private readonly opencode: OpencodeClient,
   ) {
     const host = config.get<string>('OLLAMA_BASE_URL');
     // `fetch` personalizzato: il client `ollama` non espone un AbortSignal per
@@ -76,19 +78,47 @@ export class CategoryAiService {
 
   async suggestBatch(inputs: SuggestionInput[]): Promise<CategorySuggestion[]> {
     if (inputs.length === 0) return [];
-    // Modello risolto A OGNI CHIAMATA: l'admin può cambiarlo dalle
+    // Provider + modello risolti A OGNI CHIAMATA: l'admin può cambiarli dalle
     // impostazioni senza riavviare il backend (LlmConfigService è cachato).
-    const model = this.ollama ? (await this.llmConfig.getActiveModel()).model : '';
-    if (!this.ollama || !model || !inputs[0].categories.length) {
+    const config = await this.llmConfig.getActiveConfig();
+    if (!config.model || !inputs[0].categories.length) {
       return inputs.map((i) => this.heuristic(i));
     }
 
     const startedAt = Date.now();
+    const categories = inputs[0].categories;
+    const prompt = this.buildPrompt(inputs, categories);
+
+    if (config.provider === 'opencode') {
+      if (!config.apiKey || !config.tier) {
+        return inputs.map((i) => this.heuristic(i));
+      }
+      try {
+        const text = await this.opencode.chat(config.tier, config.apiKey, {
+          model: config.model,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0,
+          response_format: { type: 'json_object' },
+        });
+        const suggestions = this.parseResponse(text, inputs, categories);
+        this.logger.log(
+          `Batch categorie ${inputs.length} righe in ${elapsedSeconds(startedAt)}s (OpenCode ${config.model})`,
+        );
+        return suggestions;
+      } catch (e) {
+        this.logger.warn(
+          `Batch categorie OpenCode ${inputs.length} righe fallito dopo ${elapsedSeconds(startedAt)}s, ripiego sull'euristica: ${describeError(e)}`,
+        );
+        return inputs.map((i) => this.heuristic(i));
+      }
+    }
+
+    if (!this.ollama) {
+      return inputs.map((i) => this.heuristic(i));
+    }
     try {
-      const categories = inputs[0].categories;
-      const prompt = this.buildPrompt(inputs, categories);
       const res = await this.ollama.chat({
-        model,
+        model: config.model,
         messages: [{ role: 'user', content: prompt }],
         format: 'json',
         // Il modello resta caricato tra un batch e l'altro (vedi costante).
@@ -98,7 +128,7 @@ export class CategoryAiService {
       const text = res.message?.content ?? '';
       const suggestions = this.parseResponse(text, inputs, categories);
       this.logger.log(
-        `Batch categorie ${inputs.length} righe in ${elapsedSeconds(startedAt)}s (modello ${model})`,
+        `Batch categorie ${inputs.length} righe in ${elapsedSeconds(startedAt)}s (modello ${config.model})`,
       );
       return suggestions;
     } catch (e) {

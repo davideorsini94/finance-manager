@@ -1,8 +1,13 @@
 import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Ollama } from 'ollama';
-import { LlmConfigService } from './llm-config.service';
+import {
+  LlmConfigService,
+  type LlmProvider,
+} from './llm-config.service';
+import { OpencodeClient, type OpencodeTier } from './opencode.client';
 import { isCatalogModel, LLM_CATALOG, type LlmCatalogEntry } from './llm-catalog';
+import { OPENCODE_MODEL_META, isOpencodeCatalogModel } from './opencode-catalog';
 
 export interface InstalledModel {
   name: string;
@@ -13,12 +18,33 @@ export interface InstalledModel {
   modifiedAt?: string;
 }
 
+export interface OpencodeModelEntry {
+  modelId: string;
+  displayName: string;
+  family: string | null;
+  /** USD per 1M token di input. `null` se non nel catalogo metadati. */
+  inputPrice: number | null;
+  /** USD per 1M token di output. `null` se non nel catalogo metadati. */
+  outputPrice: number | null;
+  /** Qualità curata. `null` se non nel catalogo metadati. */
+  quality: string | null;
+  description: string | null;
+  recommended: boolean;
+}
+
 export interface LlmOverview {
+  provider: LlmProvider;
   activeModel: string;
   source: 'db' | 'env';
   /** false se il server Ollama non risponde (container spento, ancora in avvio…). */
   serverOk: boolean;
   installed: InstalledModel[];
+  opencode: {
+    configured: boolean;
+    apiKeyMasked: string | null;
+    tier: OpencodeTier | null;
+    model: string | null;
+  };
 }
 
 export interface PullStatus {
@@ -61,16 +87,20 @@ export class LlmModelsService {
   constructor(
     config: ConfigService,
     private readonly llmConfig: LlmConfigService,
+    private readonly opencode: OpencodeClient,
   ) {
     const host = config.get<string>('OLLAMA_BASE_URL');
     this.ollama = host ? new Ollama({ host }) : null;
   }
 
   async getOverview(): Promise<LlmOverview> {
-    const active = await this.llmConfig.getActiveModel();
+    const status = await this.llmConfig.getStatus();
     let serverOk = false;
     let installed: InstalledModel[] = [];
 
+    // L'elenco Ollama è sempre tentato (con try/catch): se il container è
+    // spento l'overview degrada a `serverOk: false` senza mai fallire, anche
+    // quando il provider attivo è opencode.
     if (this.ollama) {
       try {
         const res = await this.ollama.list();
@@ -87,7 +117,14 @@ export class LlmModelsService {
       }
     }
 
-    return { activeModel: active.model, source: active.source, serverOk, installed };
+    return {
+      provider: status.provider,
+      activeModel: status.activeModel,
+      source: status.source,
+      serverOk,
+      installed,
+      opencode: status.opencode,
+    };
   }
 
   getCatalog(): { items: readonly LlmCatalogEntry[] } {
@@ -183,7 +220,7 @@ export class LlmModelsService {
     if (!this.ollama) {
       throw new BadRequestException('Server Ollama non configurato (OLLAMA_BASE_URL mancante).');
     }
-    const active = await this.llmConfig.getActiveModel();
+    const active = await this.llmConfig.getActiveConfig();
     if (sameModel(name, active.model)) {
       throw new BadRequestException(
         'Non puoi eliminare il modello attivo: selezionane un altro e riprova.',
@@ -233,6 +270,114 @@ export class LlmModelsService {
     this.logger.log(`Modello LLM attivo impostato a ${saved.model} da utente ${userId}`);
     return { activeModel: saved.model };
   }
+
+  // ---------------------------------------------------------------------------
+  // Provider OpenCode (Zen/Go)
+  // ---------------------------------------------------------------------------
+
+  /** Attiva il provider OpenCode come provider LLM dell'app. */
+  async setProvider(userId: string, provider: LlmProvider): Promise<{ provider: LlmProvider }> {
+    await this.llmConfig.setProvider(userId, provider);
+    this.logger.log(`Provider LLM impostato a ${provider} da utente ${userId}`);
+    return { provider };
+  }
+
+  /**
+   * Salva la API key OpenCode: la si prova su entrambe le tier (Zen e Go) per
+   * auto-rilevare quella che la accetta, così i modelli mostrati sono quelli
+   * corrispondenti alla tipologia di chiave.
+   */
+  async saveOpencodeApiKey(
+    userId: string,
+    apiKey: string,
+    preferredTier?: OpencodeTier,
+  ): Promise<{ tier: OpencodeTier; apiKeyMasked: string }> {
+    const key = apiKey.trim();
+    if (!key) {
+      throw new BadRequestException('La API key non può essere vuota.');
+    }
+    const tier = await this.opencode.probeTier(key, preferredTier);
+    if (!tier) {
+      throw new BadRequestException(
+        'La API key non è stata accettata da nessun endpoint OpenCode (Zen o Go): verificala e riprova.',
+      );
+    }
+    await this.llmConfig.setOpencodeCredentials(userId, key, tier);
+    this.logger.log(`API key OpenCode salvata (tier ${tier}) da utente ${userId}`);
+    return { tier, apiKeyMasked: maskKey(key) };
+  }
+
+  async removeOpencodeKey(): Promise<void> {
+    await this.llmConfig.removeOpencodeKey();
+  }
+
+  /**
+   * Elenco dei modelli della tier (Zen o Go, default: quella della chiave
+   * salvata), arricchito con costo e qualità dal catalogo metadati. Viene
+   * letto dall'endpoint pubblico `GET /models`: la lista è quindi quella reale
+   * della tipologia di chiave.
+   */
+  async getOpencodeModels(tier?: OpencodeTier): Promise<OpencodeModelEntry[]> {
+    const status = await this.llmConfig.getStatus();
+    const effective = tier ?? status.opencode.tier;
+    if (!effective) {
+      throw new BadRequestException(
+        'Nessuna tier OpenCode configurata: salva la API key per rilevarla automaticamente.',
+      );
+    }
+    const ids = await this.opencode.listModels(effective);
+    return ids.map((modelId) => {
+      const meta = OPENCODE_MODEL_META.get(modelId);
+      return meta
+        ? {
+            modelId,
+            displayName: meta.displayName,
+            family: meta.family,
+            inputPrice: meta.inputPrice,
+            outputPrice: meta.outputPrice,
+            quality: meta.quality,
+            description: meta.description,
+            recommended: meta.recommended ?? false,
+          }
+        : {
+            modelId,
+            displayName: modelId,
+            family: null,
+            inputPrice: null,
+            outputPrice: null,
+            quality: null,
+            description: null,
+            recommended: false,
+          };
+    });
+  }
+
+  /** Seleziona il modello OpenCode attivo e attiva il provider opencode. */
+  async selectOpencodeModel(
+    userId: string,
+    model: string,
+  ): Promise<{ activeModel: string }> {
+    if (!isOpencodeCatalogModel(model)) {
+      throw new BadRequestException('Modello non presente nel catalogo OpenCode.');
+    }
+    await this.llmConfig.setProvider(userId, 'opencode');
+    const saved = await this.llmConfig.setOpencodeModel(userId, model);
+    this.logger.log(`Modello OpenCode attivo impostato a ${saved.model} da utente ${userId}`);
+    return { activeModel: saved.model };
+  }
+
+  /** Verifica che la chiave salvata sia ancora valida e su quale tier. */
+  async testOpencode(): Promise<{ ok: boolean; tier: OpencodeTier | null; error?: string }> {
+    const key = await this.llmConfig.getOpencodeKey();
+    if (!key) {
+      return { ok: false, tier: null, error: 'Chiave API OpenCode non configurata.' };
+    }
+    const tier = await this.opencode.probeTier(key);
+    if (!tier) {
+      return { ok: false, tier: null, error: 'La chiave salvata non è più valida.' };
+    }
+    return { ok: true, tier };
+  }
 }
 
 /**
@@ -251,4 +396,10 @@ function toIso(value: Date | string | undefined): string | undefined {
   if (!value) return undefined;
   const d = value instanceof Date ? value : new Date(value);
   return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
+}
+
+/** Primi 4 + … + ultimi 4 della API key. Chiavi corte mascherate per intero. */
+function maskKey(key: string): string {
+  if (key.length <= 8) return '••••';
+  return `${key.slice(0, 4)}…${key.slice(-4)}`;
 }

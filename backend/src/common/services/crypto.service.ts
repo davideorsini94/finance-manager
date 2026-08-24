@@ -15,6 +15,9 @@ export const SMTP_CRYPTO_CONTEXT = 'fm-smtp-v1';
 /** Contesto delle credenziali Enable Banking (chiave privata RS256). */
 export const BANK_SYNC_CRYPTO_CONTEXT = 'fm-banksync-v1';
 
+/** Contesto della API key del provider LLM OpenCode (Zen/Go). */
+export const OPENCODE_CRYPTO_CONTEXT = 'fm-opencode-v1';
+
 /**
  * Cifratura simmetrica per dati sensibili memorizzati in DB
  * (password SMTP, chiave privata del sync bancario). La chiave è derivata via
