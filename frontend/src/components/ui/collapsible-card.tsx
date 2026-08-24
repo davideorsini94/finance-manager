@@ -49,15 +49,15 @@ export function CollapsibleCard({
 
   return (
     <Card>
-      <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-4">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-4">
         <button
           type="button"
           onClick={toggle}
           aria-expanded={open}
-          className="group flex min-w-0 flex-1 items-center justify-between gap-3 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="group flex min-w-0 flex-1 items-center gap-3 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 text-base font-semibold leading-none tracking-tight">
+            <div className="flex items-center gap-2 text-base font-semibold leading-tight tracking-tight">
               <span className="flex items-center gap-2 flex-wrap">{title}</span>
             </div>
             {description && open && (
@@ -73,7 +73,7 @@ export function CollapsibleCard({
         </button>
         {action && <div className="flex shrink-0 items-center gap-2">{action}</div>}
       </div>
-      {open && <div className="p-4 pt-3">{children}</div>}
+      {open && <div className="p-4 pt-2">{children}</div>}
     </Card>
   );
 }
