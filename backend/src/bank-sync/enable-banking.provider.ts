@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import { Injectable, Logger } from '@nestjs/common';
 import {
   BankProviderPort,
@@ -150,9 +152,20 @@ export class EnableBankingProvider implements BankProviderPort {
    * Movimenti contabilizzati del conto, seguendo la paginazione
    * `continuation_key` fino a esaurimento.
    *
-   * Due protezioni: un **cap di pagine** (una banca che restituisse sempre lo
-   * stesso cursore ci terrebbe in loop) e un piccolo backoff sui 429, perché il
-   * limite PSD2 di accessi non presidiati è per-banca e non lo conosciamo.
+   * "Fino a esaurimento" presuppone che la banca prima o poi smetta di mandare
+   * un cursore, e non tutte lo fanno: Trade Republic rimanda lo **stesso**
+   * `continuation_key` anche sull'ultima pagina. Il solo cap di pagine non
+   * basta — limita il danno ma la stessa pagina viene comunque ri-scaricata 50
+   * volte, e siccome quelle righe non hanno `entry_reference` il dedup a valle
+   * (che ripiega sull'occorrenza progressiva nel fetch) legge ogni copia come
+   * un movimento nuovo e riempie la coda di revisione di cloni. Quindi tre
+   * protezioni: **cursore che deve avanzare**, **pagina che non deve ripetersi**
+   * e il cap come ultima rete. Fermarsi presto costa anche molte meno chiamate
+   * alla banca, che pesano sui limiti PSD2.
+   *
+   * Più il solito backoff sui 429, perché il limite di accessi non presidiati è
+   * per-banca e non lo conosciamo.
+   *
    * Le righe non `BOOK` (pending) vengono scartate qui: non sono contabilizzate
    * e cambierebbero identità una volta contabilizzate. **Scartate ma contate**
    * (`skippedPending`, `statusCounts`): altrimenti una spesa ancora `PDNG`
@@ -163,10 +176,29 @@ export class EnableBankingProvider implements BankProviderPort {
     const statusCounts: Record<string, number> = {};
     let skippedPending = 0;
     let continuationKey: string | undefined;
+    /** Cursori già usati e pagine già ingerite in questo fetch: servono a riconoscere il loop. */
+    const seenKeys = new Set<string>();
+    const seenPages = new Set<string>();
 
     for (let page = 0; page < MAX_TRANSACTION_PAGES; page++) {
       const res = await this.listTransactionsWithBackoff(accountUid, dateFrom, continuationKey);
       const rows = asArray(res.transactions) ?? asArray(res.data) ?? [];
+
+      // Pagina identica a una già scaricata: la banca sta girando su sé stessa.
+      // Va scartata prima di leggerla, non solo interrotta dopo — ingerirla
+      // significherebbe duplicare movimenti già raccolti. Una pagina vuota non
+      // duplica niente, quindi non entra nel confronto (ci pensa il cap).
+      if (rows.length > 0) {
+        const fingerprint = pageFingerprint(rows);
+        if (seenPages.has(fingerprint)) {
+          this.logger.warn(
+            `Paginazione movimenti interrotta sul conto ${accountUid}: la banca ha ripetuto una pagina già scaricata`,
+          );
+          break;
+        }
+        seenPages.add(fingerprint);
+      }
+
       for (const row of rows) {
         const parsed = toProviderTransaction(row);
         if (!parsed) continue;
@@ -178,8 +210,19 @@ export class EnableBankingProvider implements BankProviderPort {
         else if (parsed.status) skippedPending++;
       }
 
-      continuationKey = firstString(res.continuation_key) ?? undefined;
-      if (!continuationKey) break;
+      const nextKey = firstString(res.continuation_key) ?? undefined;
+      if (!nextKey) break;
+      // Cursore non avanzato: la pagina successiva sarebbe la stessa di adesso.
+      // Ci si ferma qui e la chiamata non si fa nemmeno.
+      if (seenKeys.has(nextKey)) {
+        this.logger.warn(
+          `Paginazione movimenti interrotta sul conto ${accountUid}: la banca rimanda lo stesso cursore`,
+        );
+        break;
+      }
+      seenKeys.add(nextKey);
+      continuationKey = nextKey;
+
       if (page === MAX_TRANSACTION_PAGES - 1) {
         this.logger.warn(
           `Paginazione movimenti interrotta al limite di ${MAX_TRANSACTION_PAGES} pagine per il conto ${accountUid}`,
@@ -469,6 +512,16 @@ function extractOwnerName(res: Record<string, unknown>): string | null {
   if (typeof owner === 'string') return owner;
   if (isRecord(owner)) return firstString(owner.name) ?? null;
   return null;
+}
+
+/**
+ * Impronta del contenuto di una pagina di movimenti, per riconoscere quando la
+ * banca ci sta riservando roba già scaricata. Si guarda il **payload grezzo**
+ * (non i campi normalizzati) perché è l'unica cosa che distingue due bonifici
+ * gemelli davvero distinti da una pagina ripetuta.
+ */
+function pageFingerprint(rows: unknown[]): string {
+  return createHash('sha256').update(JSON.stringify(rows), 'utf8').digest('hex');
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
