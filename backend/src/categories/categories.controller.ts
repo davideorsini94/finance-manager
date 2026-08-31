@@ -13,12 +13,7 @@ import {
 } from '@nestjs/common';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
 import { CategoriesService } from './categories.service';
-import {
-  CreateCategoryDto,
-  DeleteCategoryQueryDto,
-  ReorderCategoriesDto,
-  UpdateCategoryDto,
-} from './dto/category.dto';
+import { CreateCategoryDto, DeleteCategoryQueryDto, RecolorCategoriesDto, ReorderCategoriesDto, UpdateCategoryDto } from './dto/category.dto';
 
 @Controller('categories')
 export class CategoriesController {
@@ -46,6 +41,15 @@ export class CategoriesController {
       { from: new Date(from), to: new Date(to) },
       isIncome === 'true',
     );
+  }
+
+  /**
+   * Riallinea i colori alla palette del tema. Operazione massiva e non
+   * annullabile: il frontend la mette dietro una conferma esplicita.
+   */
+  @Post('recolor')
+  recolor(@CurrentUser() user: AuthUser, @Body() dto: RecolorCategoriesDto) {
+    return this.categoriesService.recolorWithPalette(user.id, dto.palette);
   }
 
   @Patch('reorder')

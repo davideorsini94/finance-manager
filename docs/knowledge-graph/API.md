@@ -8,7 +8,7 @@ Tutte le rotte sono servite dal [[Backend]] e proxate da nginx sotto `/api/` (es
 - **Users** — `GET /users/me`, `GET /users` (search), `PATCH /users/:id`
 - **Accounts** — CRUD `/accounts`; membri: `POST|PATCH|DELETE /accounts/:id/members[/:userId]`
 - **Sharing** — `POST|GET|PATCH /accounts/:id/invites[/:inviteId]` → [[Condivisione Conti]]
-- **Categories** — CRUD `/categories`, `GET /categories/aggregate`, `PATCH /categories/reorder`
+- **Categories** — CRUD `/categories`, `GET /categories/aggregate`, `PATCH /categories/reorder`, `POST /categories/recolor` (body `{ palette: string[] }`, 1..24 esadecimali `#rrggbb`) → `{ updated }`: riallinea i colori alla palette del tema assegnando una tinta a ogni radice e propagandola ai figli → [[Design System]]
 - **Transactions** — CRUD `/transactions`; list con filtri `accountId`, `categoryId`, `type`, `from`/`to`, `search`, paginazione `page`/`limit` → usati dalla [[Pagina Movimenti]]
 - **Transfers** — CRUD `/transfers` (creano/eliminano coppie di Transaction)
 - **Credit cards** — `POST|GET|PATCH /credit-cards`

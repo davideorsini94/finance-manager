@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Palette } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getIcon } from '@/components/shared/icon-pool';
@@ -8,6 +8,7 @@ import type { Category } from '@/types/domain';
 import { categoriesApi } from './categoriesApi';
 import { CategoryForm } from './CategoryForm';
 import { useConfirm } from '@/components/shared/confirm';
+import { CATEGORY_PALETTE_HEX } from '@/lib/theme/categoryPalette';
 import { sortByName } from '@/lib/utils/sort';
 
 export function CategoriesPage() {
@@ -37,23 +38,55 @@ export function CategoriesPage() {
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['categories'] }),
   });
 
+  const recolor = useMutation({
+    mutationFn: () => categoriesApi.recolor(CATEGORY_PALETTE_HEX),
+    // I colori delle categorie compaiono ovunque (torte, legende, badge dei
+    // movimenti): dopo il riallineamento va rinfrescato tutto, non solo l'elenco.
+    onSuccess: () => void queryClient.invalidateQueries({ refetchType: 'all' }),
+  });
+
   const data = categoriesQuery.data ?? [];
   // Le categorie ora sono GENERICHE (valgono sia entrate sia uscite),
   // quindi mostriamo una singola lista gerarchica ordinata alfabeticamente.
   const roots = sortByName(data.filter((c) => c.parentId === null));
 
+  /**
+   * Riscrive il colore di tutte le categorie: la modale deve dire quante righe
+   * tocca e che non si torna indietro (convenzione del progetto sulle
+   * operazioni massive).
+   */
+  const onRecolor = async () => {
+    const ok = await confirm({
+      title: 'Riallineare i colori al tema?',
+      description: `Assegno una tinta della palette a ciascuna delle ${roots.length} categorie principali; le sottocategorie prendono il colore del padre. Vengono riscritti i colori di tutte le ${data.length} categorie e i colori attuali non sono recuperabili.`,
+      confirmLabel: 'Riallinea',
+      destructive: true,
+    });
+    if (ok) recolor.mutate();
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold tracking-tight">Categorie</h1>
-        <Button
-          onClick={() => {
-            setEditing(null);
-            setFormOpen(true);
-          }}
-        >
-          <Plus className="h-4 w-4 mr-2" /> Nuova categoria
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            disabled={recolor.isPending || roots.length === 0}
+            onClick={() => void onRecolor()}
+          >
+            <Palette className="h-4 w-4 mr-2" />
+            {recolor.isPending ? 'Riallineo…' : 'Riallinea al tema'}
+          </Button>
+          <Button
+            onClick={() => {
+              setEditing(null);
+              setFormOpen(true);
+            }}
+          >
+            <Plus className="h-4 w-4 mr-2" /> Nuova categoria
+          </Button>
+        </div>
       </div>
 
       <Card>

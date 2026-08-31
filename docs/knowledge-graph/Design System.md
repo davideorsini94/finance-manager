@@ -27,13 +27,21 @@ Un serif da display (Fraunces) è stato provato su titoli, cifre KPI e titoli de
 
 Ogni riga della [[Pagina Movimenti]] porta un bordo sinistro di 3px col **colore del conto** di appartenenza: su conti condivisi si riconosce di chi è il movimento prima di leggere il testo. Il `Transaction` incorpora solo id/nome/tipo del conto, quindi il colore arriva da una mappa costruita sulla query dei conti.
 
+## Palette delle categorie
+
+`frontend/src/lib/theme/categoryPalette.ts` — dodici tinte distribuite sul cerchio cromatico ma tenute alla **stessa intensità** (saturazione ~40%, luminosità ~45%): colori da pigmento, non primari da schermo, così convivono con la carta senza vibrare e restano leggibili sul fondo scuro. L'accento dell'interfaccia (blu penna) **non** compare: serve a dire cosa è interattivo, e un dato dello stesso colore lo confonde.
+
+- Il `ColorPicker` la mostra come prima sezione ("Palette del tema"), fissa; sotto restano tutti i 64 colori, scrollabili — nessuno è obbligato a usarla
+- **`POST /categories/recolor`** (pulsante "Riallinea al tema" nella pagina Categorie) assegna una tinta a ogni categoria **radice** in ordine alfabetico e la propaga ai figli, cioè lo stesso modello di ereditarietà che vale già quando si cambia il colore di una radice a mano. Con più radici che tinte la palette si ripete, ma due radici adiacenti in elenco non ricevono mai lo stesso colore. Operazione massiva e non annullabile → `useConfirm()` che dice **quante** categorie tocca
+- La palette viaggia dal frontend al backend nella richiesta: i token di design vivono nel frontend, il backend valida solo che siano esadecimali
+
 ## Colori: token, non classi Tailwind
 
 Entrate/uscite si colorano con `hsl(var(--pos))` / `hsl(var(--neg))`, **mai** con `emerald-600`/`red-600`: i colori fissi di Tailwind ignorano il tema e nel tema Registro il rosso 500 era più acceso del `--neg`, tanto che una card selezionata sembrava in errore. Vale anche per gli stati di selezione (`FLOW_UI` in `features/dashboard/flow.tsx`), dove la selezione è un **filetto sottile + fondo tenue**: un anello spesso e staccato si legge come un allarme.
 
 ## Grafici
 
-Recharts con griglia **solo orizzontale** e tratto continuo tenue (la griglia a puntini su due assi è il tell più riconoscibile del grafico di default); serie dai token `--chart-1..5`, guidate dall'accento. I colori delle **categorie** restano quelli scelti dall'utente a database: sono dati, non decorazione, e nel grafico a torta sono l'elemento più rumoroso rimasto.
+Recharts con griglia **solo orizzontale** e tratto continuo tenue (la griglia a puntini su due assi è il tell più riconoscibile del grafico di default); serie dai token `--chart-1..5`, guidate dall'accento. I colori delle **categorie** restano scelti dall'utente a database, ma la palette proposta e il riallineamento li tengono in accordo col tema (sezione sopra).
 
 ## Cosa non è stato fatto (e perché)
 

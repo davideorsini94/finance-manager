@@ -30,6 +30,10 @@ export function demoHandle(ctx: Ctx): unknown | null {
   if (matches(pathname, 'accounts') && method === 'GET') {
     return demoDataset.accounts;
   }
+  // Riallineamento colori: in demo è un no-op che risponde come il backend.
+  if (matches(pathname, 'categories/recolor') && method === 'POST') {
+    return { updated: demoDataset.categories.length };
+  }
   // Categories
   if (matches(pathname, 'categories') && method === 'GET') {
     return demoDataset.categories;

@@ -81,18 +81,18 @@ const ACCOUNTS: Account[] = [
 ];
 
 const CATEGORIES: Category[] = [
-  { id: 'cat-stipendio', userId: ME.id, parentId: null, name: 'Stipendio', color: '#10b981', icon: 'Briefcase', isIncome: true, sortOrder: 0, createdAt: '2024-01-15T10:00:00Z' },
-  { id: 'cat-extra', userId: ME.id, parentId: null, name: 'Entrate extra', color: '#22c55e', icon: 'Sparkles', isIncome: true, sortOrder: 1, createdAt: '2024-01-15T10:00:00Z' },
-  { id: 'cat-casa', userId: ME.id, parentId: null, name: 'Casa', color: '#f59e0b', icon: 'Home', isIncome: false, sortOrder: 0, createdAt: '2024-01-15T10:00:00Z' },
-  { id: 'cat-affitto', userId: ME.id, parentId: 'cat-casa', name: 'Affitto', color: '#f59e0b', icon: 'Home', isIncome: false, sortOrder: 0, createdAt: '2024-01-15T10:00:00Z' },
-  { id: 'cat-utenze', userId: ME.id, parentId: 'cat-casa', name: 'Utenze', color: '#fbbf24', icon: 'Zap', isIncome: false, sortOrder: 1, createdAt: '2024-01-15T10:00:00Z' },
-  { id: 'cat-spesa', userId: ME.id, parentId: null, name: 'Spesa', color: '#ef4444', icon: 'ShoppingCart', isIncome: false, sortOrder: 1, createdAt: '2024-01-15T10:00:00Z' },
-  { id: 'cat-trasporti', userId: ME.id, parentId: null, name: 'Trasporti', color: '#3b82f6', icon: 'Car', isIncome: false, sortOrder: 2, createdAt: '2024-01-15T10:00:00Z' },
-  { id: 'cat-ristoranti', userId: ME.id, parentId: null, name: 'Ristoranti', color: '#ec4899', icon: 'Utensils', isIncome: false, sortOrder: 3, createdAt: '2024-01-15T10:00:00Z' },
-  { id: 'cat-svago', userId: ME.id, parentId: null, name: 'Svago', color: '#a855f7', icon: 'Film', isIncome: false, sortOrder: 4, createdAt: '2024-01-15T10:00:00Z' },
-  { id: 'cat-salute', userId: ME.id, parentId: null, name: 'Salute', color: '#06b6d4', icon: 'Heart', isIncome: false, sortOrder: 5, createdAt: '2024-01-15T10:00:00Z' },
-  { id: 'cat-abbon', userId: ME.id, parentId: null, name: 'Abbonamenti', color: '#6366f1', icon: 'Repeat', isIncome: false, sortOrder: 6, createdAt: '2024-01-15T10:00:00Z' },
-  { id: 'cat-shopping', userId: ME.id, parentId: null, name: 'Shopping', color: '#f43f5e', icon: 'ShoppingBag', isIncome: false, sortOrder: 7, createdAt: '2024-01-15T10:00:00Z' },
+  { id: 'cat-stipendio', userId: ME.id, parentId: null, name: 'Stipendio', color: '#4f8d5e', icon: 'Briefcase', isIncome: true, sortOrder: 0, createdAt: '2024-01-15T10:00:00Z' },
+  { id: 'cat-extra', userId: ME.id, parentId: null, name: 'Entrate extra', color: '#3a6b96', icon: 'Sparkles', isIncome: true, sortOrder: 1, createdAt: '2024-01-15T10:00:00Z' },
+  { id: 'cat-casa', userId: ME.id, parentId: null, name: 'Casa', color: '#ae6a3c', icon: 'Home', isIncome: false, sortOrder: 0, createdAt: '2024-01-15T10:00:00Z' },
+  { id: 'cat-affitto', userId: ME.id, parentId: 'cat-casa', name: 'Affitto', color: '#ae6a3c', icon: 'Home', isIncome: false, sortOrder: 0, createdAt: '2024-01-15T10:00:00Z' },
+  { id: 'cat-utenze', userId: ME.id, parentId: 'cat-casa', name: 'Utenze', color: '#ae6a3c', icon: 'Zap', isIncome: false, sortOrder: 1, createdAt: '2024-01-15T10:00:00Z' },
+  { id: 'cat-spesa', userId: ME.id, parentId: null, name: 'Spesa', color: '#6f5599', icon: 'ShoppingCart', isIncome: false, sortOrder: 1, createdAt: '2024-01-15T10:00:00Z' },
+  { id: 'cat-trasporti', userId: ME.id, parentId: null, name: 'Trasporti', color: '#3a8c7c', icon: 'Car', isIncome: false, sortOrder: 2, createdAt: '2024-01-15T10:00:00Z' },
+  { id: 'cat-ristoranti', userId: ME.id, parentId: null, name: 'Ristoranti', color: '#a68a38', icon: 'Utensils', isIncome: false, sortOrder: 3, createdAt: '2024-01-15T10:00:00Z' },
+  { id: 'cat-svago', userId: ME.id, parentId: null, name: 'Svago', color: '#8e4f86', icon: 'Film', isIncome: false, sortOrder: 4, createdAt: '2024-01-15T10:00:00Z' },
+  { id: 'cat-salute', userId: ME.id, parentId: null, name: 'Salute', color: '#50589b', icon: 'Heart', isIncome: false, sortOrder: 5, createdAt: '2024-01-15T10:00:00Z' },
+  { id: 'cat-abbon', userId: ME.id, parentId: null, name: 'Abbonamenti', color: '#2f7f8e', icon: 'Repeat', isIncome: false, sortOrder: 6, createdAt: '2024-01-15T10:00:00Z' },
+  { id: 'cat-shopping', userId: ME.id, parentId: null, name: 'Shopping', color: '#7f8c3c', icon: 'ShoppingBag', isIncome: false, sortOrder: 7, createdAt: '2024-01-15T10:00:00Z' },
 ];
 
 // Mulberry32 seedable PRNG

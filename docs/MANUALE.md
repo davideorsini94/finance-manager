@@ -159,6 +159,14 @@ In qualsiasi momento puoi cambiare il ruolo o rimuovere un membro. Il
 
 ## 6. Categorie
 
+> 🎨 **Riallinea al tema**: il pulsante in alto nella pagina Categorie assegna a
+> ogni categoria principale un colore della palette dell'app, e le
+> sottocategorie prendono il colore della categoria padre. Serve quando i colori
+> si sono accumulati nel tempo e stonano tra loro. Chiede conferma, perché
+> riscrive i colori di **tutte** le categorie e quelli attuali non tornano
+> indietro. Se vuoi cambiare un colore singolo, la palette dell'app è comunque
+> la prima cosa che trovi aprendo il selettore colore.
+
 Le categorie servono a etichettare i movimenti e poi a fare report e budget.
 
 Vai in **Categorie**:

@@ -143,7 +143,11 @@ export function CategoryForm({ open, onOpenChange, category, candidates }: Props
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Colore</Label>
+              {/* `inline`: dentro un Dialog il popover verrebbe tagliato
+                  dall'overflow del DialogContent e la palette del tema, che sta
+                  in cima, sparirebbe. */}
               <ColorPicker
+                inline
                 value={watch('color') || null}
                 onChange={(c) => setValue('color', c ?? '', { shouldDirty: true })}
               />

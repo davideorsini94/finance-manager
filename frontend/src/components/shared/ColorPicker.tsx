@@ -8,6 +8,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { cn } from '@/lib/utils/cn';
+import { CATEGORY_PALETTE } from '@/lib/theme/categoryPalette';
 
 /**
  * Palette estesa: 64 colori organizzati per tinta (chiaro → scuro su ogni
@@ -48,41 +49,69 @@ interface Props {
   value: string | null | undefined;
   onChange: (color: string | null) => void;
   label?: string;
+  /**
+   * Rende il pannello nel flusso invece che in un popover. Serve dentro un
+   * Dialog: il `DialogContent` ha `overflow-y-auto`, quindi un popover più alto
+   * dello spazio disponibile viene **tagliato** (stessa trappola di
+   * `CategoryPicker`, vedi Convenzioni di Sviluppo). Inline scrolla il Dialog e
+   * non si perde niente.
+   */
+  inline?: boolean;
 }
 
 const HEX_RE = /^#[0-9A-Fa-f]{6}$/;
 
-export function ColorPicker({ value, onChange, label }: Props) {
+export function ColorPicker({ value, onChange, label, inline = false }: Props) {
   const [open, setOpen] = useState(false);
   const [custom, setCustom] = useState(value && !PRESETS.includes(value) ? value : '');
 
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          className="w-full justify-start gap-2 font-normal"
-        >
-          <span
-            className="h-5 w-5 rounded-md border shrink-0"
-            style={{ backgroundColor: value ?? 'transparent' }}
-          />
-          <span className="truncate text-sm">
-            {value ?? <span className="text-muted-foreground">{label ?? 'Scegli colore'}</span>}
-          </span>
-          <Palette className="ml-auto h-4 w-4 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        className="w-80 max-w-[calc(100vw-2rem)] p-3"
-        align="start"
-        // Stesso bug di IconPicker/CategoryPicker: dentro un Radix Dialog
-        // react-remove-scroll blocca il touch-scroll sui contenuti in portal
-        // fuori dal sottoalbero del Dialog (usato in CategoryForm/AccountForm).
-        disablePortal
-      >
-        <div className="grid max-h-72 grid-cols-9 gap-1.5 overflow-y-auto pr-1">
+  const panel = (
+    <>
+        {/* La palette del tema resta fissa in alto, scorre solo l'elenco
+            completo: così non finisce mai fuori vista. */}
+        <div className="space-y-3">
+          {/* La palette del tema per prima: sono le tinte pensate per stare
+              sulla carta senza vibrare. Sotto restano tutte le altre, perché
+              nessuno deve essere costretto. */}
+          <div className="space-y-1.5">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Palette del tema
+            </p>
+            <div className="grid grid-cols-6 gap-1.5">
+              {CATEGORY_PALETTE.map(({ name, hex }) => {
+                const selected = value?.toLowerCase() === hex;
+                return (
+                  <button
+                    key={hex}
+                    type="button"
+                    aria-label={name}
+                    title={`${name} · ${hex}`}
+                    onClick={() => {
+                      onChange(hex);
+                      setOpen(false);
+                    }}
+                    className={cn(
+                      'relative h-7 w-full rounded-md border transition-transform hover:scale-105',
+                      selected && 'ring-2 ring-ring ring-offset-2 ring-offset-background',
+                    )}
+                    style={{ backgroundColor: hex }}
+                  >
+                    {selected && (
+                      <Check
+                        className="absolute inset-0 m-auto h-3.5 w-3.5 text-white drop-shadow"
+                        aria-hidden
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Tutti i colori
+            </p>
+        <div className="grid max-h-40 grid-cols-9 gap-1.5 overflow-y-auto pr-1">
           {PRESETS.map((color) => {
             const selected = value?.toLowerCase() === color.toLowerCase();
             return (
@@ -96,7 +125,7 @@ export function ColorPicker({ value, onChange, label }: Props) {
                   setOpen(false);
                 }}
                 className={cn(
-                  'relative h-6 w-6 rounded-md border transition-transform hover:scale-110',
+                  'relative h-6 w-full rounded-md border transition-transform hover:scale-110',
                   selected && 'ring-2 ring-ring ring-offset-2 ring-offset-background',
                 )}
                 style={{ backgroundColor: color }}
@@ -110,6 +139,8 @@ export function ColorPicker({ value, onChange, label }: Props) {
               </button>
             );
           })}
+          </div>
+          </div>
         </div>
         <div className="mt-3 flex items-center gap-2 border-t pt-3">
           <input
@@ -146,6 +177,40 @@ export function ColorPicker({ value, onChange, label }: Props) {
             </Button>
           )}
         </div>
+    </>
+  );
+
+  if (inline) {
+    return <div className="rounded-md border p-3">{panel}</div>;
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full justify-start gap-2 font-normal"
+        >
+          <span
+            className="h-5 w-5 rounded-md border shrink-0"
+            style={{ backgroundColor: value ?? 'transparent' }}
+          />
+          <span className="truncate text-sm">
+            {value ?? <span className="text-muted-foreground">{label ?? 'Scegli colore'}</span>}
+          </span>
+          <Palette className="ml-auto h-4 w-4 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-80 max-w-[calc(100vw-2rem)] p-3"
+        align="start"
+        // Stesso bug di IconPicker/CategoryPicker: dentro un Radix Dialog
+        // react-remove-scroll blocca il touch-scroll sui contenuti in portal
+        // fuori dal sottoalbero del Dialog (usato in CategoryForm/AccountForm).
+        disablePortal
+      >
+        {panel}
       </PopoverContent>
     </Popover>
   );

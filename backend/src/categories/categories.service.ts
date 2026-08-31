@@ -343,4 +343,39 @@ export class CategoriesService {
     }
     return parent;
   }
+  /**
+   * Riallinea i colori delle categorie alla palette del tema.
+   *
+   * Assegna una tinta a ciascuna categoria **radice** in ordine alfabetico e la
+   * propaga ai figli: è lo stesso modello di ereditarietà che già si applica
+   * quando si cambia il colore di una radice a mano, quindi il risultato è
+   * coerente con quello che l'utente otterrebbe categoria per categoria.
+   * Con più radici che tinte la palette si ripete, ma due radici adiacenti in
+   * elenco non ricevono mai lo stesso colore.
+   *
+   * Le categorie sono per-utente: tocca solo quelle di chi chiama.
+   */
+  async recolorWithPalette(userId: string, palette: string[]): Promise<{ updated: number }> {
+    const roots = await this.prisma.category.findMany({
+      where: { userId, parentId: null },
+      orderBy: { name: 'asc' },
+      select: { id: true },
+    });
+    if (roots.length === 0) return { updated: 0 };
+
+    return this.prisma.$transaction(async (tx) => {
+      let updated = 0;
+      for (const [i, root] of roots.entries()) {
+        const color = palette[i % palette.length];
+        await tx.category.update({ where: { id: root.id }, data: { color } });
+        const children = await tx.category.updateMany({
+          where: { userId, parentId: root.id },
+          data: { color },
+        });
+        updated += 1 + children.count;
+      }
+      return { updated };
+    });
+  }
+
 }

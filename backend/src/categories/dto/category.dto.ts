@@ -1,16 +1,5 @@
 import { Type } from 'class-transformer';
-import {
-  IsArray,
-  IsBoolean,
-  IsHexColor,
-  IsInt,
-  IsOptional,
-  IsString,
-  IsUUID,
-  MaxLength,
-  Min,
-  ValidateNested,
-} from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsHexColor, IsInt, IsOptional, IsString, IsUUID, Matches, MaxLength, Min, ValidateNested } from 'class-validator';
 
 export class CreateCategoryDto {
   @IsString()
@@ -99,4 +88,17 @@ export class DeleteCategoryQueryDto {
   @IsOptional()
   @IsUUID()
   reassignTo?: string;
+}
+
+/**
+ * Riallineamento dei colori alla palette del tema. La palette arriva dal
+ * frontend, che è il proprietario dei token di design: qui si valida soltanto
+ * che siano esadecimali e che non ne arrivino a valanga.
+ */
+export class RecolorCategoriesDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(24)
+  @Matches(/^#[0-9a-fA-F]{6}$/, { each: true, message: 'Colore non valido: atteso #rrggbb.' })
+  palette!: string[];
 }

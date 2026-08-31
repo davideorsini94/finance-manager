@@ -19,4 +19,7 @@ export const categoriesApi = {
   update: (id: string, data: UpdateCategoryInput) =>
     api.patch(`categories/${id}`, { json: data }).json<Category>(),
   remove: (id: string) => api.delete(`categories/${id}`),
+  /** Riallinea i colori alla palette del tema (radici + figli). */
+  recolor: (palette: readonly string[]) =>
+    api.post('categories/recolor', { json: { palette } }).json<{ updated: number }>(),
 };
