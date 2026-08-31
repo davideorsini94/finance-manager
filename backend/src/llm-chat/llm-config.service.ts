@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { OPENCODE_CRYPTO_CONTEXT, CryptoService } from '../common/services/crypto.service';
 import type { OpencodeTier } from './opencode.client';
+import { QUOTA_COOLDOWN_MS } from './llm-fallback';
 
 const SINGLETON_ID = 'singleton';
 
@@ -53,6 +54,14 @@ export interface LlmConfigStatus {
 export class LlmConfigService {
   private readonly logger = new Logger(LlmConfigService.name);
   private cached: ActiveLlmConfig | null = null;
+  /**
+   * Fino a quando restare su Ollama dopo un limite raggiunto su OpenCode.
+   * In-process: il backend gira in un container singolo, come la cache qui
+   * sopra. `null` = nessun cooldown attivo.
+   */
+  private opencodeCooldownUntil: number | null = null;
+  /** Modello Ollama scelto dall'admin, letto insieme al resto del singleton. */
+  private cachedOllamaModel: string | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -61,7 +70,10 @@ export class LlmConfigService {
   ) {}
 
   async getActiveConfig(): Promise<ActiveLlmConfig> {
-    if (this.cached) return this.cached;
+    // Il cooldown va applicato SOPRA la cache, non dentro il valore cachato:
+    // altrimenti resterebbe congelato e non scadrebbe mai (o congelerebbe il
+    // ripiego anche dopo la scadenza).
+    if (this.cached) return this.withCooldown(this.cached);
 
     let row: { provider: string | null; model: string | null; opencodeTier: string | null; opencodeModel: string | null; opencodeApiKeyEncrypted: string | null } | null = null;
     try {
@@ -70,6 +82,10 @@ export class LlmConfigService {
       // Il DB non deve poter rompere la chat: si degrada su Ollama + env.
       this.logger.warn(`Lettura LlmConfig fallita, uso OLLAMA_MODEL: ${(e as Error).message}`);
     }
+
+    // Tenuto da parte per `resolveOllama()`: la riserva usa il modello Ollama
+    // scelto dall'admin anche quando il provider attivo è OpenCode.
+    this.cachedOllamaModel = row?.model ?? null;
 
     const provider: LlmProvider = row?.provider === 'opencode' ? 'opencode' : 'ollama';
     const resolved: ActiveLlmConfig =
@@ -84,7 +100,58 @@ export class LlmConfigService {
           };
 
     this.cached = resolved;
-    return resolved;
+    return this.withCooldown(resolved);
+  }
+
+  /**
+   * Se OpenCode ha dichiarato il limite raggiunto di recente, serve direttamente
+   * la configurazione Ollama: senza questo ogni richiesta pagherebbe una
+   * chiamata lenta e destinata a fallire prima di ripiegare.
+   */
+  private withCooldown(resolved: ActiveLlmConfig): ActiveLlmConfig {
+    if (resolved.provider !== 'opencode') return resolved;
+    if (!this.opencodeCooldownUntil) return resolved;
+    if (Date.now() >= this.opencodeCooldownUntil) {
+      this.opencodeCooldownUntil = null;
+      return resolved;
+    }
+    const fallback = this.resolveOllama();
+    if (!fallback) return resolved; // niente Ollama: meglio provare e fallire parlando
+    return fallback;
+  }
+
+  /**
+   * Configurazione del modello locale, usata come riserva quando il provider
+   * cloud fallisce. `null` se Ollama non è configurato: in quel caso non c'è
+   * riserva e l'errore del cloud deve arrivare all'utente.
+   */
+  getFallbackConfig(): ActiveLlmConfig | null {
+    return this.resolveOllama();
+  }
+
+  /** Apre la finestra di cooldown su OpenCode (limite raggiunto / credito esaurito). */
+  noteOpencodeQuotaExhausted(): void {
+    this.opencodeCooldownUntil = Date.now() + QUOTA_COOLDOWN_MS;
+    this.logger.warn(
+      `Limite OpenCode raggiunto: uso il modello locale per i prossimi ${Math.round(QUOTA_COOLDOWN_MS / 60_000)} minuti.`,
+    );
+  }
+
+  /** Vero se in questo momento OpenCode è in cooldown (per log e diagnostica). */
+  isOpencodeOnCooldown(): boolean {
+    return !!this.opencodeCooldownUntil && Date.now() < this.opencodeCooldownUntil;
+  }
+
+  private resolveOllama(): ActiveLlmConfig | null {
+    if (!this.config.get<string>('OLLAMA_BASE_URL')) return null;
+    const model =
+      this.cachedOllamaModel?.trim() || this.config.get<string>('OLLAMA_MODEL')?.trim() || '';
+    if (!model) return null;
+    return {
+      provider: 'ollama',
+      model,
+      source: this.cachedOllamaModel?.trim() ? 'db' : 'env',
+    };
   }
 
   private resolveOpencode(row: {
@@ -114,6 +181,10 @@ export class LlmConfigService {
   /** Stato per le impostazioni: maschera la chiave, legge dal DB (no cache). */
   async getStatus(): Promise<LlmConfigStatus> {
     const row = await this.prisma.llmConfig.findUnique({ where: { id: SINGLETON_ID } });
+    // Tenuto da parte per `resolveOllama()`: la riserva usa il modello Ollama
+    // scelto dall'admin anche quando il provider attivo è OpenCode.
+    this.cachedOllamaModel = row?.model ?? null;
+
     const provider: LlmProvider = row?.provider === 'opencode' ? 'opencode' : 'ollama';
     const activeModel =
       provider === 'opencode'
@@ -232,6 +303,9 @@ export class LlmConfigService {
   /** Svuota la cache (usato quando il singleton può essere cambiato altrove, es. restore da backup). */
   invalidate(): void {
     this.cached = null;
+    // Cambiare provider/chiave/modello è un intervento esplicito dell'admin:
+    // deve poter riprovare OpenCode subito, senza aspettare il cooldown.
+    this.opencodeCooldownUntil = null;
   }
 }
 

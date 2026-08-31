@@ -9,8 +9,9 @@ import { ChatRole } from '@prisma/client';
 import { Ollama, type Message, type ToolCall } from 'ollama';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccountPolicyService } from '../common/services/account-policy.service';
-import { LlmConfigService } from './llm-config.service';
+import { LlmConfigService, type ActiveLlmConfig } from './llm-config.service';
 import { OpencodeClient, type OpenAiMessage, type OpenAiToolDef } from './opencode.client';
+import { isFallbackWorthy, isQuotaError } from './llm-fallback';
 import { ToolRegistry } from './tools/tool-registry';
 
 /**
@@ -34,8 +35,10 @@ interface ChatTurn {
 export interface ChatStreamEvent {
   delta: string;
   done: boolean;
-  status?: 'thinking' | 'tool';
+  status?: 'thinking' | 'tool' | 'fallback';
   tool?: string;
+  /** Solo con `status: 'fallback'`: il modello locale che ha preso il posto del cloud. */
+  model?: string;
 }
 
 @Injectable()
@@ -165,6 +168,23 @@ Esempi:
   }
 
   /**
+   * La riserva locale da usare per questo errore, oppure `null` se non si deve
+   * ripiegare: errore nostro, Ollama non configurato, oppure il round ha **già
+   * emesso testo** — ricominciare mostrerebbe all'utente due risposte cucite
+   * insieme, quindi in quel caso l'errore arriva a schermo come sempre.
+   */
+  private fallbackFor(error: unknown, roundContent: string): ActiveLlmConfig | null {
+    if (roundContent) return null;
+    if (!isFallbackWorthy(error)) return null;
+    // Il cooldown va aperto comunque: anche se qui non possiamo ripiegare, le
+    // richieste successive non devono continuare a sbattere sul limite.
+    if (isQuotaError(error)) this.llmConfig.noteOpencodeQuotaExhausted();
+    if (!this.ollama) return null;
+    const fallback = this.llmConfig.getFallbackConfig();
+    return fallback?.model ? fallback : null;
+  }
+
+  /**
    * Async generator che produce token via SSE. Gestisce internamente eventuali
    * tool call (loop fino a 6 round) e salva i messaggi finali a fine streaming.
    *
@@ -179,7 +199,9 @@ Esempi:
   ): AsyncGenerator<ChatStreamEvent> {
     const session = await this.getSession(userId, sessionId);
 
-    const config = await this.llmConfig.getActiveConfig();
+    // `let`: se il cloud fallisce senza aver ancora emesso testo, la riserva
+    // locale prende il suo posto per i round rimanenti.
+    let config = await this.llmConfig.getActiveConfig();
     if (!config.model) {
       throw new ServiceUnavailableException(
         'Nessun modello LLM configurato: selezionane uno in Impostazioni.',
@@ -220,6 +242,8 @@ Esempi:
     }));
 
     let assistantBuffer = '';
+    /** Vero se a rispondere è stato il modello di riserva invece del cloud. */
+    let usedFallback = false;
     const MAX_ROUNDS = 6;
 
     for (let round = 0; round < MAX_ROUNDS; round++) {
@@ -233,35 +257,53 @@ Esempi:
         const acc = new Map<number, { id: string; name: string; arguments: string }>();
         const roundStartedAt = Date.now();
         let lastThinkingAt = 0;
-        for await (const chunk of this.opencode.streamChat(config.tier!, config.apiKey!, {
-          model: config.model,
-          messages: history.map(toOpenAiMessage),
-          tools,
-        })) {
-          if (chunk.thinking) {
-            // Il reasoning arriva token per token: lo segnaliamo al frontend
-            // al massimo ogni 2s, per non inondare la UI di eventi.
-            const now = Date.now();
-            if (now - lastThinkingAt > 2000) {
-              lastThinkingAt = now;
-              yield { delta: '', done: false, status: 'thinking' };
+        try {
+          for await (const chunk of this.opencode.streamChat(config.tier!, config.apiKey!, {
+            model: config.model,
+            messages: history.map(toOpenAiMessage),
+            tools,
+          })) {
+            if (chunk.thinking) {
+              // Il reasoning arriva token per token: lo segnaliamo al frontend
+              // al massimo ogni 2s, per non inondare la UI di eventi.
+              const now = Date.now();
+              if (now - lastThinkingAt > 2000) {
+                lastThinkingAt = now;
+                yield { delta: '', done: false, status: 'thinking' };
+              }
+            }
+            if (chunk.content) {
+              roundContent += chunk.content;
+              assistantBuffer += chunk.content;
+              yield { delta: chunk.content, done: false };
+            }
+            if (chunk.toolCalls) {
+              for (const tc of chunk.toolCalls) {
+                const cur =
+                  acc.get(tc.index) ?? { id: tc.id ?? syntheticId(round, tc.index), name: '', arguments: '' };
+                if (tc.id) cur.id = tc.id;
+                if (tc.function?.name) cur.name += tc.function.name;
+                if (tc.function?.arguments) cur.arguments += tc.function.arguments;
+                acc.set(tc.index, cur);
+              }
             }
           }
-          if (chunk.content) {
-            roundContent += chunk.content;
-            assistantBuffer += chunk.content;
-            yield { delta: chunk.content, done: false };
-          }
-          if (chunk.toolCalls) {
-            for (const tc of chunk.toolCalls) {
-              const cur =
-                acc.get(tc.index) ?? { id: tc.id ?? syntheticId(round, tc.index), name: '', arguments: '' };
-              if (tc.id) cur.id = tc.id;
-              if (tc.function?.name) cur.name += tc.function.name;
-              if (tc.function?.arguments) cur.arguments += tc.function.arguments;
-              acc.set(tc.index, cur);
-            }
-          }
+        } catch (e) {
+          const fallback = this.fallbackFor(e, roundContent);
+          if (!fallback) throw e;
+          this.logger.warn(
+            `Chat: OpenCode ha fallito al round ${round} (${(e as Error).message}), riprovo con il modello locale ${fallback.model}.`,
+          );
+          config = fallback;
+          usedFallback = true;
+          // Il round va rifatto da capo con la riserva: `history` è in formato
+          // neutro e viene riconvertita per provider, quindi non serve altro.
+          // Niente resti del tentativo fallito (nessun testo è uscito: lo
+          // garantisce `fallbackFor`).
+          collected.length = 0;
+          yield { delta: '', done: false, status: 'fallback', model: fallback.model };
+          round--;
+          continue;
         }
         this.logger.debug(
           `Round ${round} OpenCode completato in ${Math.round((Date.now() - roundStartedAt) / 1000)}s (${acc.size} tool call, ${roundContent.length} char)`,
@@ -351,6 +393,12 @@ Esempi:
       this.logger.warn(`Risposta LLM vuota per la sessione ${sessionId} (provider ${config.provider})`);
       throw new ServiceUnavailableException(
         'Il modello non ha prodotto nessuna risposta (nessun token generato). Riprova o scegli un altro modello nelle Impostazioni.',
+      );
+    }
+
+    if (usedFallback) {
+      this.logger.log(
+        `Sessione ${sessionId}: risposta prodotta dal modello locale ${config.model} (riserva di OpenCode).`,
       );
     }
 

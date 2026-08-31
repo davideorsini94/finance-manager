@@ -13,6 +13,11 @@ import { ReportsService } from '../reports/reports.service';
 import { LlmConfigService, type ActiveLlmConfig } from '../llm-chat/llm-config.service';
 import { OpencodeClient } from '../llm-chat/opencode.client';
 import {
+  EmptyLlmResponseError,
+  isFallbackWorthy,
+  isQuotaError,
+} from '../llm-chat/llm-fallback';
+import {
   STALE_LOCK_MS,
   buildAccountsKey,
   buildFingerprint,
@@ -219,24 +224,15 @@ export class LlmReportsService {
   ): Promise<void> {
     const startedAt = Date.now();
     try {
-      const config = await this.llmConfig.getActiveConfig();
-      if (!config.model) {
-        throw new ServiceUnavailableException(
-          'Nessun modello LLM configurato: scegline uno in Impostazioni → Modello AI.',
-        );
-      }
       const snapshot = await this.buildSnapshot(userId, params);
-      const content = (await this.callLlm(config, buildReportPrompt(snapshot))).trim();
-      if (!content) {
-        throw new ServiceUnavailableException(
-          `Il modello "${config.model}" non ha prodotto testo. Riprova o cambia modello nelle Impostazioni.`,
-        );
-      }
+      const { content, config } = await this.generateContent(buildReportPrompt(snapshot));
       await this.prisma.llmReport.update({
         where: { userId_scope_periodKey_accountsKey: key },
         data: {
           status: LlmReportStatus.ready,
           content,
+          // Provider e modello **effettivi**: se è intervenuta la riserva
+          // locale, è quella che finisce a DB e quindi sotto al report.
           provider: config.provider,
           model: config.model,
           dataFingerprint: buildFingerprint(snapshot.totals),
@@ -267,6 +263,49 @@ export class LlmReportsService {
           this.logger.error(`Impossibile salvare l'errore del report: ${describeError(err)}`),
         );
     }
+  }
+
+  /**
+   * Scrive il report col provider attivo e, se il cloud fallisce per causa sua,
+   * ripiega sul modello locale. Restituisce anche la configurazione **davvero**
+   * usata: è quella che viene salvata a DB e mostrata sotto al report.
+   */
+  private async generateContent(
+    prompt: string,
+  ): Promise<{ content: string; config: ActiveLlmConfig }> {
+    const config = await this.llmConfig.getActiveConfig();
+    if (!config.model) {
+      throw new ServiceUnavailableException(
+        'Nessun modello LLM configurato: scegline uno in Impostazioni → Modello AI.',
+      );
+    }
+    try {
+      return { content: await this.runOn(config, prompt), config };
+    } catch (e) {
+      if (config.provider !== 'opencode' || !isFallbackWorthy(e)) throw e;
+      if (isQuotaError(e)) this.llmConfig.noteOpencodeQuotaExhausted();
+      const fallback = this.llmConfig.getFallbackConfig();
+      // Senza Ollama non c'è riserva: l'errore del cloud deve arrivare a schermo.
+      if (!fallback) throw e;
+      this.logger.warn(
+        `Report LLM: OpenCode ha fallito (${describeError(e)}), riprovo con il modello locale ${fallback.model}.`,
+      );
+      try {
+        return { content: await this.runOn(fallback, prompt), config: fallback };
+      } catch (fallbackError) {
+        // L'utente deve vedere che hanno fallito ENTRAMBI, non solo il secondo.
+        throw new ServiceUnavailableException(
+          `OpenCode non ha risposto (${describeError(e)}) e anche il modello locale "${fallback.model}" ha fallito: ${describeError(fallbackError)}`,
+        );
+      }
+    }
+  }
+
+  /** Una singola generazione su un provider preciso. Vuoto = fallimento. */
+  private async runOn(config: ActiveLlmConfig, prompt: string): Promise<string> {
+    const content = (await this.callLlm(config, prompt)).trim();
+    if (!content) throw new EmptyLlmResponseError(config.model);
+    return content;
   }
 
   private async callLlm(config: ActiveLlmConfig, prompt: string): Promise<string> {

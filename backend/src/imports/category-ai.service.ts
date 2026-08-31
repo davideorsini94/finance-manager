@@ -3,6 +3,7 @@ import { Ollama } from 'ollama';
 import { ConfigService } from '@nestjs/config';
 import { LlmConfigService } from '../llm-chat/llm-config.service';
 import { OpencodeClient } from '../llm-chat/opencode.client';
+import { isFallbackWorthy, isQuotaError } from '../llm-chat/llm-fallback';
 
 interface SuggestionInput {
   description: string;
@@ -107,38 +108,70 @@ export class CategoryAiService {
         );
         return suggestions;
       } catch (e) {
-        this.logger.warn(
-          `Batch categorie OpenCode ${inputs.length} righe fallito dopo ${elapsedSeconds(startedAt)}s, ripiego sull'euristica: ${describeError(e)}`,
-        );
+        // Prima di rassegnarsi all'euristica si prova il modello locale: qui non
+        // c'è una UI dove raccontare il ripiego, quindi resta nei log.
+        if (isQuotaError(e)) this.llmConfig.noteOpencodeQuotaExhausted();
+        const fallback = isFallbackWorthy(e) ? this.llmConfig.getFallbackConfig() : null;
+        if (fallback && this.ollama) {
+          this.logger.warn(
+            `Batch categorie OpenCode fallito (${describeError(e)}), riprovo con il modello locale ${fallback.model}.`,
+          );
+          const local = await this.suggestWithOllama(
+            fallback.model,
+            prompt,
+            inputs,
+            categories,
+            startedAt,
+          );
+          if (local) return local;
+        } else {
+          this.logger.warn(
+            `Batch categorie OpenCode ${inputs.length} righe fallito dopo ${elapsedSeconds(startedAt)}s, ripiego sull'euristica: ${describeError(e)}`,
+          );
+        }
         return inputs.map((i) => this.heuristic(i));
       }
     }
 
-    if (!this.ollama) {
-      return inputs.map((i) => this.heuristic(i));
-    }
+    const local = await this.suggestWithOllama(config.model, prompt, inputs, categories, startedAt);
+    return local ?? inputs.map((i) => this.heuristic(i));
+  }
+
+  /**
+   * Un batch sul modello locale. `null` se Ollama non è configurato o la
+   * chiamata fallisce: il chiamante ripiega sull'euristica.
+   * Usata sia come provider principale sia come **riserva** quando OpenCode
+   * fallisce, così il prompt e il parsing restano uno solo.
+   */
+  private async suggestWithOllama(
+    model: string,
+    prompt: string,
+    inputs: SuggestionInput[],
+    categories: SuggestionInput['categories'],
+    startedAt: number,
+  ): Promise<CategorySuggestion[] | null> {
+    if (!this.ollama) return null;
     try {
       const res = await this.ollama.chat({
-        model: config.model,
+        model,
         messages: [{ role: 'user', content: prompt }],
         format: 'json',
         // Il modello resta caricato tra un batch e l'altro (vedi costante).
         keep_alive: OLLAMA_KEEP_ALIVE,
         options: { temperature: 0 },
       });
-      const text = res.message?.content ?? '';
-      const suggestions = this.parseResponse(text, inputs, categories);
+      const suggestions = this.parseResponse(res.message?.content ?? '', inputs, categories);
       this.logger.log(
-        `Batch categorie ${inputs.length} righe in ${elapsedSeconds(startedAt)}s (modello ${config.model})`,
+        `Batch categorie ${inputs.length} righe in ${elapsedSeconds(startedAt)}s (modello ${model})`,
       );
       return suggestions;
     } catch (e) {
       // `describeError` tira fuori anche la `cause`: il fetch di Node segnala
       // "fetch failed" e nasconde il vero motivo ("Headers Timeout Error").
       this.logger.warn(
-        `Batch categorie ${inputs.length} righe fallito dopo ${elapsedSeconds(startedAt)}s, ripiego sull'euristica: ${describeError(e)}`,
+        `Batch categorie ${inputs.length} righe fallito dopo ${elapsedSeconds(startedAt)}s su ${model}, ripiego sull'euristica: ${describeError(e)}`,
       );
-      return inputs.map((i) => this.heuristic(i));
+      return null;
     }
   }
 
