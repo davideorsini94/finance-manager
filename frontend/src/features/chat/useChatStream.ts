@@ -6,9 +6,11 @@ interface StreamChunk {
   delta: string;
   done: boolean;
   /** Stato di lavoro segnalato dal backend durante l'attesa. */
-  status?: 'thinking' | 'tool';
+  status?: 'thinking' | 'tool' | 'fallback';
   /** Nome del tool in esecuzione quando `status === 'tool'`. */
   tool?: string;
+  /** Modello locale subentrato quando `status === 'fallback'`. */
+  model?: string;
 }
 
 /** Cosa sta facendo il backend mentre la risposta non è ancora testo. */
@@ -23,6 +25,12 @@ export interface UseChatStream {
   error: string | null;
   /** Stato di lavoro: `null` quando stiamo mostrando testo o non stiamo streaming. */
   working: ChatWorking | null;
+  /**
+   * Modello locale che ha risposto al posto del cloud, quando è scattata la
+   * riserva. Vive solo per la risposta in corso: non è persistito, quindi
+   * ricaricando la conversazione la nota sparisce.
+   */
+  fallbackModel: string | null;
   send: (sessionId: string, content: string) => Promise<void>;
   /**
    * Scarta il testo in streaming (il messaggio salvato arriva dal refetch) SENZA
@@ -56,6 +64,7 @@ export function useChatStream(): UseChatStream {
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [working, setWorking] = useState<ChatWorking | null>(null);
+  const [fallbackModel, setFallbackModel] = useState<string | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
   const idleTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -77,6 +86,7 @@ export function useChatStream(): UseChatStream {
     setPending('');
     setError(null);
     setWorking(null);
+    setFallbackModel(null);
   }, [clearIdleTimer]);
 
   const send = useCallback(
@@ -84,6 +94,7 @@ export function useChatStream(): UseChatStream {
       setPending('');
       setError(null);
       setWorking({ phase: 'thinking' });
+      setFallbackModel(null);
       setIsStreaming(true);
       const controller = new AbortController();
       controllerRef.current = controller;
@@ -133,6 +144,12 @@ export function useChatStream(): UseChatStream {
                     if (chunk.status === 'tool' && chunk.tool) {
                       setWorking({ phase: 'tool', tool: chunk.tool });
                     } else if (chunk.status === 'thinking') {
+                      setWorking({ phase: 'thinking' });
+                    } else if (chunk.status === 'fallback') {
+                      // Il cloud ha fallito prima di produrre testo: risponde il
+                      // modello locale. Torniamo in "sto pensando" perché il
+                      // round riparte da capo.
+                      setFallbackModel(chunk.model ?? 'modello locale');
                       setWorking({ phase: 'thinking' });
                     }
                     if (chunk.delta) {
@@ -186,5 +203,5 @@ export function useChatStream(): UseChatStream {
     [clearIdleTimer],
   );
 
-  return { pending, isStreaming, error, working, send, clearPending, reset };
+  return { pending, isStreaming, error, working, fallbackModel, send, clearPending, reset };
 }

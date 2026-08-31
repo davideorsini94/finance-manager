@@ -28,6 +28,7 @@ Sotto le card KPI di **annuale** e **mensile** c'è la card "Report dell'assiste
 - **Badge "dati cambiati"**: `dataFingerprint` (totali + numero movimenti alla generazione) confrontato a ogni lettura. Limite noto: una modifica che lascia i totali identici (es. il cambio di categoria di un movimento) non lo accende.
 - **Markdown hardening condiviso con la chat**: `components/shared/markdown.tsx` (immagini rimosse, link resi testo inerte) — il report può citare causali bancarie, cioè testo di terzi → [[Autenticazione e Sicurezza]].
 - Il prompt riceve **solo aggregati** (totali, serie, alberi categorie, totali del periodo precedente) più i 15 movimenti di uscita più grandi, mai tutte le transazioni né gli id interni.
+- **Chi ha scritto il report** è sempre in chiaro sotto al titolo ("Generato il … · OpenCode · deepseek-v4-flash"), con il marchio **(riserva)** quando ha risposto il modello locale al posto del provider configurato — il confronto usa `llmApi.get()`, senza colonne aggiuntive a DB. Regole del ripiego in [[Chat LLM]].
 - Il "Confronto periodi" **non** ha report LLM (date arbitrarie: un report salvato non verrebbe quasi mai riusato).
 
 ## Backend

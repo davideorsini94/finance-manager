@@ -16,3 +16,7 @@ Importazione di estratti conto CSV/OFX con suggerimenti AI. Frontend: `features/
 - Limite noto: su conto carta di credito l'import non genera gli addebiti futuri (lo fa solo `TransactionsService.create`)
 
 Modelli dati: `ImportBatch`, `ImportRow`, `ImportTemplate` ([[Database]]). Endpoint completi in [[API]].
+
+## Riserva del provider
+
+Se il provider attivo è OpenCode e fallisce (o ha esaurito il credito), `CategoryAiService` prova prima il **modello locale Ollama** e solo dopo ripiega sull'euristica; il ripiego resta nei log del backend. Regole in [[Chat LLM]].

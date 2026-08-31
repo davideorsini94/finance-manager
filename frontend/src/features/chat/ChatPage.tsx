@@ -224,6 +224,13 @@ export function ChatPage() {
                       streaming
                     />
                   )}
+                  {stream.fallbackModel && !stream.error && (
+                    <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                      OpenCode non era disponibile: ha risposto il modello locale{' '}
+                      <span className="font-medium">{stream.fallbackModel}</span>.
+                    </p>
+                  )}
                   {stream.error && (
                     <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm">
                       <p className="font-medium text-destructive flex items-center gap-1.5">

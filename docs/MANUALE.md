@@ -490,8 +490,14 @@ andamento, dove sono finiti i soldi, cosa l'ha colpita e qualche consiglio.
   report precedente viene sovrascritto e non è più recuperabile.
 - Se aggiungi o modifichi movimenti del periodo, compare l'avviso "i movimenti
   sono cambiati dopo la generazione": rigeneralo tu quando vuoi.
-- Il testo dipende dal modello scelto in **Impostazioni → Modello AI**; se il
-  modello non risponde, la card mostra l'errore invece di restare in attesa.
+- Sotto al titolo trovi sempre **da quale modello è stato scritto** (es.
+  "Generato il 31/08 alle 09:12 · OpenCode · deepseek-v4-flash").
+- Se il modello in cloud non è disponibile o ha esaurito il credito, il report
+  lo scrive comunque il **modello locale** e accanto al nome compare
+  *(riserva)*. Vale anche per la chat, che in quel caso te lo dice sotto la
+  risposta, e per i suggerimenti di categoria negli import.
+- Se non risponde nessuno dei due, la card mostra l'errore invece di restare in
+  attesa.
 
 ### Confronto periodi
 

@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { MARKDOWN_COMPONENTS } from '@/components/shared/markdown';
 import { useConfirm } from '@/components/shared/confirm';
 import { llmReportsApi, type LlmReportScope } from './reportsLlmApi';
+import { llmApi } from '@/features/settings/llmApi';
 
 interface Props {
   scope: LlmReportScope;
@@ -34,6 +35,14 @@ export function LlmReportCard({ scope, year, month, accountIds, accountIdsKey }:
     // Polling SOLO mentre sta generando: fuori da lì la riga non cambia da sola.
     refetchInterval: (q) => (q.state.data?.status === 'generating' ? POLL_MS : false),
     refetchOnWindowFocus: true,
+  });
+
+  // Provider configurato in Impostazioni: serve solo a capire se chi ha scritto
+  // il report è il modello di riserva. Query leggera e condivisa con la chat.
+  const settingsQuery = useQuery({
+    queryKey: ['llm', 'settings'],
+    queryFn: () => llmApi.get(),
+    staleTime: 60_000,
   });
 
   const generate = useMutation({
@@ -109,7 +118,11 @@ export function LlmReportCard({ scope, year, month, accountIds, accountIdsKey }:
             {isGenerating
               ? `Sto scrivendo il report… ${formatElapsed(elapsed)}`
               : status === 'ready' && data?.generatedAt
-                ? `Generato il ${formatDateTime(data.generatedAt)}${data.model ? ` · ${data.model}` : ''}`
+                ? `Generato il ${formatDateTime(data.generatedAt)} · ${modelLabel(
+                    data.provider,
+                    data.model,
+                    settingsQuery.data?.provider,
+                  )}`
                 : 'Analisi del periodo scritta dal modello selezionato nelle impostazioni'}
           </CardDescription>
         </div>
@@ -186,6 +199,27 @@ function ReportSkeleton() {
     </div>
   );
 }
+
+/**
+ * Da quale modello è stato scritto il report. Se il provider che ha risposto
+ * non è quello configurato, è intervenuta la riserva locale: dirlo evita di
+ * far credere che il cloud stia funzionando quando non è così.
+ */
+function modelLabel(
+  provider: string | null,
+  model: string | null,
+  configuredProvider?: string,
+): string {
+  const name = PROVIDER_NAMES[provider ?? ''] ?? provider ?? 'modello sconosciuto';
+  const suffix = provider && configuredProvider && provider !== configuredProvider ? ' (riserva)' : '';
+  return model ? `${name} · ${model}${suffix}` : `${name}${suffix}`;
+}
+
+const PROVIDER_NAMES: Record<string, string> = {
+  ollama: 'Ollama',
+  opencode: 'OpenCode',
+  demo: 'Demo',
+};
 
 function formatElapsed(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
