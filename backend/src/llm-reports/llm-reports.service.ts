@@ -225,7 +225,7 @@ export class LlmReportsService {
     const startedAt = Date.now();
     try {
       const snapshot = await this.buildSnapshot(userId, params);
-      const { content, config } = await this.generateContent(buildReportPrompt(snapshot));
+      const { content, config } = await this.generateContent(snapshot);
       await this.prisma.llmReport.update({
         where: { userId_scope_periodKey_accountsKey: key },
         data: {
@@ -271,7 +271,7 @@ export class LlmReportsService {
    * usata: è quella che viene salvata a DB e mostrata sotto al report.
    */
   private async generateContent(
-    prompt: string,
+    snapshot: ReportSnapshot,
   ): Promise<{ content: string; config: ActiveLlmConfig }> {
     const config = await this.llmConfig.getActiveConfig();
     if (!config.model) {
@@ -279,6 +279,8 @@ export class LlmReportsService {
         'Nessun modello LLM configurato: scegline uno in Impostazioni → Modello AI.',
       );
     }
+    // Il prompt di base è quello scelto dall'admin nelle impostazioni, se c'è.
+    const prompt = buildReportPrompt(snapshot, config.reportPrompt);
     try {
       return { content: await this.runOn(config, prompt), config };
     } catch (e) {

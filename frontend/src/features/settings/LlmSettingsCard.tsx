@@ -12,12 +12,14 @@ import {
   Cloud,
   KeyRound,
   Zap,
+  FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CollapsibleCard } from '@/components/ui/collapsible-card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { PasswordInput } from '@/components/shared/PasswordInput';
 import { useConfirm } from '@/components/shared/confirm';
 import {
@@ -78,6 +80,9 @@ export function LlmSettingsCard() {
   const [opencodeTierOverride, setOpencodeTierOverride] = useState<'auto' | OpencodeTier>('auto');
   const [opencodeKeyError, setOpencodeKeyError] = useState<string | null>(null);
   const [opencodeTestResult, setOpencodeTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  /** `null` finché non si tocca il campo: così mostriamo il valore salvato. */
+  const [reportPromptDraft, setReportPromptDraft] = useState<string | null>(null);
+  const [reportPromptSaved, setReportPromptSaved] = useState(false);
   const wasActiveRef = useRef(false);
 
   const settingsQuery = useQuery({
@@ -160,6 +165,15 @@ export function LlmSettingsCard() {
   const providerMutation = useMutation({
     mutationFn: (p: LlmProvider) => llmApi.setProvider(p),
     onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['llm-settings'], refetchType: 'all' });
+    },
+  });
+
+  const reportPromptMutation = useMutation({
+    mutationFn: (prompt: string) => llmApi.setReportPrompt(prompt),
+    onSuccess: (res) => {
+      setReportPromptDraft(res.reportPrompt);
+      setReportPromptSaved(true);
       void queryClient.invalidateQueries({ queryKey: ['llm-settings'], refetchType: 'all' });
     },
   });
@@ -645,7 +659,65 @@ export function LlmSettingsCard() {
             </div>
           </>
         )}
+
+        {/* Prompt dei report: vale per entrambi i provider, quindi sta fuori
+            dai rami Ollama/OpenCode. */}
+        <div className="space-y-2 border-t pt-4">
+          <Label htmlFor="report-prompt" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Prompt dei report di periodo
+          </Label>
+          <p className="text-sm text-muted-foreground">
+            Il testo con cui inizia ogni richiesta all&apos;AI quando scrive il report di un
+            periodo: qui decidi taglio, tono e sezioni. I dati del periodo e le regole di
+            formato vengono aggiunti dopo, quindi il report resta in markdown e non può citare
+            cifre inventate. Lascia vuoto per il testo predefinito.
+          </p>
+          <Textarea
+            id="report-prompt"
+            rows={5}
+            placeholder={REPORT_PROMPT_PLACEHOLDER}
+            value={reportPromptDraft ?? settingsQuery.data?.reportPrompt ?? ''}
+            onChange={(e) => {
+              setReportPromptDraft(e.target.value);
+              setReportPromptSaved(false);
+            }}
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              disabled={
+                reportPromptMutation.isPending ||
+                reportPromptDraft === null ||
+                reportPromptDraft === (settingsQuery.data?.reportPrompt ?? '')
+              }
+              onClick={() => reportPromptMutation.mutate(reportPromptDraft ?? '')}
+            >
+              {reportPromptMutation.isPending ? 'Salvo…' : 'Salva prompt'}
+            </Button>
+            {reportPromptSaved && (
+              <span className="flex items-center gap-1.5 text-sm text-[hsl(var(--pos))]">
+                <CheckCircle2 className="h-4 w-4" /> Salvato
+              </span>
+            )}
+            {reportPromptMutation.isError && (
+              <span className="flex items-center gap-1.5 text-sm text-destructive">
+                <AlertCircle className="h-4 w-4" />
+                {(reportPromptMutation.error as Error).message}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            I report già salvati non cambiano: usa &laquo;Rigenera&raquo; nella pagina Report per
+            riscriverli con il nuovo prompt.
+          </p>
+        </div>
       </div>
     </CollapsibleCard>
   );
 }
+
+/** Mostrato quando il campo è vuoto: è l'apertura predefinita del backend. */
+const REPORT_PROMPT_PLACEHOLDER = `Sei l'assistente finanziario di un'app di contabilità famigliare. Scrivi un report chiaro e concreto sul periodo indicato, rivolgendoti direttamente all'utente ("hai speso…").
+Organizzalo in sezioni di secondo livello: "## Sintesi", "## Andamento", "## Dove sono finiti i soldi", "## Cosa mi ha colpito", "## Consigli"…`;

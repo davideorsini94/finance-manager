@@ -617,6 +617,11 @@ model LlmConfig {
   opencodeApiKeyEncrypted String?  @map("opencode_api_key_encrypted")
   opencodeTier            String?  @map("opencode_tier")
   opencodeModel           String?  @map("opencode_model")
+  /// Prompt di base dei report di periodo, scritto dall'admin nelle
+  /// impostazioni. NULL o vuoto = si usa il testo predefinito. I dati del
+  /// periodo e le regole di formato vengono comunque aggiunti dal backend:
+  /// qui si decide il taglio dell'analisi, non il formato dell'output.
+  reportPrompt            String?  @map("report_prompt")
   updatedBy               String?  @map("updated_by") @db.Uuid
   updatedAt               DateTime @updatedAt @map("updated_at") @db.Timestamptz()
 

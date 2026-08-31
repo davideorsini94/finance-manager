@@ -506,6 +506,14 @@ andamento, dove sono finiti i soldi, cosa l'ha colpita e qualche consiglio.
   risposta, e per i suggerimenti di categoria negli import.
 - Se non risponde nessuno dei due, la card mostra l'errore invece di restare in
   attesa.
+- **Puoi decidere tu come lo scrive**: in *Impostazioni → Modello AI* c'è il
+  campo **Prompt dei report di periodo**. Quello che scrivi lì diventa
+  l'apertura della richiesta all'AI, quindi puoi chiedere un taglio diverso
+  ("concentrati sui risparmi", "sii brevissimo", "usa sezioni tue"). I dati del
+  periodo e le regole di formato vengono aggiunti dopo, quindi il report resta
+  leggibile e non può citare cifre inventate. Lascia vuoto per il testo
+  predefinito. I report già scritti non cambiano: usa *Rigenera* su quelli che
+  vuoi rifare.
 
 ### Confronto periodi
 

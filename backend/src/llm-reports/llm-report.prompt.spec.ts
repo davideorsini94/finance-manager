@@ -110,3 +110,33 @@ describe('buildReportPrompt', () => {
     expect(prompt.toLowerCase()).toContain('nessun link');
   });
 });
+
+describe('buildReportPrompt con un prompt di base personalizzato', () => {
+  const custom = 'Scrivi come un commercialista brontolone e parla solo di risparmio.';
+  const prompt = buildReportPrompt(snapshot, custom);
+
+  it('usa il testo dell_utente come apertura', () => {
+    expect(prompt.startsWith(custom)).toBe(true);
+  });
+
+  it('non lascia in giro l_apertura predefinita', () => {
+    expect(prompt).not.toContain("Sei l'assistente finanziario");
+  });
+
+  it('mantiene comunque i dati del periodo', () => {
+    expect(prompt).toContain('luglio 2026');
+    expect(prompt).toContain('2500.00 €');
+    expect(prompt).toContain('Affitto luglio');
+  });
+
+  it('mantiene le regole non negoziabili di formato e di verità', () => {
+    expect(prompt.toLowerCase()).toContain('markdown');
+    expect(prompt.toLowerCase()).toContain('nessun link');
+    expect(prompt).toContain('non inventare');
+  });
+
+  it('un prompt vuoto o di soli spazi equivale a nessun prompt', () => {
+    expect(buildReportPrompt(snapshot, '   ')).toBe(buildReportPrompt(snapshot));
+    expect(buildReportPrompt(snapshot, '')).toBe(buildReportPrompt(snapshot));
+  });
+});

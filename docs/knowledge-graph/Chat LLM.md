@@ -20,6 +20,11 @@ Il gateway elenca anche modelli che poi **non sa servire** con la chiave data: 5
 
 Stato verificato il 2026-08-24 sulla tier **Go**: 23 modelli su 30 funzionanti (tool calling incluso); non serviti `gpt-5.6-luna`, `minimax-m2.7` (500), `grok-4.5` (503), `hy3-preview`, `mimo-v2-pro`, `mimo-v2-omni` (400), `muse-spark-1.2-contributor` (403 opt-in). Modello consigliato dal catalogo e in uso: `deepseek-v4-flash`.
 
+### Prompt dei report (dal 2026-08-31)
+Campo di testo in Impostazioni → Modello AI (admin-only, `PUT /settings/llm/report-prompt`), persistito su `LlmConfig.reportPrompt` ed esposto in `ActiveLlmConfig.reportPrompt`. È l'**apertura** del prompt con cui si generano i report di periodo della [[Pagina Report]]: decide taglio, tono e sezioni. Vuoto = testo predefinito (`DEFAULT_BASE_PROMPT` in `llm-report.prompt.ts`, mostrato come placeholder nel campo).
+
+Dati del periodo e regole finali (solo questi dati, niente cifre inventate, markdown senza link/immagini/blocchi di codice) vengono **sempre** aggiunti dal backend: un prompt che potesse spegnerle renderebbe il report inaffidabile o non mostrabile. Cambiare il prompt non tocca i report già salvati — si rigenerano a mano.
+
 ### Chat
 - Streaming risposta via **SSE** su `POST /chat/sessions/:id/messages` (nginx con buffering disattivato). Gli eventi possono trasportare anche **stato di lavoro** (`ChatStreamEvent`: `{status:'tool', tool}` emesso prima di ogni tool call) così la UI mostra "sto consultando le tue transazioni…" invece di un puntino statico
 - **Watchdog anti-appeso**: lo stream OpenCode viene abortito se non produce NESSUNA riga per 120s **o non produce output reale** (contenuto/tool/ragionamento) per 120s (i delta vuoti non contano: copre i modelli reasoning che "pensano" all'infinito), con tetto assoluto di 8 min per chiamata e errore parlante "OpenCode non ha risposto in tempo (Ns senza una risposta)". C'è anche un fallback non-SSE (se il gateway risponde con un singolo JSON) e la **rilevamento risposta vuota** in `llm-chat.service.ts` (nessun token generato → errore visibile, non silenzio). Client-side c'è un backstop a 130s. Il `reasoning_content` dei modelli reasoning viene inoltrato come `status:'thinking'` (throttlato a 2s) così la UI mostra "sto ragionando…"

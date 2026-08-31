@@ -48,3 +48,10 @@ export class SetOpencodeModelDto {
   @Matches(OPENCODE_MODEL_PATTERN, { message: 'Model ID non valido.' })
   model!: string;
 }
+
+export class SetReportPromptDto {
+  /** Stringa vuota = torna al prompt predefinito. */
+  @IsString()
+  @MaxLength(4000, { message: 'Il prompt non può superare i 4000 caratteri.' })
+  prompt!: string;
+}

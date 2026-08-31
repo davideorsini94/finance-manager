@@ -15,13 +15,8 @@ import { UserRole } from '@prisma/client';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
 import { LlmModelsService } from './llm-models.service';
-import {
-  PullModelDto,
-  SetActiveModelDto,
-  SetOpencodeKeyDto,
-  SetOpencodeModelDto,
-  SetProviderDto,
-} from './dto/llm-settings.dto';
+import { LlmConfigService } from './llm-config.service';
+import { PullModelDto, SetActiveModelDto, SetOpencodeKeyDto, SetOpencodeModelDto, SetProviderDto, SetReportPromptDto } from './dto/llm-settings.dto';
 
 /**
  * Impostazioni del modello LLM: locale (Ollama) o cloud (OpenCode Zen/Go).
@@ -33,7 +28,10 @@ import {
  */
 @Controller('settings/llm')
 export class LlmSettingsController {
-  constructor(private readonly models: LlmModelsService) {}
+  constructor(
+    private readonly models: LlmModelsService,
+    private readonly config: LlmConfigService,
+  ) {}
 
   @Get()
   overview() {
@@ -107,6 +105,16 @@ export class LlmSettingsController {
   @Put('opencode/model')
   selectOpencodeModel(@CurrentUser() user: AuthUser, @Body() dto: SetOpencodeModelDto) {
     return this.models.selectOpencodeModel(user.id, dto.model);
+  }
+
+  /**
+   * Prompt di base dei report di periodo. Admin-only come le altre scelte che
+   * valgono per tutti: il testo finisce nelle richieste all'LLM di ogni utente.
+   */
+  @Roles(UserRole.admin)
+  @Put('report-prompt')
+  setReportPrompt(@CurrentUser() user: AuthUser, @Body() dto: SetReportPromptDto) {
+    return this.config.setReportPrompt(user.id, dto.prompt);
   }
 
   @Roles(UserRole.admin)

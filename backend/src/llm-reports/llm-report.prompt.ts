@@ -72,10 +72,23 @@ function formatTree(nodes: CategoryNode[]): string {
 }
 
 /**
+ * Apertura predefinita: dice al modello chi è e che taglio dare al report.
+ * È la parte che l'admin può sostituire dalle impostazioni.
+ */
+const DEFAULT_BASE_PROMPT = `Sei l'assistente finanziario di un'app di contabilità famigliare. Scrivi un report chiaro e concreto sul periodo indicato, rivolgendoti direttamente all'utente ("hai speso…").
+Organizzalo in sezioni di secondo livello: "## Sintesi", "## Andamento", "## Dove sono finiti i soldi", "## Cosa mi ha colpito", "## Consigli". In "Consigli" stai su un massimo di 3 punti, concreti e legati a numeri di questo periodo — niente consigli generici da manuale. Massimo 450 parole in tutto.`;
+
+/**
  * Prompt del report. Il modello riceve SOLO aggregati e nomi di categoria — mai
  * gli id interni, che non gli servono e che finirebbero nel testo mostrato.
+ *
+ * `customBase` (impostazioni → Modello AI) sostituisce l'**apertura**: è lì che
+ * si decide taglio, tono e struttura dell'analisi. I dati del periodo e le
+ * regole finali restano sempre, perché sono ciò che rende il testo vero
+ * (niente cifre inventate) e mostrabile (markdown senza link né immagini): un
+ * prompt che le potesse spegnere renderebbe il report inaffidabile.
  */
-export function buildReportPrompt(s: ReportSnapshot): string {
+export function buildReportPrompt(s: ReportSnapshot, customBase?: string): string {
   const seriesLabel = s.scope === 'annual' ? 'Andamento per mese' : 'Andamento per giorno';
   const series = s.series
     .map(
@@ -91,7 +104,9 @@ export function buildReportPrompt(s: ReportSnapshot): string {
     )
     .join('\n');
 
-  return `Sei l'assistente finanziario di un'app di contabilità famigliare. Scrivi un report chiaro e concreto sul periodo indicato, rivolgendoti direttamente all'utente ("hai speso…").
+  const base = customBase?.trim() || DEFAULT_BASE_PROMPT;
+
+  return `${base}
 
 DATI DEL PERIODO — ${s.label} (${s.accountsLabel})
 Totali: ${formatTotals(s.totals)}
@@ -109,11 +124,10 @@ ${formatTree(s.incomeTree)}
 Movimenti di uscita più grandi:
 ${top || '  (nessun movimento)'}
 
-ISTRUZIONI
-- Rispondi in italiano, in **markdown**, con esattamente queste sezioni di secondo livello: "## Sintesi", "## Andamento", "## Dove sono finiti i soldi", "## Cosa mi ha colpito", "## Consigli".
+REGOLE
+- Rispondi in italiano, in **markdown**.
 - Usa solo i dati qui sopra: non inventare cifre, categorie o movimenti che non compaiono. Se un dato non c'è, dillo.
 - Cita gli importi in euro come sono scritti sopra.
 - Confronta col periodo precedente quando è significativo (variazioni sotto il 5% non meritano una riga).
-- "Consigli": al massimo 3, concreti e legati a numeri di questo periodo. Niente consigli generici da manuale.
-- Massimo 450 parole in tutto. Niente titolo di primo livello, nessun link, nessuna immagine, nessun blocco di codice.`;
+- Niente titolo di primo livello, nessun link, nessuna immagine, nessun blocco di codice.`;
 }

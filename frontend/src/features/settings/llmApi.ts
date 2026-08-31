@@ -29,6 +29,8 @@ export interface LlmSettings {
   activeModel: string;
   source: 'db' | 'env';
   serverOk: boolean;
+  /** Prompt di base dei report di periodo; vuoto = si usa il predefinito. */
+  reportPrompt: string;
   installed: InstalledModel[];
   opencode: {
     configured: boolean;
@@ -63,6 +65,9 @@ export interface PullStatus {
 }
 
 export const llmApi = {
+  /** Salva il prompt di base dei report (admin). Vuoto = torna al predefinito. */
+  setReportPrompt: (prompt: string) =>
+    api.put('settings/llm/report-prompt', { json: { prompt } }).json<{ reportPrompt: string }>(),
   get: () => api.get('settings/llm').json<LlmSettings>(),
   catalog: () => api.get('settings/llm/catalog').json<LlmCatalog>(),
   pull: (model: string) =>

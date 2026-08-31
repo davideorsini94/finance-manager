@@ -20,6 +20,11 @@ export interface ActiveLlmConfig {
   apiKey?: string;
   /** Solo opencode: tier rilevata dalla chiave. */
   tier?: OpencodeTier;
+  /**
+   * Prompt di base dei report di periodo scelto dall'admin. `undefined` = si
+   * usa il testo predefinito. Vale per entrambi i provider.
+   */
+  reportPrompt?: string;
 }
 
 /** Stato esposto alle impostazioni (chiave mascherata, mai in chiaro). */
@@ -27,6 +32,8 @@ export interface LlmConfigStatus {
   provider: LlmProvider;
   activeModel: string;
   source: 'db' | 'env';
+  /** Prompt di base dei report; stringa vuota = si usa il predefinito. */
+  reportPrompt: string;
   opencode: {
     configured: boolean;
     apiKeyMasked: string | null;
@@ -75,7 +82,7 @@ export class LlmConfigService {
     // ripiego anche dopo la scadenza).
     if (this.cached) return this.withCooldown(this.cached);
 
-    let row: { provider: string | null; model: string | null; opencodeTier: string | null; opencodeModel: string | null; opencodeApiKeyEncrypted: string | null } | null = null;
+    let row: { provider: string | null; model: string | null; opencodeTier: string | null; opencodeModel: string | null; opencodeApiKeyEncrypted: string | null; reportPrompt: string | null } | null = null;
     try {
       row = await this.prisma.llmConfig.findUnique({ where: { id: SINGLETON_ID } });
     } catch (e) {
@@ -86,6 +93,7 @@ export class LlmConfigService {
     // Tenuto da parte per `resolveOllama()`: la riserva usa il modello Ollama
     // scelto dall'admin anche quando il provider attivo è OpenCode.
     this.cachedOllamaModel = row?.model ?? null;
+    const reportPrompt = row?.reportPrompt?.trim() || undefined;
 
     const provider: LlmProvider = row?.provider === 'opencode' ? 'opencode' : 'ollama';
     const resolved: ActiveLlmConfig =
@@ -98,6 +106,7 @@ export class LlmConfigService {
             model: row?.model?.trim() ?? this.config.get<string>('OLLAMA_MODEL')?.trim() ?? '',
             source: row?.model?.trim() ? 'db' : 'env',
           };
+    resolved.reportPrompt = reportPrompt;
 
     this.cached = resolved;
     return this.withCooldown(resolved);
@@ -209,6 +218,7 @@ export class LlmConfigService {
       provider,
       activeModel,
       source,
+      reportPrompt: row?.reportPrompt ?? '',
       opencode: {
         configured: !!row?.opencodeApiKeyEncrypted,
         apiKeyMasked,
@@ -298,6 +308,21 @@ export class LlmConfigService {
       },
     });
     this.invalidate();
+  }
+
+  /**
+   * Salva il prompt di base dei report. Stringa vuota = torna al predefinito
+   * (salviamo NULL, così "vuoto" e "mai impostato" restano la stessa cosa).
+   */
+  async setReportPrompt(userId: string, prompt: string): Promise<{ reportPrompt: string }> {
+    const value = prompt.trim() || null;
+    await this.prisma.llmConfig.upsert({
+      where: { id: SINGLETON_ID },
+      create: { id: SINGLETON_ID, reportPrompt: value, updatedBy: userId },
+      update: { reportPrompt: value, updatedBy: userId },
+    });
+    this.invalidate();
+    return { reportPrompt: value ?? '' };
   }
 
   /** Svuota la cache (usato quando il singleton può essere cambiato altrove, es. restore da backup). */

@@ -219,6 +219,11 @@ export function demoHandle(ctx: Ctx): unknown | null {
   if (matches(pathname, 'settings/llm') && method === 'GET') {
     return demoLlmSettings();
   }
+  if (matches(pathname, 'settings/llm/report-prompt') && method === 'PUT') {
+    const p = body && typeof body === 'object' ? (body as { prompt?: unknown }).prompt : '';
+    demoReportPrompt = typeof p === 'string' ? p : '';
+    return { reportPrompt: demoReportPrompt };
+  }
   if (matches(pathname, 'settings/llm') && method === 'PUT') {
     return demoSelectModel(body);
   }
@@ -723,6 +728,7 @@ const DEMO_LLM_CATALOG = [
 
 const DEMO_DEFAULT_MODEL = 'qwen2.5:7b-instruct-q4_K_M';
 let demoProvider: 'ollama' | 'opencode' = 'ollama';
+let demoReportPrompt = '';
 let demoInstalledModels: string[] = [DEMO_DEFAULT_MODEL];
 let demoActiveModel: string = DEMO_DEFAULT_MODEL;
 let demoPull: { model: string; startedAt: number } | null = null;
@@ -784,6 +790,7 @@ function demoLlmSettings() {
     activeModel: demoActiveModel,
     source: 'db' as const,
     serverOk: true,
+    reportPrompt: demoReportPrompt,
     installed: demoInstalledModels.map((tag) => ({
       name: tag,
       sizeBytes: demoSizeBytes(tag),
