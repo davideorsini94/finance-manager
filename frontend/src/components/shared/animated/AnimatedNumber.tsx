@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils/cn';
 
 interface Props {
@@ -17,6 +17,12 @@ interface Props {
   className?: string;
   /** Animazione disabilitata se reduced motion */
   disableMotion?: boolean;
+  /**
+   * Rendering personalizzato del valore corrente. Serve agli importi, che non
+   * sono una stringa ma una composizione tipografica (`MoneyAmount`): con
+   * questa prop l'animazione resta e il modo di scrivere il denaro è uno solo.
+   */
+  render?: (value: number) => ReactNode;
 }
 
 const defaultFmt = (n: number, decimals: number) =>
@@ -42,6 +48,7 @@ export function AnimatedNumber({
   suffix = '',
   className,
   disableMotion,
+  render,
 }: Props) {
   const [display, setDisplay] = useState(value);
   const fromRef = useRef(0);
@@ -70,6 +77,10 @@ export function AnimatedNumber({
       if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
     };
   }, [value, duration, disableMotion]);
+
+  if (render) {
+    return <span className={cn('tabular-nums', className)}>{render(display)}</span>;
+  }
 
   const formatted = format ? format(display) : defaultFmt(display, decimals);
   return (

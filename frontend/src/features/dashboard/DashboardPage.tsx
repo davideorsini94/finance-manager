@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { formatCents } from '@/lib/utils/currency';
+import { MoneyAmount } from '@/components/shared/MoneyAmount';
 import { formatDate } from '@/lib/utils/date';
 import { AccountMultiSelect } from '@/components/shared/AccountMultiSelect';
 import { CategoryMultiSelect } from '@/components/shared/CategoryMultiSelect';
@@ -120,7 +121,7 @@ export function DashboardPage() {
       <div className="fm-hero-glow" aria-hidden />
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 relative">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Dashboard</h1>
+          <h1 className="font-display text-2xl sm:text-3xl font-semibold tracking-tight">Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Panoramica finanziaria del periodo selezionato
           </p>
@@ -163,7 +164,7 @@ export function DashboardPage() {
         <KpiCard
           label="Entrate"
           value={data ? Number(data.totals.incomeCents) / 100 : null}
-          valueClassName="text-emerald-600 dark:text-emerald-400"
+          valueClassName="text-[hsl(var(--pos))]"
           spark={
             data?.daily && data.daily.length > 1
               ? data.daily.map((d) => Number(d.incomeCents) / 100)
@@ -180,7 +181,7 @@ export function DashboardPage() {
         <KpiCard
           label="Uscite"
           value={data ? Number(data.totals.expenseCents) / 100 : null}
-          valueClassName="text-red-600 dark:text-red-400"
+          valueClassName="text-[hsl(var(--neg))]"
           spark={
             data?.daily && data.daily.length > 1
               ? data.daily.map((d) => Math.abs(Number(d.expenseCents)) / 100)
@@ -199,8 +200,8 @@ export function DashboardPage() {
           value={data ? Number(data.totals.netCents) / 100 : null}
           valueClassName={
             data && Number(data.totals.netCents) >= 0
-              ? 'text-emerald-600 dark:text-emerald-400'
-              : 'text-red-600 dark:text-red-400'
+              ? 'text-[hsl(var(--pos))]'
+              : 'text-[hsl(var(--neg))]'
           }
           spark={
             data?.daily && data.daily.length > 1
@@ -302,10 +303,6 @@ export function DashboardPage() {
             <ul className="divide-y fm-stagger">
               {data.recent.map((tx) => {
                 const cents = Number(tx.amountCents);
-                const tone =
-                  cents >= 0
-                    ? 'text-emerald-600 dark:text-emerald-400'
-                    : 'text-red-600 dark:text-red-400';
                 return (
                   <li
                     key={tx.id}
@@ -320,7 +317,7 @@ export function DashboardPage() {
                         {tx.category && ` · ${tx.category.name}`}
                       </p>
                     </div>
-                    <p className={`font-semibold tabular-nums ${tone}`}>{formatCents(cents)}</p>
+                    <MoneyAmount cents={cents} size="row" colored className="font-semibold" />
                   </li>
                 );
               })}
@@ -372,8 +369,15 @@ function KpiCard({ label, value, valueClassName, spark, sparkColor, select }: Kp
           {label}
           {select && <FlowHint active={select.active} />}
         </CardDescription>
-        <CardTitle className={cn('text-3xl font-num', valueClassName)}>
-          {value !== null ? <AnimatedNumber value={value} prefix="€ " decimals={2} /> : '—'}
+        <CardTitle className={cn('text-3xl', valueClassName)}>
+          {value !== null ? (
+            <AnimatedNumber
+              value={value}
+              render={(n) => <MoneyAmount cents={Math.round(n * 100)} size="kpi" />}
+            />
+          ) : (
+            '—'
+          )}
         </CardTitle>
       </CardHeader>
       {spark && spark.length > 1 && (

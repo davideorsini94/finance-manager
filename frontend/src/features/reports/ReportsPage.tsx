@@ -41,6 +41,7 @@ import {
 import { transactionsApi } from '@/features/transactions/transactionsApi';
 import { LlmReportCard } from './LlmReportCard';
 import { formatCents } from '@/lib/utils/currency';
+import { MoneyAmount } from '@/components/shared/MoneyAmount';
 import { cn } from '@/lib/utils/cn';
 import { revealIfOffscreen } from '@/lib/utils/reveal';
 import type { PageResult, Transaction } from '@/types/domain';
@@ -153,7 +154,7 @@ export function ReportsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">Report</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-tight">Report</h1>
         <div className="flex flex-wrap items-center gap-2">
           <AccountMultiSelect
             accounts={accounts}
@@ -229,7 +230,7 @@ export function ReportsPage() {
                         Netto: Number(m.netCents) / 100,
                       }))}
                     >
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeOpacity={0.7} />
                       <XAxis dataKey="month" fontSize={12} stroke="hsl(var(--muted-foreground))" />
                       <YAxis fontSize={12} stroke="hsl(var(--muted-foreground))" />
                       <Tooltip
@@ -344,7 +345,7 @@ export function ReportsPage() {
                         Uscite: Number(d.expenseCents) / 100,
                       }))}
                     >
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeOpacity={0.7} />
                       <XAxis dataKey="day" fontSize={12} stroke="hsl(var(--muted-foreground))" />
                       <YAxis fontSize={12} stroke="hsl(var(--muted-foreground))" />
                       <Tooltip
@@ -505,11 +506,13 @@ function KpiCard({
       {...(select ? flowSelectProps(select) : {})}
     >
       <CardHeader className="pb-2">
-        <CardDescription className="flex items-center gap-1.5">
+        <CardDescription className="flex items-center gap-1.5 uppercase tracking-wider text-[11px] font-semibold">
           {label}
           {select && <FlowHint active={select.active} />}
         </CardDescription>
-        <CardTitle className={`text-2xl tabular-nums ${cls}`}>{formatCents(value)}</CardTitle>
+        <CardTitle className={`text-2xl ${cls}`}>
+          <MoneyAmount cents={value} size="kpi" />
+        </CardTitle>
       </CardHeader>
     </Card>
   );

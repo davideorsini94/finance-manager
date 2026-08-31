@@ -41,6 +41,9 @@ export default {
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
+        // Voce del prodotto: titoli di pagina e cifre grandi dei KPI.
+        // Usata con parsimonia — nelle liste i numeri restano Inter tabulare.
+        display: ['Fraunces', 'Georgia', 'serif'],
         num: ['var(--font-num)'],
       },
     },

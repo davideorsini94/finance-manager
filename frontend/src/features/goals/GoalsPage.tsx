@@ -24,7 +24,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { eurosToCents, formatCents, centsToNumber } from '@/lib/utils/currency';
+import { eurosToCents, centsToNumber } from '@/lib/utils/currency';
+import { MoneyAmount } from '@/components/shared/MoneyAmount';
 import { sortByName } from '@/lib/utils/sort';
 import { formatDate } from '@/lib/utils/date';
 import { accountsApi } from '@/features/accounts/accountsApi';
@@ -115,7 +116,7 @@ export function GoalsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Obiettivi di risparmio</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-tight">Obiettivi di risparmio</h1>
         <Button onClick={() => openForm()}>
           <Plus className="h-4 w-4 mr-2" /> Nuovo
         </Button>
@@ -144,8 +145,8 @@ export function GoalsPage() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="flex items-baseline justify-between text-sm">
-                    <span className="font-semibold">{formatCents(current)}</span>
-                    <span className="text-muted-foreground">/ {formatCents(target)}</span>
+                    <span className="font-semibold"><MoneyAmount cents={current} /></span>
+                    <span className="text-muted-foreground">/ <MoneyAmount cents={target} /></span>
                   </div>
                   <Progress value={pct} />
                   <div className="flex items-center justify-between text-xs text-muted-foreground">

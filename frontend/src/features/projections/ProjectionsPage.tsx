@@ -55,7 +55,7 @@ export function ProjectionsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Proiezioni</h1>
+          <h1 className="font-display text-2xl font-semibold tracking-tight">Proiezioni</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Stima dei saldi dei conti a fine anno e per gli anni successivi, in base alle spese
             ricorrenti e ai movimenti futuri già registrati.
@@ -179,7 +179,7 @@ function ProjectionChart({ data }: { data: ProjectionResult }) {
   return (
     <ResponsiveContainer width="100%" height={380}>
       <LineChart data={rows} margin={{ top: 8, right: 12, bottom: 4, left: 4 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+        <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeOpacity={0.7} />
         <XAxis dataKey="label" fontSize={11} stroke="hsl(var(--muted-foreground))" minTickGap={24} />
         <YAxis
           fontSize={11}

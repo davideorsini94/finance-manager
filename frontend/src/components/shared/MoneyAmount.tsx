@@ -1,8 +1,11 @@
-import { type HTMLAttributes } from 'react';
+import { useMemo, type HTMLAttributes } from 'react';
 import { centsToNumber } from '@/lib/utils/currency';
 import { cn } from '@/lib/utils/cn';
 
 type Cents = string | number | bigint;
+
+/** Quanto "peso" dare all'importo. È una scelta tipografica, non semantica. */
+export type MoneySize = 'inline' | 'row' | 'kpi' | 'hero';
 
 export interface MoneyAmountProps extends HTMLAttributes<HTMLSpanElement> {
   /** Importo in centesimi (segno preservato) */
@@ -21,12 +24,21 @@ export interface MoneyAmountProps extends HTMLAttributes<HTMLSpanElement> {
   asExpense?: boolean;
   /** Considera il valore come entrata (forza colore verde) */
   asIncome?: boolean;
+  /** Scala tipografica. `hero`/`kpi` usano la faccia display. */
+  size?: MoneySize;
 }
 
 /**
- * Visualizza un importo monetario in modo coerente (font numerico tabular,
- * colorato se richiesto, blurrabile in modalità privacy). Tutti i valori
- * monetari dell'app dovrebbero passare di qui.
+ * Come si scrive il denaro in questa app.
+ *
+ * `Intl.NumberFormat.formatToParts()` invece di `format()`: le parti vengono
+ * composte con pesi diversi — intero pieno, decimali e simbolo di valuta più
+ * piccoli e smorzati. È il dettaglio che distingue una colonna di importi
+ * scritta con intenzione da una stringa stampata così com'è; e siccome le
+ * cifre sono tabulari, nelle liste le colonne si incolonnano davvero.
+ *
+ * Tutti i valori monetari dell'app dovrebbero passare di qui: dove serve una
+ * stringa (formatter dei grafici, testo di una modale) resta `formatCents`.
  */
 export function MoneyAmount({
   cents,
@@ -37,34 +49,86 @@ export function MoneyAmount({
   hideCents = false,
   asExpense = false,
   asIncome = false,
+  size = 'inline',
   className,
   ...rest
 }: MoneyAmountProps) {
   const value = centsToNumber(cents);
-  const fmt = new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: hideCents ? 0 : 2,
-    maximumFractionDigits: hideCents ? 0 : 2,
-  });
-  let formatted = fmt.format(value);
-  if (sign === 'auto' && value > 0) formatted = `+${formatted}`;
+
+  const parts = useMemo(
+    () =>
+      new Intl.NumberFormat(locale, {
+        style: 'currency',
+        currency,
+        minimumFractionDigits: hideCents ? 0 : 2,
+        maximumFractionDigits: hideCents ? 0 : 2,
+      }).formatToParts(value),
+    [locale, currency, hideCents, value],
+  );
 
   let tone: 'pos' | 'neg' | 'neutral' = 'neutral';
   if (asIncome || (colored && value > 0)) tone = 'pos';
   else if (asExpense || (colored && value < 0)) tone = 'neg';
 
+  const scale = SIZES[size];
+
   return (
     <span
       className={cn(
-        'font-num',
+        'font-num inline-flex items-baseline whitespace-nowrap',
+        scale.root,
         tone === 'pos' && 'text-[hsl(var(--pos))]',
         tone === 'neg' && 'text-[hsl(var(--neg))]',
         className,
       )}
       {...rest}
     >
-      <span className="money-blur-target">{formatted}</span>
+      <span className="money-blur-target inline-flex items-baseline">
+        {sign === 'auto' && value > 0 && <span className={scale.minor}>+</span>}
+        {parts.map((part, i) => {
+          switch (part.type) {
+            // Simbolo e decimali arretrano: l'occhio deve cadere sull'intero.
+            case 'currency':
+              return (
+                <span key={i} className={cn(scale.symbol, 'ml-[0.15em]')}>
+                  {part.value}
+                </span>
+              );
+            case 'decimal':
+            case 'fraction':
+              return (
+                <span key={i} className={scale.minor}>
+                  {part.value}
+                </span>
+              );
+            case 'literal':
+              // Lo spazio prima del simbolo lo gestiamo noi con il margine.
+              return part.value.trim() ? <span key={i}>{part.value}</span> : null;
+            default:
+              return <span key={i}>{part.value}</span>;
+          }
+        })}
+      </span>
     </span>
   );
 }
+
+/**
+ * Le due taglie grandi passano alla faccia display (Fraunces): è lì che il
+ * numero diventa il soggetto della schermata. Nelle righe di lista resta la
+ * faccia dell'interfaccia, che a corpo piccolo si legge meglio.
+ */
+const SIZES: Record<MoneySize, { root: string; minor: string; symbol: string }> = {
+  inline: { root: '', minor: 'opacity-60', symbol: 'opacity-50' },
+  row: { root: 'font-medium', minor: 'text-[0.85em] opacity-60', symbol: 'text-[0.8em] opacity-50' },
+  kpi: {
+    root: 'font-display font-semibold tracking-tight',
+    minor: 'text-[0.55em] font-sans font-medium opacity-60',
+    symbol: 'text-[0.5em] font-sans font-medium opacity-50',
+  },
+  hero: {
+    root: 'font-display font-semibold tracking-tight',
+    minor: 'text-[0.45em] font-sans font-medium opacity-60',
+    symbol: 'text-[0.4em] font-sans font-medium opacity-50',
+  },
+};

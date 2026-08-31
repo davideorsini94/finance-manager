@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 export type Theme = ThemeMode;
-export type ColorTheme = 'glass' | 'fintech' | 'linear' | 'nordic' | 'sunset';
+export type ColorTheme = 'registro' | 'glass' | 'fintech' | 'linear' | 'nordic' | 'sunset';
 export type NumFont = 'sans' | 'mono' | 'serif';
 
 interface UIState {
@@ -31,7 +31,7 @@ export const useUIStore = create<UIState>()(
   persist(
     (set) => ({
       theme: 'system',
-      colorTheme: 'glass',
+      colorTheme: 'registro',
       numFont: 'sans',
       privacy: false,
       demoData: false,
@@ -52,13 +52,13 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: 'fm.ui',
-      version: 3,
+      version: 4,
       migrate: (persisted: unknown, version: number) => {
         const base = (persisted ?? {}) as Partial<UIState>;
         if (version < 2) {
           return {
             theme: base.theme ?? 'system',
-            colorTheme: 'glass',
+            colorTheme: 'registro',
             numFont: 'sans',
             privacy: false,
             demoData: false,
@@ -71,6 +71,12 @@ export const useUIStore = create<UIState>()(
           // ma gli utenti esistenti vengono migrati a 'glass' come nuovo default
           // se erano sul vecchio default 'linear'.
           if (base.colorTheme === 'linear') base.colorTheme = 'glass';
+        }
+        if (version < 4) {
+          // v3 → v4: 'registro' diventa l'identità del prodotto. Chi era sul
+          // vecchio default 'glass' ci passa; chi aveva scelto esplicitamente
+          // un altro tema resta dov'è.
+          if (base.colorTheme === 'glass') base.colorTheme = 'registro';
         }
         if (!base.sectionsCollapsed) base.sectionsCollapsed = {};
         return base;

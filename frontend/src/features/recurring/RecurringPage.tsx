@@ -35,7 +35,8 @@ import {
 } from '@/components/ui/select';
 import { CategoryPicker } from '@/components/shared/CategoryPicker';
 import { AccountMultiSelect } from '@/components/shared/AccountMultiSelect';
-import { eurosToCents, formatCents } from '@/lib/utils/currency';
+import { eurosToCents } from '@/lib/utils/currency';
+import { MoneyAmount } from '@/components/shared/MoneyAmount';
 import { formatDate, todayIso } from '@/lib/utils/date';
 import { sortByName } from '@/lib/utils/sort';
 import { accountsApi } from '@/features/accounts/accountsApi';
@@ -249,7 +250,7 @@ export function RecurringPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">Movimenti ricorrenti</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-tight">Movimenti ricorrenti</h1>
         <div className="flex flex-wrap items-center gap-2">
           <AccountMultiSelect
             accounts={accounts}
@@ -340,7 +341,7 @@ export function RecurringPage() {
                 <CardContent className="space-y-3">
                   <p className={`text-2xl font-semibold tabular-nums ${tone}`}>
                     {isTransfer ? '↹ ' : r.type === 'income' ? '+' : '−'}
-                    {formatCents(r.amountCents)}
+                    <MoneyAmount cents={r.amountCents} size="row" colored />
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Prossima esecuzione: {formatDate(r.nextRunDate)}

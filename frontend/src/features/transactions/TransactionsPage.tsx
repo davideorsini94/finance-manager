@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { formatCents } from '@/lib/utils/currency';
+import { MoneyAmount } from '@/components/shared/MoneyAmount';
 import { formatDate } from '@/lib/utils/date';
 import { sortByName } from '@/lib/utils/sort';
 import { getIcon } from '@/components/shared/icon-pool';
@@ -115,6 +115,11 @@ export function TransactionsPage() {
   // Restano tutte visibili anche con un filtro attivo, così cambiare conto
   // è un solo click; la card selezionata è evidenziata.
   const accountsForSummary = sortByName(accountsQuery.data ?? []);
+  // Colore del conto per la spina delle righe: il movimento porta con sé solo
+  // id/nome/tipo, il colore vive sull'Account.
+  const accountColors = new Map(
+    (accountsQuery.data ?? []).map((a) => [a.id, a.color ?? null] as const),
+  );
 
   // Cambio filtro: torna a pagina 1 per coerenza con i risultati
   const updateFilter = (patch: Partial<ListTransactionsParams>) =>
@@ -127,7 +132,7 @@ export function TransactionsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">Movimenti</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-tight">Movimenti</h1>
         <Button
           onClick={() => {
             setEditing(null);
@@ -236,6 +241,7 @@ export function TransactionsPage() {
                 <TransactionRow
                   key={tx.id}
                   tx={tx}
+                  spineColor={accountColors.get(tx.account.id) ?? null}
                   onEdit={() => {
                     setEditing(tx);
                     setFormOpen(true);
@@ -345,11 +351,13 @@ export function TransactionsPage() {
 
 interface RowProps {
   tx: Transaction;
+  /** Colore del conto di appartenenza, mostrato come spina sul bordo sinistro. */
+  spineColor: string | null;
   onEdit: () => void;
   onDelete: () => void;
 }
 
-function TransactionRow({ tx, onEdit, onDelete }: RowProps) {
+function TransactionRow({ tx, spineColor, onEdit, onDelete }: RowProps) {
   const isTransfer = tx.type === 'transfer';
   const cents = Number(tx.amountCents);
   const isPositive = cents >= 0;
@@ -357,11 +365,16 @@ function TransactionRow({ tx, onEdit, onDelete }: RowProps) {
   const tone = isTransfer
     ? 'text-muted-foreground'
     : isPositive
-      ? 'text-emerald-600 dark:text-emerald-400'
-      : 'text-red-600 dark:text-red-400';
+      ? 'text-[hsl(var(--pos))]'
+      : 'text-[hsl(var(--neg))]';
 
   return (
-    <li className="flex items-center gap-2 p-3 sm:gap-3 sm:px-4">
+    <li
+      className="flex items-center gap-2 border-l-[3px] p-3 pl-3 transition-colors hover:bg-muted/40 sm:gap-3 sm:pl-4 sm:pr-4"
+      // La spina colorata dice a colpo d'occhio di quale conto è il movimento:
+      // su conti condivisi si riconosce il proprietario prima di leggere il testo.
+      style={{ borderLeftColor: spineColor ?? 'transparent' }}
+    >
       <div className={`shrink-0 rounded-full p-2 bg-muted ${tone}`}>
         <Icon className="h-4 w-4" />
       </div>
@@ -387,9 +400,11 @@ function TransactionRow({ tx, onEdit, onDelete }: RowProps) {
           {formatDate(tx.transactionDate)} · {tx.account.name}
         </p>
       </div>
-      <p className={`shrink-0 text-right text-sm font-semibold tabular-nums sm:text-base ${tone}`}>
-        {formatCents(cents)}
-      </p>
+      <MoneyAmount
+        cents={cents}
+        size="row"
+        className={`shrink-0 text-right text-sm font-semibold sm:text-base ${tone}`}
+      />
       {/* Azioni sempre accessibili, anche su mobile (prima erano hidden sm:flex). */}
       <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
         <Button
@@ -469,7 +484,7 @@ function AccountSummaryCard({
             </p>
           </div>
           <p className="shrink-0 text-base font-semibold tabular-nums">
-            {formatCents(account.balanceCents)}
+            <MoneyAmount cents={account.balanceCents} size="row" />
           </p>
         </CardContent>
       </Card>

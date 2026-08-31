@@ -23,7 +23,7 @@ export function IncomeExpenseBar({ data }: Props) {
   return (
     <ResponsiveContainer width="100%" height={260}>
       <BarChart data={chartData}>
-        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+        <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeOpacity={0.7} />
         <XAxis dataKey="date" fontSize={12} stroke="hsl(var(--muted-foreground))" />
         <YAxis fontSize={12} stroke="hsl(var(--muted-foreground))" />
         <Tooltip

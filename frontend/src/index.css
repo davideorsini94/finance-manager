@@ -323,6 +323,94 @@
   }
 
   /* ============ THEME: SUNSET ============ */
+  /* ------------------------------------------------------------------
+     REGISTRO — identità del prodotto (default dal 2026-08-31).
+     Riferimento: la carta a righe verdi dei moduli contabili (greenbar).
+     Fondo verde pallidissimo, inchiostro verde-nero, un solo accento
+     (blu penna). Verde e rosso restano riservati al DATO (entrate/uscite),
+     mai alla decorazione: per questo l'accento non è né verde né rosso.
+     Niente vetri, niente blob: le superfici sono opache e piatte.
+     ------------------------------------------------------------------ */
+  [data-theme='registro'] {
+    --background: 100 14% 92%;
+    --foreground: 153 20% 11%;
+    --card: 90 25% 98%;
+    --card-foreground: 153 20% 11%;
+    --popover: 90 25% 98%;
+    --popover-foreground: 153 20% 11%;
+    --primary: 205 62% 26%;
+    --primary-foreground: 90 25% 98%;
+    --secondary: 100 12% 88%;
+    --secondary-foreground: 153 20% 11%;
+    --muted: 100 12% 89%;
+    --muted-foreground: 148 8% 39%;
+    --accent: 205 30% 90%;
+    --accent-foreground: 205 62% 22%;
+    --destructive: 2 70% 41%;
+    --destructive-foreground: 90 25% 98%;
+    --border: 100 10% 84%;
+    --input: 100 10% 84%;
+    --ring: 205 62% 26%;
+    --radius: 0.5rem;
+
+    --pos: 150 59% 30%;
+    --pos-foreground: 90 25% 98%;
+    --pos-soft: 150 35% 90%;
+    --neg: 2 70% 41%;
+    --neg-foreground: 90 25% 98%;
+    --neg-soft: 2 55% 92%;
+    --warn: 40 88% 35%;
+    --warn-foreground: 90 25% 98%;
+    --warn-soft: 40 60% 90%;
+
+    /* Un accento guida più tre neutri: le serie del grafico non devono
+       competere con il verde/rosso che significano entrate/uscite. */
+    --chart-1: 205 62% 30%;
+    --chart-2: 150 45% 38%;
+    --chart-3: 190 38% 45%;
+    --chart-4: 40 70% 45%;
+    --chart-5: 148 10% 45%;
+  }
+
+  .dark[data-theme='registro'] {
+    --background: 150 10% 8%;
+    --foreground: 100 14% 91%;
+    --card: 147 9% 11%;
+    --card-foreground: 100 14% 91%;
+    --popover: 147 9% 11%;
+    --popover-foreground: 100 14% 91%;
+    --primary: 205 65% 62%;
+    --primary-foreground: 150 10% 8%;
+    --secondary: 147 8% 16%;
+    --secondary-foreground: 100 14% 91%;
+    --muted: 147 8% 16%;
+    --muted-foreground: 148 8% 62%;
+    --accent: 205 30% 20%;
+    --accent-foreground: 205 65% 75%;
+    --destructive: 2 68% 60%;
+    --destructive-foreground: 150 10% 8%;
+    --border: 147 8% 20%;
+    --input: 147 8% 20%;
+    --ring: 205 65% 62%;
+    --radius: 0.5rem;
+
+    --pos: 150 50% 52%;
+    --pos-foreground: 150 10% 8%;
+    --pos-soft: 150 30% 18%;
+    --neg: 2 68% 60%;
+    --neg-foreground: 150 10% 8%;
+    --neg-soft: 2 40% 20%;
+    --warn: 40 80% 55%;
+    --warn-foreground: 150 10% 8%;
+    --warn-soft: 40 40% 20%;
+
+    --chart-1: 205 65% 62%;
+    --chart-2: 150 50% 52%;
+    --chart-3: 190 45% 58%;
+    --chart-4: 40 75% 58%;
+    --chart-5: 148 10% 62%;
+  }
+
   [data-theme='sunset'] {
     --background: 30 30% 97%;
     --foreground: 20 30% 15%;
@@ -527,9 +615,9 @@
   .prose-sm code { @apply rounded bg-muted px-1 py-0.5 text-xs font-mono; }
   .prose-sm pre { @apply rounded bg-muted p-3 my-2 overflow-x-auto; }
   .prose-sm pre code { @apply bg-transparent p-0; }
-  .prose-sm h1, .prose-sm h2, .prose-sm h3 { @apply font-semibold mt-3 mb-1.5; }
-  .prose-sm h1 { @apply text-base; }
-  .prose-sm h2 { @apply text-sm; }
+  .prose-sm h1, .prose-sm h2, .prose-sm h3 { @apply font-display font-semibold mt-4 mb-1.5; }
+  .prose-sm h1 { @apply text-lg; }
+  .prose-sm h2 { @apply text-base; }
   .prose-sm h3 { @apply text-sm; }
   .prose-sm strong { @apply font-semibold; }
   .prose-sm a { @apply text-primary underline; }

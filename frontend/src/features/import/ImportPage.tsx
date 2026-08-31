@@ -16,7 +16,7 @@ import { CategoryPicker } from '@/components/shared/CategoryPicker';
 import { accountsApi } from '@/features/accounts/accountsApi';
 import { sortByName } from '@/lib/utils/sort';
 import { categoriesApi } from '@/features/categories/categoriesApi';
-import { formatCents } from '@/lib/utils/currency';
+import { MoneyAmount } from '@/components/shared/MoneyAmount';
 import { formatDate } from '@/lib/utils/date';
 import { importApi, type ConfirmRow, type ImportBatch } from './importApi';
 import { useConfirm } from '@/components/shared/confirm';
@@ -130,7 +130,7 @@ export function ImportPage() {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold tracking-tight">Conferma import</h1>
+          <h1 className="font-display text-2xl font-semibold tracking-tight">Conferma import</h1>
           <div className="flex gap-2">
             <Button
               variant="ghost"
@@ -209,7 +209,7 @@ export function ImportPage() {
                           isIncome ? 'text-emerald-600' : 'text-red-600'
                         }`}
                       >
-                        {formatCents(row.amountCents)}
+                        <MoneyAmount cents={row.amountCents} size="row" colored />
                       </td>
                       <td className="p-2 min-w-[200px]">
                         <CategoryPicker
@@ -240,7 +240,7 @@ export function ImportPage() {
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Importa movimenti</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-tight">Importa movimenti</h1>
         <p className="text-sm text-muted-foreground">
           Carica un estratto conto in formato CSV o OFX. L'AI suggerirà la categoria, tu confermi.
         </p>

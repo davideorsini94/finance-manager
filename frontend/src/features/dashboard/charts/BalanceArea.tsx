@@ -28,7 +28,7 @@ export function BalanceArea({ data }: Props) {
             <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0} />
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+        <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeOpacity={0.7} />
         <XAxis dataKey="date" fontSize={12} stroke="hsl(var(--muted-foreground))" />
         <YAxis fontSize={12} stroke="hsl(var(--muted-foreground))" />
         <Tooltip

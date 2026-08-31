@@ -130,7 +130,7 @@ export function AdvancedReports() {
     <div className="space-y-8">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Report avanzati</h1>
+          <h1 className="font-display text-2xl font-semibold">Report avanzati</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Cashflow, confronti tra periodi, flusso entrate→uscite.
           </p>
@@ -184,7 +184,7 @@ function CashflowSection({ data }: { data: CashflowResult | null }) {
               balance: data.cumulativeBalance[i]?.balance ?? 0,
             }))}
           >
-            <CartesianGrid strokeDasharray="3 3" />
+            <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeOpacity={0.7} />
             <XAxis dataKey="month" tickLine={false} fontSize={11} />
             <YAxis tickLine={false} fontSize={11} tickFormatter={fmt} />
             <Tooltip

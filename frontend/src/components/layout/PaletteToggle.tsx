@@ -8,6 +8,7 @@ import { useUIStore, type ColorTheme, type NumFont } from '@/store/uiStore';
 import { cn } from '@/lib/utils/cn';
 
 const PALETTES: { key: ColorTheme; labelKey: string; swatch: string }[] = [
+  { key: 'registro', labelKey: 'common.theme.registro', swatch: 'hsl(205, 62%, 26%)' },
   { key: 'glass', labelKey: 'common.theme.glass', swatch: 'hsl(250, 84%, 60%)' },
   { key: 'fintech', labelKey: 'common.theme.fintech', swatch: 'hsl(175, 80%, 50%)' },
   { key: 'linear', labelKey: 'common.theme.linear', swatch: 'hsl(221, 83%, 53%)' },

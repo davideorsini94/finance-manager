@@ -20,6 +20,7 @@ Questa è la nota-hub del grafo di conoscenza: da qui si raggiunge tutto il rest
 - [[Tailscale e Accesso]] — come l'app è esposta su HTTPS
 - [[PWA e Mobile]] — service worker, safe-area, fix iOS
 - [[Deploy e Versioning]] — build, tag, rollback
+- [[Design System]] — identità visiva: tema, tipografia, come si scrive il denaro
 - [[Convenzioni di Sviluppo]] — pattern e regole del progetto
 - [[Registro Modifiche]] — log delle modifiche fatte nel tempo
 

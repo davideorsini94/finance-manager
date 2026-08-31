@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils/cn';
-import { formatCents } from '@/lib/utils/currency';
+import { MoneyAmount } from '@/components/shared/MoneyAmount';
 import { useAuth } from '@/features/auth/useAuth';
 import { getIcon } from '@/components/shared/icon-pool';
 import type { Account, AccountType } from '@/types/domain';
@@ -75,7 +75,7 @@ export function AccountsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Conti</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-tight">Conti</h1>
         <Button
           onClick={() => {
             setEditing(null);
@@ -163,7 +163,7 @@ export function AccountsPage() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <p className="text-2xl font-semibold tabular-nums">
-                    {formatCents(account.balanceCents)}
+                    <MoneyAmount cents={account.balanceCents} size="row" />
                   </p>
                   <div className="flex flex-wrap gap-2">
                     <Button

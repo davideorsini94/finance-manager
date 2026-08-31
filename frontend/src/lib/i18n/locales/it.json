@@ -73,7 +73,8 @@
       "numFont": "Font numeri",
       "fontSans": "Sans",
       "fontMono": "Mono",
-      "fontSerif": "Serif"
+      "fontSerif": "Serif",
+      "registro": "Registro"
     },
     "privacy": {
       "label": "Modalità privacy",

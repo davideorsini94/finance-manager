@@ -18,7 +18,8 @@ import {
 } from '@/components/ui/dialog';
 import { CategoryPicker } from '@/components/shared/CategoryPicker';
 import { categoriesApi } from '@/features/categories/categoriesApi';
-import { eurosToCents, formatCents } from '@/lib/utils/currency';
+import { eurosToCents } from '@/lib/utils/currency';
+import { MoneyAmount } from '@/components/shared/MoneyAmount';
 import { budgetApi } from './budgetApi';
 import { useConfirm } from '@/components/shared/confirm';
 
@@ -86,7 +87,7 @@ export function BudgetPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">Budget</h1>
+        <h1 className="font-display text-2xl font-semibold tracking-tight">Budget</h1>
         <div className="flex items-center gap-2">
           <Input
             type="month"
@@ -154,8 +155,8 @@ export function BudgetPage() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="flex items-baseline justify-between text-sm">
-                    <span className="font-semibold">{formatCents(spent)}</span>
-                    <span className="text-muted-foreground">/ {formatCents(limit)}</span>
+                    <span className="font-semibold"><MoneyAmount cents={spent} /></span>
+                    <span className="text-muted-foreground">/ <MoneyAmount cents={limit} /></span>
                   </div>
                   <Progress value={Math.min(100, pct)} indicatorClassName={tone} />
                   <p className="text-xs text-muted-foreground">{pct.toFixed(0)}% utilizzato</p>
