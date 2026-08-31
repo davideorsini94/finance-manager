@@ -154,7 +154,7 @@ export function ReportsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <h1 className="font-display text-2xl font-semibold tracking-tight">Report</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Report</h1>
         <div className="flex flex-wrap items-center gap-2">
           <AccountMultiSelect
             accounts={accounts}

@@ -615,9 +615,9 @@
   .prose-sm code { @apply rounded bg-muted px-1 py-0.5 text-xs font-mono; }
   .prose-sm pre { @apply rounded bg-muted p-3 my-2 overflow-x-auto; }
   .prose-sm pre code { @apply bg-transparent p-0; }
-  .prose-sm h1, .prose-sm h2, .prose-sm h3 { @apply font-display font-semibold mt-4 mb-1.5; }
-  .prose-sm h1 { @apply text-lg; }
-  .prose-sm h2 { @apply text-base; }
+  .prose-sm h1, .prose-sm h2, .prose-sm h3 { @apply font-semibold mt-3 mb-1.5; }
+  .prose-sm h1 { @apply text-base; }
+  .prose-sm h2 { @apply text-sm; }
   .prose-sm h3 { @apply text-sm; }
   .prose-sm strong { @apply font-semibold; }
   .prose-sm a { @apply text-primary underline; }

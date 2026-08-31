@@ -130,7 +130,7 @@ export function ImportPage() {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h1 className="font-display text-2xl font-semibold tracking-tight">Conferma import</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Conferma import</h1>
           <div className="flex gap-2">
             <Button
               variant="ghost"
@@ -240,7 +240,7 @@ export function ImportPage() {
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
       <div>
-        <h1 className="font-display text-2xl font-semibold tracking-tight">Importa movimenti</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Importa movimenti</h1>
         <p className="text-sm text-muted-foreground">
           Carica un estratto conto in formato CSV o OFX. L'AI suggerirà la categoria, tu confermi.
         </p>

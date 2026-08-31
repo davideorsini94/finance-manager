@@ -114,21 +114,21 @@ export function MoneyAmount({
 }
 
 /**
- * Le due taglie grandi passano alla faccia display (Fraunces): è lì che il
- * numero diventa il soggetto della schermata. Nelle righe di lista resta la
- * faccia dell'interfaccia, che a corpo piccolo si legge meglio.
+ * Una sola faccia (quella dell'interfaccia) a tutte le taglie: a cambiare è il
+ * peso e il rapporto tra intero, decimali e simbolo. Nelle taglie grandi lo
+ * stacco è più marcato, perché lì il numero è il soggetto della schermata.
  */
 const SIZES: Record<MoneySize, { root: string; minor: string; symbol: string }> = {
   inline: { root: '', minor: 'opacity-60', symbol: 'opacity-50' },
   row: { root: 'font-medium', minor: 'text-[0.85em] opacity-60', symbol: 'text-[0.8em] opacity-50' },
   kpi: {
-    root: 'font-display font-semibold tracking-tight',
-    minor: 'text-[0.55em] font-sans font-medium opacity-60',
-    symbol: 'text-[0.5em] font-sans font-medium opacity-50',
+    root: 'font-semibold tracking-tight',
+    minor: 'text-[0.55em] font-medium opacity-60',
+    symbol: 'text-[0.5em] font-medium opacity-50',
   },
   hero: {
-    root: 'font-display font-semibold tracking-tight',
-    minor: 'text-[0.45em] font-sans font-medium opacity-60',
-    symbol: 'text-[0.4em] font-sans font-medium opacity-50',
+    root: 'font-semibold tracking-tight',
+    minor: 'text-[0.45em] font-medium opacity-60',
+    symbol: 'text-[0.4em] font-medium opacity-50',
   },
 };

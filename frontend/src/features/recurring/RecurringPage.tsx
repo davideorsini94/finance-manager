@@ -250,7 +250,7 @@ export function RecurringPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-2xl font-semibold tracking-tight">Movimenti ricorrenti</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Movimenti ricorrenti</h1>
         <div className="flex flex-wrap items-center gap-2">
           <AccountMultiSelect
             accounts={accounts}

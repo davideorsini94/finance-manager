@@ -132,7 +132,7 @@ export function TransactionsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-2xl font-semibold tracking-tight">Movimenti</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Movimenti</h1>
         <Button
           onClick={() => {
             setEditing(null);

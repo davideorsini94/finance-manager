@@ -122,7 +122,7 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-6 max-w-3xl">
-      <h1 className="font-display text-2xl font-semibold tracking-tight">Impostazioni</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">Impostazioni</h1>
 
       {/* Profilo */}
       <CollapsibleCard

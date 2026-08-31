@@ -87,7 +87,7 @@ export function BudgetPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="font-display text-2xl font-semibold tracking-tight">Budget</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Budget</h1>
         <div className="flex items-center gap-2">
           <Input
             type="month"

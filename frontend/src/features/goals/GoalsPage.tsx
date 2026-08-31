@@ -116,7 +116,7 @@ export function GoalsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-2xl font-semibold tracking-tight">Obiettivi di risparmio</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Obiettivi di risparmio</h1>
         <Button onClick={() => openForm()}>
           <Plus className="h-4 w-4 mr-2" /> Nuovo
         </Button>

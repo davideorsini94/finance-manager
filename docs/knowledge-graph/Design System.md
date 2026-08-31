@@ -13,17 +13,13 @@ Riferimento: la **carta a righe verdi** dei moduli contabili (greenbar). Fondo v
 
 ## Tipografia
 
-Tre facce, già nel bundle (`@fontsource`, self-hosted — niente font di sistema, altrimenti le colonne di importi ballano da device a device):
+**Una faccia sola: Inter** (`@fontsource/inter`, self-hosted — niente font di sistema, altrimenti le colonne di importi ballano da device a device). A cambiare sono peso e corpo, non la famiglia.
 
-| Ruolo | Faccia | Dove |
-|---|---|---|
-| Display (voce del prodotto) | **Fraunces** (`font-display`) | `<h1>` di pagina, cifre grandi dei KPI, titoli dentro il markdown LLM (`.prose-sm h1/h2/h3`) |
-| Interfaccia | **Inter** (`font-sans`) | tutto il resto, **inclusi tutti i numeri in lista** (a corpo piccolo si legge meglio) |
-| Monospazio | JetBrains Mono | solo dove serve davvero, e come opzione del font numerico |
+Un serif da display (Fraunces) è stato provato su titoli, cifre KPI e titoli del markdown LLM, e **scartato dopo la verifica a vista**: gli importi in Inter sono più netti. Fraunces resta nel bundle solo come opzione del *font dei numeri* (`data-num-font='serif'`), insieme a JetBrains Mono. Non esiste una utility `font-display`.
 
 ## La firma: come si scrive il denaro
 
-`frontend/src/components/shared/MoneyAmount.tsx` usa `Intl.NumberFormat.formatToParts()` e non `format()`: l'**intero** resta pieno, **decimali e simbolo di valuta** arretrano (più piccoli e smorzati), tutto allineato sulla stessa linea di base con cifre tabulari. Quattro taglie: `inline`, `row`, `kpi`, `hero` — le due grandi passano alla faccia display.
+`frontend/src/components/shared/MoneyAmount.tsx` usa `Intl.NumberFormat.formatToParts()` e non `format()`: l'**intero** resta pieno, **decimali e simbolo di valuta** arretrano (più piccoli e smorzati), tutto allineato sulla stessa linea di base con cifre tabulari. Quattro taglie: `inline`, `row`, `kpi`, `hero` — cambia il rapporto tra intero, decimali e simbolo, non la faccia.
 
 **Regola**: ogni importo mostrato a schermo passa da `MoneyAmount`. `formatCents` resta solo dove serve una **stringa** (formatter dei grafici Recharts, testo di una modale di conferma). Prima di questo giro `MoneyAmount` esisteva ma era usato in un solo file mentre 15 stampavano stringhe nude.
 
