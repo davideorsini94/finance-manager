@@ -147,6 +147,14 @@ enum NotificationChannel {
   email
 }
 
+enum LlmReportStatus {
+  generating
+  ready
+  error
+
+  @@map("llm_report_status")
+}
+
 // =================== TABELLE ===================
 
 model User {
@@ -187,6 +195,7 @@ model User {
   bankConnections     BankConnection[]
   bankSyncRuns        BankSyncRun[]
   categoryMemories    CategoryMemory[]
+  llmReports          LlmReport[]
 
   @@map("users")
 }
@@ -808,4 +817,39 @@ model NotificationPreference {
 
   @@id([userId, type, channel])
   @@map("notification_preferences")
+}
+
+/// Report testuale generato dall'LLM per un periodo della pagina Report.
+/// Salvato per non rigenerarlo a ogni ritorno sullo stesso periodo.
+/// Il vincolo unique è anche il LOCK della generazione: la claim è un
+/// `updateMany` condizionale su `status`, quindi due richieste simultanee non
+/// producono due generazioni. Un record `generating` più vecchio di 15 minuti
+/// è considerato morto (backend riavviato a metà) e riclaimabile.
+model LlmReport {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  /// 'annual' | 'monthly' — le sole modalità con report LLM.
+  scope  String @db.VarChar(10)
+  /// '2026' per l'annuale, '2026-07' per il mensile.
+  periodKey String @map("period_key") @db.VarChar(10)
+  /// 'all' oppure sha1 degli accountId ORDINATI: l'ordine di selezione non
+  /// deve moltiplicare le righe.
+  accountsKey     String          @map("accounts_key") @db.VarChar(64)
+  status          LlmReportStatus
+  /// Markdown del report. Resta valorizzato durante una rigenerazione, così la
+  /// UI può mostrare il testo precedente invece di una pagina vuota.
+  content         String?
+  provider        String?         @db.VarChar(20)
+  model           String?         @db.VarChar(120)
+  /// Impronta dei dati alla generazione ("txCount:income:expense"): se non
+  /// combacia più, la UI mostra il badge "dati cambiati".
+  dataFingerprint String?         @map("data_fingerprint") @db.VarChar(120)
+  errorMessage    String?         @map("error_message")
+  startedAt       DateTime        @default(now()) @map("started_at") @db.Timestamptz()
+  completedAt     DateTime?       @map("completed_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, scope, periodKey, accountsKey])
+  @@map("llm_reports")
 }
