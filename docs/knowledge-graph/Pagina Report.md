@@ -16,6 +16,20 @@ Route `/reports` — file `frontend/src/features/reports/ReportsPage.tsx` (la pa
 - **Nodo "Senza categoria"** senza figli non è drillabile (non è filtrabile per categoria nulla).
 - **Modalità demo (v0.8.1)**: l'handler demo di `transactions` rispetta `categoryIds[]`, `accountIds[]` e `type` (prima solo i singolari, quindi il drill-down mostrava movimenti sbagliati) e `reports/compare` ha finalmente un handler — vedi [[Registro Modifiche]].
 
+## Report LLM (dal 2026-08-31)
+
+Sotto le card KPI di **annuale** e **mensile** c'è la card "Report dell'assistente": un'analisi testuale del periodo scritta dal modello attivo in Impostazioni ([[Chat LLM]]).
+
+- File: `frontend/src/features/reports/LlmReportCard.tsx` + `reportsLlmApi.ts`; backend `backend/src/llm-reports/` (modulo autonomo, vedi [[Backend]]); modello `LlmReport` in [[Database]]; endpoint in [[API]].
+- **Salvato per periodo + conti selezionati** (`accountsKey` = `all` o sha1 degli id ordinati): tornando sullo stesso periodo il testo è già lì, nessuna nuova chiamata al modello.
+- **Generazione automatica** alla prima apertura di un periodo che non ha ancora un report; **manuale** col pulsante Genera/Rigenera. La rigenerazione sovrascrive ed è irreversibile → modale `useConfirm()` con `destructive: true`.
+- **Il lock sta a DB, non in memoria**: durante la generazione il pulsante è disabilitato anche uscendo e rientrando nella pagina, da qualunque dispositivo. La claim è un `updateMany` condizionale sulla riga unica; chi perde riceve 409 (assorbito dalla UI, che si mette in polling). Una riga `generating` più vecchia di 15 minuti è considerata morta e riclaimabile: è il caso del backend riavviato a metà.
+- **Mentre genera**: skeleton pulsante + `Loader2` + cronometro ("Sto scrivendo il report… 1m 12s"); se un report precedente esiste resta visibile in trasparenza invece di lasciare il vuoto. Polling React Query a 3s **solo** in stato `generating`, più `refetchOnWindowFocus`.
+- **Badge "dati cambiati"**: `dataFingerprint` (totali + numero movimenti alla generazione) confrontato a ogni lettura. Limite noto: una modifica che lascia i totali identici (es. il cambio di categoria di un movimento) non lo accende.
+- **Markdown hardening condiviso con la chat**: `components/shared/markdown.tsx` (immagini rimosse, link resi testo inerte) — il report può citare causali bancarie, cioè testo di terzi → [[Autenticazione e Sicurezza]].
+- Il prompt riceve **solo aggregati** (totali, serie, alberi categorie, totali del periodo precedente) più i 15 movimenti di uscita più grandi, mai tutte le transazioni né gli id interni.
+- Il "Confronto periodi" **non** ha report LLM (date arbitrarie: un report salvato non verrebbe quasi mai riusato).
+
 ## Backend
 
 `ReportsController` (`backend/src/reports/reports.controller.ts`) compone i metodi di `ReportsService`: `periodTotals`, `monthlyAggregates`, `categoryBreakdown` e `categoryBreakdownTree` — questi ultimi due prendono un `flow: 'expense' | 'income'` (default `expense`) e vengono chiamati due volte per servire entrambe le viste. Dettagli in [[API]].

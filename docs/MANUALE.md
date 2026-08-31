@@ -475,6 +475,24 @@ Pagina **Report**, tre modalità (menu in alto a destra) più il filtro conti.
 Come l'annuale ma su un singolo mese (anno + mese), con il bar chart
 giornaliero al posto di quello dei 12 mesi.
 
+### Report dell'assistente
+
+Nel riepilogo **annuale** e in quello **mensile**, sotto i totali, trovi una
+card con un commento scritto dall'AI sul periodo che stai guardando: sintesi,
+andamento, dove sono finiti i soldi, cosa l'ha colpita e qualche consiglio.
+
+- Si scrive **da solo** la prima volta che apri un periodo, e resta salvato: se
+  torni su quel periodo lo ritrovi già pronto, senza attese.
+- Mentre lo sta scrivendo vedi l'animazione di caricamento e il tempo trascorso.
+  Il pulsante resta **disabilitato** finché non ha finito, anche se esci dalla
+  pagina e rientri (o apri l'app da un altro dispositivo).
+- Il pulsante **Rigenera** lo riscrive da capo: chiede conferma, perché il
+  report precedente viene sovrascritto e non è più recuperabile.
+- Se aggiungi o modifichi movimenti del periodo, compare l'avviso "i movimenti
+  sono cambiati dopo la generazione": rigeneralo tu quando vuoi.
+- Il testo dipende dal modello scelto in **Impostazioni → Modello AI**; se il
+  modello non risponde, la card mostra l'errore invece di restare in attesa.
+
 ### Confronto periodi
 
 Imposta due intervalli di date arbitrari (es. *Aprile vs Maggio*, *2025 vs

@@ -19,6 +19,7 @@ API NestJS + Prisma in `backend/`. Espone REST sotto `/api/` (prefisso aggiunto 
 | `budgets/`, `goals/` | budget mensili per categoria, obiettivi con progress |
 | `reports/` | dashboard, mensile, annuale, custom, confronto |
 | `llm-chat/` | sessioni chat + SSE streaming + tool calling → [[Chat LLM]] |
+| `llm-reports/` | report testuale del periodo scritto dall'LLM, job detached con lock a DB → [[Pagina Report]]. Modulo **a sé** e non sotto `reports/`: `LlmChatModule` importa già `ReportsModule`, quindi la dipendenza inversa creerebbe un ciclo |
 | `imports/` | CSV/OFX + suggerimenti Ollama → [[Import CSV-OFX]] |
 | `backup/` | export/restore ZIP completo (DB + MinIO) |
 | `notifications/`, `mail/` | notifiche in-app SSE, SMTP (config cifrata AES-256-GCM) |
