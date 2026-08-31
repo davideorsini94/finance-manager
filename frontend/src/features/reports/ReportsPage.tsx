@@ -39,6 +39,7 @@ import {
   type Flow,
 } from '@/features/dashboard/flow';
 import { transactionsApi } from '@/features/transactions/transactionsApi';
+import { LlmReportCard } from './LlmReportCard';
 import { formatCents } from '@/lib/utils/currency';
 import { cn } from '@/lib/utils/cn';
 import { revealIfOffscreen } from '@/lib/utils/reveal';
@@ -206,6 +207,13 @@ export function ReportsPage() {
                 <KpiCard label="Netto" value={annualQuery.data.totals.netCents} tone="primary" />
               </div>
 
+              <LlmReportCard
+                scope="annual"
+                year={year}
+                accountIds={accountIds}
+                accountIdsKey={accountIdsKey}
+              />
+
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base">Mensile</CardTitle>
@@ -313,6 +321,14 @@ export function ReportsPage() {
                 />
                 <KpiCard label="Netto" value={monthlyQuery.data.totals.netCents} tone="primary" />
               </div>
+
+              <LlmReportCard
+                scope="monthly"
+                year={year}
+                month={month}
+                accountIds={accountIds}
+                accountIdsKey={accountIdsKey}
+              />
 
               <Card>
                 <CardHeader>
