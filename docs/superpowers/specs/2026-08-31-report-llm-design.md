@@ -73,8 +73,17 @@ riceve **409**.
 **Lock scaduto**: un record `generating` con `startedAt` più vecchio di 15
 minuti è considerato morto (backend riavviato a metà) e può essere riclaimato;
 altrimenti quella cella resterebbe bloccata per sempre. La finestra è più larga
-del tetto di una singola chiamata LLM (8 min) per non uccidere un job vivo ma
+del tetto di una singola chiamata LLM (240s) per non uccidere un job vivo ma
 lento.
+
+### Collocazione del modulo
+
+Modulo NestJS **autonomo** `backend/src/llm-reports/`, non una sottocartella di
+`reports/`: `LlmChatModule` importa già `ReportsModule` (i tool della chat
+leggono i report), quindi far dipendere `ReportsModule` da `LlmChatModule`
+creerebbe un ciclo. `LlmReportsModule` importa entrambi e non è importato da
+nessuno — nessun ciclo, nessun `forwardRef`. Le rotte restano sotto
+`reports/llm` (`@Controller('reports/llm')`).
 
 ### Endpoint
 
@@ -104,9 +113,12 @@ Costruito da dati **aggregati**, già disponibili in `ReportsService`:
 Niente dump di tutte le transazioni: costo in token e superficie privacy.
 Chiamata **non in streaming** che rispetta il provider attivo, con lo stesso
 schema di `CategoryAiService` (Ollama `chat` con `keep_alive`, oppure
-`OpencodeClient.chat` senza `temperature`). Tetto di tempo per chiamata; in caso
-di fallimento lo stato diventa `error` con messaggio parlante — **nessun
-fallback silenzioso**.
+`OpencodeClient.chat` senza `temperature`). Tetti di tempo per singola chiamata:
+**240s** su Ollama (sotto i 300s di `headersTimeout` di undici, altrimenti a
+scadere è il fetch di Node con un opaco "fetch failed") e **120s** su OpenCode
+(già dentro `OpencodeClient.chat`). Sono entrambi ben sotto i 15 minuti del lock
+scaduto, così un job vivo non viene mai riclaimato. In caso di fallimento lo
+stato diventa `error` con messaggio parlante — **nessun fallback silenzioso**.
 
 Output richiesto: markdown in italiano, sezioni fisse *Sintesi · Andamento ·
 Dove sono finiti i soldi · Cosa mi ha colpito · Consigli*.
@@ -119,7 +131,9 @@ deve vedere senza scrollare.
 
 Stati:
 
-- **generating** — skeleton con shimmer, `Loader2` che gira, cronometro
+- **generating** — se esiste un report precedente resta visibile in trasparenza
+  (la rigenerazione non lascia la pagina vuota); altrimenti skeleton con
+  shimmer. In entrambi i casi `Loader2` che gira, cronometro
   "in generazione da 1m 12s", pulsante **disabilitato**. Polling React Query
   `refetchInterval: 3s` solo mentre è `generating`, più `refetchOnWindowFocus`:
   rientrando nella pagina si ritrova l'animazione, non il pulsante.
