@@ -54,12 +54,59 @@ export interface DailyPoint {
   balanceCents: string; // saldo cumulativo (somma transazioni fino a quel giorno)
 }
 
+/** Movimento "grosso" del periodo, usato dal report LLM per le anomalie. */
+export interface TopTransaction {
+  date: string;
+  description: string | null;
+  amountCents: string;
+  categoryName: string | null;
+}
+
 @Injectable()
 export class ReportsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly policy: AccountPolicyService,
   ) {}
+
+  /**
+   * I movimenti di uscita più grandi del periodo. Serve al report LLM per
+   * poter citare spese specifiche: passa dall'ACL come tutti gli altri
+   * aggregati, quindi non può mai pescare da conti non accessibili.
+   */
+  async topTransactions(
+    userId: string,
+    from: Date,
+    to: Date,
+    accountIds?: string[],
+    limit = 15,
+  ): Promise<TopTransaction[]> {
+    const rows = await this.prisma.transaction.findMany({
+      where: this.accessibleTxWhere(
+        userId,
+        {
+          transactionDate: { gte: from, lte: to },
+          type: TransactionType.expense,
+        },
+        accountIds,
+      ),
+      // Le uscite sono negative a DB: la più grande è la più negativa.
+      orderBy: { amountCents: 'asc' },
+      take: limit,
+      select: {
+        transactionDate: true,
+        description: true,
+        amountCents: true,
+        category: { select: { name: true } },
+      },
+    });
+    return rows.map((r) => ({
+      date: r.transactionDate.toISOString().slice(0, 10),
+      description: r.description,
+      amountCents: r.amountCents.toString(),
+      categoryName: r.category?.name ?? null,
+    }));
+  }
 
   private accessibleTxWhere(
     userId: string,
