@@ -1215,7 +1215,7 @@ function CategoryDialog({
           viewport (dvh) cala, il pannello si restringe e a cedere è la lista
           del picker (min-h-0, scrollabile) — niente popover tagliato dal
           bordo del Dialog. */}
-      <DialogContent className="flex max-w-md flex-col">
+      <DialogContent className="flex max-h-[85dvh] max-w-md flex-col">
         <DialogHeader className="shrink-0">
           <DialogTitle>Categoria</DialogTitle>
           <DialogDescription className="truncate">{itemLabel(item)}</DialogDescription>

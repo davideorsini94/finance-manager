@@ -167,6 +167,9 @@ export function CategoryPicker({
         // Inline: la lista si restringe sotto le 18rem quando il contenitore
         // (Dialog flex-col) viene schiacciato dalla tastiera, ma mai sotto
         // ~3 righe (min-h-28): oltre quel punto scrolla il Dialog stesso.
+        // `max-h-72` è l'altezza PREFERITA, `min-h-28` il pavimento: tra le due
+        // la lista si restringe da sola quando il Dialog è corto (flex shrink),
+        // purché gli antenati non abbiano `min-height: auto` — vedi il wrapper.
         className={cn('max-h-72 overflow-y-auto py-1', inline && 'min-h-28')}
         style={{ touchAction: 'pan-y' }}
       >
@@ -234,7 +237,12 @@ export function CategoryPicker({
         // Niente min-h-0 qui: il minimo del wrapper resta il min-content dei
         // figli (ricerca + lista min-h-28 + crea) — se il Dialog è più basso
         // di così, a scrollare è il Dialog stesso, senza sovrapposizioni.
-        <div className="flex flex-col rounded-md border">{panel}</div>
+        // `min-h-0` e basta: senza, un flex item non scende sotto l'altezza del
+        // proprio contenuto (`min-height: auto` di default) e a sforare il
+        // viewport è il Dialog, col footer irraggiungibile. Niente `flex-1`,
+        // altrimenti su schermi alti la lista partirebbe da zero invece che
+        // dalla sua altezza preferita.
+        <div className="flex min-h-0 flex-col rounded-md border">{panel}</div>
       ) : (
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>

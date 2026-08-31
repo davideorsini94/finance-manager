@@ -55,3 +55,8 @@ L'utente (iPhone 16 Pro) rivedeva la banda nera sotto la BottomNav: **presente d
 - **Drawer mobile in portal** (`MobileMenu.tsx`): backdrop e `<aside>` sono renderizzati con `createPortal(document.body)`. Senza portal vivevano dentro la TopBar (`sticky z-20`), che come stacking context intrappolava i loro `z-40/z-50`: la BottomNav (`z-30`, contesto radice) copriva le ultime voci del menu. Regola generale: qualunque overlay full-screen dichiarato dentro TopBar/altre superfici con z-index va portato su `body`.
 - **Banda nera residua più alta**: `.fm-bottomnav::after` (punto 4 sopra) esteso da 3rem a 6rem per coprire aree scoperte più ampie.
 - **`theme-color` dinamico**: il meta `theme-color` (`index.html`) era statico; ora `applyTheme`/`applyUIChrome` (`store/uiStore.ts`, chiamate da `ThemeBootstrap` in `app/providers.tsx`) rileggono `--background` via `getComputedStyle` dopo ogni cambio di classe `dark`/`data-theme` e aggiornano (o creano) il meta tag, così la barra di stato segue dark/light e i colorTheme.
+
+## Trappole di layout su schermo stretto (2026-08-31)
+
+- **Pannello notifiche**: era `absolute right-0` sotto la campanella e su 390px usciva a sinistra (`left: -28px`), perché il `max-w` misura il viewport mentre l'ancora è il bottone, che non è a filo schermo. Ora è `fixed inset-x-2 top-14` sotto `sm` e resta ancorato da `sm` in su → `components/layout/NotificationBell.tsx`
+- **Modale categoria della coda di revisione**: con il viewport corto (tastiera aperta) il Dialog sforava e "Chiudi" finiva fuori schermo. Causa: `min-height: auto` sul wrapper del `CategoryPicker` inline, che impediva al pannello di restringersi. Il rimedio è `min-h-0` sull'antenato, non un tetto più basso sulla lista → [[Convenzioni di Sviluppo]]

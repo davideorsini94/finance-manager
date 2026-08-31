@@ -99,7 +99,13 @@ export function NotificationBell() {
       {open && (
         <div
           className={cn(
-            'absolute right-0 top-11 z-40 w-[380px] max-w-[calc(100vw-2rem)]',
+            // Su mobile il pannello si aggancia al VIEWPORT, non alla campanella:
+            // con `absolute right-0` il bordo destro segue il bottone (che non è
+            // a filo schermo, dopo c'è l'aiuto) mentre `max-w` misura il
+            // viewport — su 390px il pannello finiva a left:-28px, fuori a
+            // sinistra. Da `sm` in su lo spazio abbonda e resta ancorato.
+            'fixed inset-x-2 top-14 z-40 w-auto',
+            'sm:absolute sm:inset-x-auto sm:right-0 sm:top-11 sm:w-[380px] sm:max-w-[calc(100vw-2rem)]',
             'rounded-lg border bg-popover text-popover-foreground shadow-lg',
           )}
           role="dialog"
