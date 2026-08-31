@@ -93,6 +93,24 @@ export function demoHandle(ctx: Ctx): unknown | null {
   if (matches(pathname, 'reports/compare') && method === 'GET') {
     return buildPeriodsCompare(search);
   }
+  // Report LLM: in demo il testo è statico e la generazione è un no-op —
+  // nessuna chiamata al modello, ma la UI resta completa. Il POST va matchato
+  // PRIMA: `matches(pathname, 'reports/llm')` prende anche `reports/llm/generate`.
+  if (matches(pathname, 'reports/llm/generate') && method === 'POST') {
+    return { status: 'generating' };
+  }
+  if (matches(pathname, 'reports/llm') && method === 'GET') {
+    return {
+      status: 'ready',
+      content: DEMO_LLM_REPORT,
+      generatedAt: new Date().toISOString(),
+      provider: 'demo',
+      model: 'demo-model',
+      stale: false,
+      elapsedSeconds: null,
+      errorMessage: null,
+    };
+  }
   if (matches(pathname, 'reports/advanced/cashflow') && method === 'GET') {
     const months = Number(search.get('months') ?? '12');
     const forecastMonths = Number(search.get('forecastMonths') ?? '6');
@@ -1550,3 +1568,23 @@ function demoConfirmReview(body: unknown) {
   demoReviewItems = demoReviewItems.filter((i) => !targets.has(i.id));
   return { confirmed, transfers, skipped: ids.length - resolved, errors: [] };
 }
+
+/** Testo di esempio del report LLM in modalità demo. */
+const DEMO_LLM_REPORT = `## Sintesi
+Nel periodo hai incassato più di quanto hai speso: il saldo resta positivo e in linea con il periodo precedente.
+
+## Andamento
+Le uscite si concentrano nella prima metà del periodo, con un picco in corrispondenza delle spese fisse.
+
+## Dove sono finiti i soldi
+La voce più pesante è **Casa**, seguita da **Spesa** e **Trasporti**.
+
+## Cosa mi ha colpito
+Un singolo movimento vale da solo quasi un terzo delle uscite del periodo.
+
+## Consigli
+- Tieni d'occhio la categoria con la crescita più marcata rispetto al periodo precedente.
+- Verifica che le spese ricorrenti siano tutte ancora utili.
+- Metti da parte la differenza tra entrate e uscite appena arriva l'accredito.
+
+*(testo di esempio: in modalità demo il modello non viene interrogato)*`;
