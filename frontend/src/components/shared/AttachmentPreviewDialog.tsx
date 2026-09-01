@@ -9,8 +9,10 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils/cn';
 import { useUIStore } from '@/store/uiStore';
 import { demoAttachmentFile } from '@/lib/demo/attachments';
+import { ImagePreview } from './ImagePreview';
 import type { AttachmentSummary } from '@/types/domain';
 
 // pdfjs pesa qualche centinaio di KB: entra in un chunk separato, caricato solo
@@ -143,10 +145,20 @@ export function AttachmentPreviewDialog({
   const isImage = mimeType.startsWith('image/');
   const isPdf = mimeType === 'application/pdf';
   const ready = state === 'ok' && blobUrl !== null;
+  // Con un visualizzatore dentro, la modale prende un'altezza **fissa**: il
+  // riquadro deve essere una finestra stabile, se la prendesse dal contenuto
+  // crescerebbe mentre si zooma. Senza (errore, caricamento, tipo di file non
+  // visualizzabile) resta alta quanto basta.
+  const conVisualizzatore = ready && (isImage || (isPdf && blob !== null));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent
+        className={cn(
+          'flex max-h-[92dvh] max-w-3xl flex-col overflow-y-auto',
+          conVisualizzatore && 'h-[92dvh]',
+        )}
+      >
         <DialogHeader>
           <div className="flex items-center gap-2 pr-8">
             <DialogTitle className="min-w-0 flex-1 truncate text-left text-base sm:text-lg">
@@ -238,11 +250,7 @@ export function AttachmentPreviewDialog({
         {ready && blobUrl && (
           <>
             {isImage ? (
-              <img
-                src={blobUrl}
-                alt={filename}
-                className="mx-auto max-h-[65dvh] w-auto max-w-full rounded-md"
-              />
+              <ImagePreview url={blobUrl} alt={filename} />
             ) : isPdf && blob ? (
               <Suspense
                 fallback={

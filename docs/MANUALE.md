@@ -287,9 +287,15 @@ Puoi aprire l'anteprima in due punti:
 
 Nella finestra di anteprima:
 
-- **Immagini**: mostrate direttamente
-- **PDF**: sfogliati pagina per pagina dentro l'app (funziona anche
-  sull'app installata su iPhone)
+- **Il file si vede tutto**: all'apertura la pagina (o la foto) è rimpicciolita
+  quanto serve per starci dentro, su qualsiasi schermo. I PDF di più pagine si
+  scorrono dentro il riquadro
+- **Zoom**: pinch a due dita su telefono e tablet, `Ctrl` (o `⌘` su Mac) più
+  rotellina su computer, oppure doppio tap / doppio click per ingrandire di
+  colpo il punto toccato. La rotellina da sola scorre e basta
+- **Pulsanti sotto il riquadro**: `−` e `+` per la scala, la percentuale
+  corrente, e **Adatta** per tornare a vedere tutto. Quando sei ingrandito
+  trascini col dito (o col mouse) per spostarti
 - **Più allegati**: le frecce `‹` e `›` in alto passano da uno all'altro, con
   il contatore "1 di 2"
 - **Icona freccia in giù**: scarica l'allegato sul dispositivo

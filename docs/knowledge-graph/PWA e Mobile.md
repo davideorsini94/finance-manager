@@ -25,6 +25,10 @@ Problemi osservati su iPhone 16 Pro (PWA standalone) e relativi rimedi:
 
 `initIosViewportFix()` è chiamato in `frontend/src/main.tsx`.
 
+## Zoom e pinch (2026-09-01)
+
+Il `maximum-scale=1` di cui sopra spegne il pinch di sistema su iOS, quindi dove serve zoomare davvero — l'anteprima allegati — **se lo gestisce l'app**: `components/shared/ZoomBox.tsx` intercetta il touchmove a due dita con `preventDefault()` e scala da sé (→ [[Frontend]]). Due cose da ricordare: il listener va registrato a mano con `{ passive: false }` (da JSX React lo rende passivo e `preventDefault()` non fa nulla), e lo spostamento resta lo **scorrimento nativo** del riquadro, così l'inerzia di iOS non si perde.
+
 ## Consenso bancario: atterraggio fuori app su iOS
 
 Il consenso PSD2 di [[Sync Bancario]] segue lo stesso vincolo standalone: la banca reindirizza l'utente su `/bank-sync/callback`, che su iPhone **apre in Safari**, non nella PWA installata (il flusso OAuth-like non può restare dentro la webview standalone). La pagina pubblica scambia subito `code`+`state` col backend e mostra un messaggio statico ("torna all'app"), **senza redirect automatico** verso la PWA (iOS non offre un modo affidabile per farlo). Il rientro nell'app è manuale; il wizard (`BankLinkWizard.tsx`) copre l'assenza di un evento di ritorno facendo **polling** su `GET bank-sync/connections/:id` ogni 2s finché lo stato non è più `pending`.
