@@ -16,8 +16,23 @@ import { Download, Loader2 } from 'lucide-react';
 pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 interface Props {
-  /** `blob:` URL del PDF già scaricato dal dialog chiamante. */
-  url: string;
+  /**
+   * Il PDF già scaricato dal dialog chiamante, come `Blob`.
+   *
+   * **Non passare qui un `blob:` URL.** react-pdf, ricevendo una stringa, la
+   * gira a pdf.js come `url`, e pdf.js per gli schemi diversi da http(s) usa
+   * XHR (`isValidFetchUrl` accetta solo http/https): quella richiesta ricade
+   * sotto `connect-src` della CSP di nginx, che è `'self'` e **non** copre
+   * `blob:` — la richiesta viene bloccata, `xhr.status` è 0 e l'anteprima
+   * muore con "Unexpected server response (0) while retrieving PDF".
+   * Succede solo dietro nginx: in `vite dev` non c'è CSP.
+   *
+   * Con un `Blob` invece react-pdf lo legge in memoria (FileReader →
+   * ArrayBuffer) e pdf.js non fa nessuna richiesta.
+   */
+  file: Blob;
+  /** `blob:` URL dello stesso file: serve solo al link di download di riserva. */
+  downloadUrl: string;
   filename: string;
 }
 
@@ -34,7 +49,7 @@ const MAX_PAGE_WIDTH = 800;
  * Le ricevute sono di poche pagine: le impiliamo tutte verticalmente invece di
  * paginare.
  */
-export default function PdfPreview({ url, filename }: Props) {
+export default function PdfPreview({ file, downloadUrl, filename }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState<number | null>(null);
   const [numPages, setNumPages] = useState(0);
@@ -58,7 +73,7 @@ export default function PdfPreview({ url, filename }: Props) {
   useEffect(() => {
     setNumPages(0);
     setLoadError(null);
-  }, [url]);
+  }, [file]);
 
   const onLoadSuccess = useCallback(({ numPages: n }: { numPages: number }) => {
     setNumPages(n);
@@ -76,7 +91,7 @@ export default function PdfPreview({ url, filename }: Props) {
           Impossibile visualizzare il PDF. ({loadError})
         </p>
         <a
-          href={url}
+          href={downloadUrl}
           download={filename}
           className="inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm hover:bg-accent"
         >
@@ -89,7 +104,7 @@ export default function PdfPreview({ url, filename }: Props) {
   return (
     <div ref={containerRef} className="w-full">
       <Document
-        file={url}
+        file={file}
         onLoadSuccess={onLoadSuccess}
         onLoadError={onLoadError}
         loading={

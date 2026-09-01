@@ -41,6 +41,13 @@ type LoadState = 'idle' | 'loading' | 'ok' | 'error';
  * Il rendering invece è cambiato: i PDF passano da pdf.js su canvas
  * (`PdfPreview`) e non più da un `<iframe src="blob:…">`, che su iPhone in PWA
  * standalone restava bianco.
+ *
+ * Del file scaricato teniamo **due** riferimenti, e non è ridondanza:
+ * - il `Blob`, che va a pdf.js — che così legge in memoria e non fa richieste;
+ * - il `blob:` URL, per `<img>`, download e "apri in nuova scheda".
+ * La CSP di nginx ha `img-src ... blob:` e `frame-src ... blob:` ma
+ * `connect-src 'self'`: un fetch/XHR verso un `blob:` URL viene bloccato
+ * (vedi il commento in `PdfPreview`).
  */
 export function AttachmentPreviewDialog({
   attachments,
@@ -52,6 +59,7 @@ export function AttachmentPreviewDialog({
   const [index, setIndex] = useState(initialIndex);
   const [state, setState] = useState<LoadState>('idle');
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [blob, setBlob] = useState<Blob | null>(null);
   const [filename, setFilename] = useState('allegato');
   const [errorMsg, setErrorMsg] = useState('');
   // Incrementato dal bottone "Riprova": rilancia l'effect di fetch.
@@ -104,6 +112,7 @@ export function AttachmentPreviewDialog({
         const typedBlob = blob.type ? blob : new Blob([blob], { type: contentType });
         objectUrl = URL.createObjectURL(typedBlob);
         setFilename(fname);
+        setBlob(typedBlob);
         setBlobUrl(objectUrl);
         setState('ok');
       })
@@ -117,6 +126,7 @@ export function AttachmentPreviewDialog({
       controller.abort();
       if (objectUrl) URL.revokeObjectURL(objectUrl);
       setBlobUrl(null);
+      setBlob(null);
     };
     // `current` cambia insieme a `remoteUrl`: dipendere dall'oggetto farebbe
     // rifetchare a ogni render del genitore.
@@ -233,7 +243,7 @@ export function AttachmentPreviewDialog({
                 alt={filename}
                 className="mx-auto max-h-[65dvh] w-auto max-w-full rounded-md"
               />
-            ) : isPdf ? (
+            ) : isPdf && blob ? (
               <Suspense
                 fallback={
                   <div className="flex min-h-[40dvh] items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -241,7 +251,7 @@ export function AttachmentPreviewDialog({
                   </div>
                 }
               >
-                <PdfPreview url={blobUrl} filename={filename} />
+                <PdfPreview file={blob} downloadUrl={blobUrl} filename={filename} />
               </Suspense>
             ) : (
               <div className="flex flex-col items-center gap-3 rounded-md border p-6 text-center">

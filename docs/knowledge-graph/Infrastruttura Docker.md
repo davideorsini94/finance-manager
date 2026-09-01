@@ -17,6 +17,7 @@ Stack orchestrato da `docker-compose.yml` (prod) + `docker-compose.dev.yml` (ove
 
 - `/api/*` → backend:3000, tutto il resto → frontend
 - gzip attivo; `client_max_body_size 25m` (allegati); **buffering off** per gli stream SSE (chat/notifiche)
+- **CSP** dichiarata a livello di `server` (la ereditano tutte le `location`): `default-src 'self'`, `img-src` e `frame-src` accettano anche `blob:`, **`connect-src` no** — un fetch/XHR verso un `blob:` URL viene bloccato e fallisce con status 0. È il motivo per cui l'anteprima PDF passa il `Blob` a pdf.js invece della sua URL (v0.15.1) → [[Frontend]]
 - TLS-ready ma la terminazione HTTPS è delegata a [[Tailscale e Accesso]]
 
 ## Dev mode
