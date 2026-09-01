@@ -14,7 +14,7 @@ API NestJS + Prisma in `backend/`. Espone REST sotto `/api/` (prefisso aggiunto 
 | `credit-cards/` | carte con `billingDay` e addebito differito sul conto d'appoggio |
 | `transactions/` | CRUD movimenti + filtri + audit |
 | `transfers/` | giroconti = 2 Transaction linkate via `transferPairId` |
-| `attachments/` | upload su MinIO, MIME sniff, presigned URL (TTL 15 min) |
+| `attachments/` | upload su MinIO, MIME sniff, lettura in stream via `GET attachments/:id/content` (è la rotta che usa il frontend, vedi [[Frontend]] → Allegati). `GET attachments/:id/presigned` (TTL 15 min) esiste ancora ma è **legacy e non usata**: la URL firmata punta all'hostname interno `minio:9000`, irraggiungibile dal browser |
 | `recurring/` | ricorrenze con cron giornaliero @1AM |
 | `budgets/`, `goals/` | budget mensili per categoria, obiettivi con progress |
 | `reports/` | dashboard, mensile, annuale, custom, confronto |

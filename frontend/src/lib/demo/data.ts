@@ -225,7 +225,38 @@ function buildTx(
   };
 }
 
-const TRANSACTIONS = generateTransactions();
+const TRANSACTIONS = attachDemoFiles(generateTransactions());
+
+/**
+ * Allegati finti sui primi movimenti: servono a esercitare l'anteprima
+ * (vedi [[AttachmentPreviewDialog]]) senza backend. Gli id sono mappati sui
+ * file statici di `public/demo/` in `lib/demo/attachments.ts`.
+ *
+ * Il primo movimento ne ha DUE (PDF + immagine) per provare la navigazione.
+ */
+function attachDemoFiles(txs: Transaction[]): Transaction[] {
+  const created = new Date().toISOString();
+  const att = (
+    id: string,
+    filename: string,
+    mimeType: string,
+    sizeBytes: number,
+  ): AttachmentSummary => ({ id, filename, mimeType, sizeBytes, createdAt: created });
+
+  if (txs[0]) {
+    txs[0].attachments = [
+      att('demo-att-pdf', 'ricevuta-demo.pdf', 'application/pdf', 1221),
+      att('demo-att-img', 'scontrino-demo.png', 'image/png', 3218),
+    ];
+  }
+  if (txs[1]) {
+    txs[1].attachments = [att('demo-att-pdf-2', 'fattura-luce.pdf', 'application/pdf', 1221)];
+  }
+  if (txs[2]) {
+    txs[2].attachments = [att('demo-att-img-2', 'scontrino-bar.png', 'image/png', 3218)];
+  }
+  return txs;
+}
 
 const BUDGETS = [
   { id: 'budget-1', userId: ME.id, categoryId: 'cat-spesa', month: monthStartIso(0), limitCents: '50000', createdAt: '2024-01-15T10:00:00Z', category: pickCat('cat-spesa') },

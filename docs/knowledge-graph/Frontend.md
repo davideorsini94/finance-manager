@@ -21,6 +21,20 @@ SPA React 19 + Vite + TypeScript in `frontend/`. UI Tailwind + shadcn/ui (Radix)
 - `store/uiStore.ts` — tema, preferenze UI
 - `store/quickAddStore.ts` — apertura della modale globale "Nuovo movimento" (usata dal FAB della BottomNav) **e** `defaultAccountId`: il conto da proporre in creazione, impostato dalla [[Pagina Movimenti]] quando è attivo un filtro per conto. La modale globale vive in `AppShell.tsx` (`GlobalQuickAdd`).
 
+## Allegati (upload e anteprima)
+
+- `components/shared/AttachmentUploader.tsx` — dropzone + lista allegati dentro il form movimento (`transactions/:id/attachments`)
+- `components/shared/AttachmentPreviewDialog.tsx` — **il** visualizzatore: riceve una lista di `AttachmentSummary` e naviga tra loro (frecce + contatore "N di M"), con bottone **Download** in testata e link "Apri in nuova scheda". Usato sia dalla riga della [[Pagina Movimenti]] sia da `InlinePreview`
+- `components/shared/InlinePreview.tsx` — wrapper sottile: solo il bottone "occhio" che apre il dialog su un singolo allegato (riga dell'uploader)
+- `components/shared/PdfPreview.tsx` — rendering PDF su **canvas** con `react-pdf`/pdf.js, tutte le pagine impilate. Caricato in `React.lazy` → chunk separato (~374 kB), pdfjs non entra nel bundle principale
+
+Punti da non rompere:
+
+- **Il binario si scarica con `fetch` → `Blob` → `blob:` URL**, non si passa la URL dell'API a `<img>`/`<iframe>`: le presigned di MinIO puntano all'hostname interno docker (vedi [[Backend]]). Safari a volte non popola `blob.type`, quindi il MIME viene riforzato dal `Content-Type` della risposta.
+- **Niente `<iframe src="blob:…">` per i PDF**: dentro la PWA standalone su iOS (WebKit + service worker) resta bianco — è il motivo per cui esiste `PdfPreview`. Vedi [[PWA e Mobile]].
+- **Il worker di pdf.js è importato con `?worker&url`**, non `?url`: così Vite emette un file `.js`. Con `.mjs` nginx 1.27 non ha la voce in `mime.types` e lo servirebbe come `application/octet-stream` → il browser rifiuta di avviare il Worker (rotto solo in produzione). Il worker resta same-origin, quindi la CSP `default-src 'self'` va bene così com'è.
+- `react-pdf` è in `optimizeDeps.include` (`vite.config.ts`): essendo importato solo in lazy, altrimenti Vite lo pre-bundla in una seconda passata con una copia di React diversa → "Invalid hook call" in dev.
+
 ## Pattern
 
 - Mutazioni → `queryClient.invalidateQueries` con `refetchType: 'all'` per aggiornare anche le query inattive (dashboard, budgets, goals…)

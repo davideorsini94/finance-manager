@@ -48,3 +48,5 @@ Regole in `backend/src/llm-chat/llm-fallback.ts` (puro, 9 test):
 Il provider attivo ha tre consumatori: la chat, `CategoryAiService` e il **report LLM** della [[Pagina Report]] (`backend/src/llm-reports/`, chiamata non in streaming come la categorizzazione).
 
 Ollama è usato anche per i suggerimenti di categoria in [[Import CSV-OFX]] (e nella coda di revisione di [[Sync Bancario]]) via `CategoryAiService`, che ora rispetta il provider attivo (OpenCode in JSON mode, fallback euristico se il provider non risponde).
+
+Piano originale del secondo provider (riferimento storico, feature ormai implementata): [[Provider LLM OpenCode (Piano)]].

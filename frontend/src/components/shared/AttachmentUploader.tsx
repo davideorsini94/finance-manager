@@ -121,7 +121,11 @@ function AttachmentItem({ attachment, onDelete }: ItemProps) {
           {(attachment.sizeBytes / 1024).toFixed(1)} KB
         </p>
       </div>
-      <InlinePreview attachmentId={attachment.id} mimeType={attachment.mimeType} />
+      <InlinePreview
+        attachmentId={attachment.id}
+        mimeType={attachment.mimeType}
+        filename={attachment.filename}
+      />
       {onDelete && (
         <Button
           type="button"

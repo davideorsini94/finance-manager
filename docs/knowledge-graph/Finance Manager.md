@@ -31,6 +31,7 @@ Questa è la nota-hub del grafo di conoscenza: da qui si raggiunge tutto il rest
 - [[Pagina Movimenti]] — la pagina più usata (filtri, card conti, quick-add)
 - [[Condivisione Conti]] — membri, inviti, ruoli
 - [[Chat LLM]] — Ollama + tool calling
+- [[Provider LLM OpenCode (Piano)]] — piano per un secondo provider LLM (API OpenAI-compatible)
 - [[Import CSV-OFX]] — wizard di importazione con suggerimenti AI
 - [[Sync Bancario]] — collegamento conti↔banche via Enable Banking, feature completa: consenso/mapping conti, motore di sync (dedup, quota, notifiche), categorizzazione LLM + rilevamento giroconti + pagina di revisione, rinnovo consenso e riconciliazione saldi → piano originale in [[Sync Bancario (Piano)]]
 

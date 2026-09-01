@@ -39,6 +39,14 @@ export function demoHandle(ctx: Ctx): unknown | null {
     return demoDataset.categories;
   }
 
+  // Allegati di un movimento (AttachmentUploader): va PRIMA della lista
+  // movimenti, altrimenti `matches(pathname, 'transactions')` (prefix-match)
+  // intercetta anche questa rotta e risponde con la pagina di transazioni.
+  if (matches(pathname, 'transactions/.*/attachments') && method === 'GET') {
+    const txId = demoIdFromPath(pathname, -2);
+    return demoDataset.transactions.find((t) => t.id === txId)?.attachments ?? [];
+  }
+
   // Transactions list
   if (matches(pathname, 'transactions') && method === 'GET') {
     const all = demoDataset.transactions;

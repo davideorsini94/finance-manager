@@ -7,6 +7,13 @@ export default defineConfig({
   resolve: {
     alias: { '@': path.resolve(__dirname, './src') },
   },
+  optimizeDeps: {
+    // `react-pdf` è importato solo in lazy (PdfPreview): senza questo hint
+    // Vite lo scopre a runtime e lo pre-bundla in una seconda passata, con
+    // una copia di React diversa da quella dell'app → "Invalid hook call".
+    // Riguarda solo il dev server; il build di produzione dedupa da sé.
+    include: ['react-pdf'],
+  },
   server: {
     host: true,
     port: 5173,

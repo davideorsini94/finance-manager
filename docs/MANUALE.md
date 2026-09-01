@@ -277,14 +277,23 @@ di rimuoverlo (l'eliminazione è irreversibile).
 
 ### Anteprima
 
-Sulla riga di ciascun allegato c'è un'icona **occhio**: cliccandola si apre
-una finestra:
+Puoi aprire l'anteprima in due punti:
 
-- **Immagini**: anteprima inline a schermo intero
-- **PDF**: visualizzato in un viewer interno
+- **Dalla lista dei movimenti**: se un movimento ha allegati, sulla sua riga
+  compare un'icona **occhio** accanto a matita e cestino. Cliccandola vedi
+  gli allegati senza aprire il movimento in modifica.
+- **Dentro la modale del movimento**: l'icona occhio sulla riga di ciascun
+  allegato.
 
-Le anteprime usano URL temporanei firmati che durano 15 minuti, quindi non
-serve fare login di nuovo per vederli.
+Nella finestra di anteprima:
+
+- **Immagini**: mostrate direttamente
+- **PDF**: sfogliati pagina per pagina dentro l'app (funziona anche
+  sull'app installata su iPhone)
+- **Più allegati**: le frecce `‹` e `›` in alto passano da uno all'altro, con
+  il contatore "1 di 2"
+- **Icona freccia in giù**: scarica l'allegato sul dispositivo
+- **"Apri in nuova scheda"**: apre il file fuori dall'app
 
 ---
 

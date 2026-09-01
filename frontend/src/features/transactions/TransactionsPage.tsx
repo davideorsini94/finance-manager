@@ -8,6 +8,7 @@ import {
   Pencil,
   Trash2,
   Paperclip,
+  Eye,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -28,6 +29,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { MoneyAmount } from '@/components/shared/MoneyAmount';
+import { AttachmentPreviewDialog } from '@/components/shared/AttachmentPreviewDialog';
 import { formatDate } from '@/lib/utils/date';
 import { sortByName } from '@/lib/utils/sort';
 import { getIcon } from '@/components/shared/icon-pool';
@@ -358,6 +360,9 @@ interface RowProps {
 }
 
 function TransactionRow({ tx, spineColor, onEdit, onDelete }: RowProps) {
+  // Stato locale: il dialog non scarica nulla finché non viene aperto, quindi
+  // montarne uno per riga non ha costo (il chunk pdfjs è lazy).
+  const [previewOpen, setPreviewOpen] = useState(false);
   const isTransfer = tx.type === 'transfer';
   const cents = Number(tx.amountCents);
   const isPositive = cents >= 0;
@@ -407,6 +412,17 @@ function TransactionRow({ tx, spineColor, onEdit, onDelete }: RowProps) {
       />
       {/* Azioni sempre accessibili, anche su mobile (prima erano hidden sm:flex). */}
       <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
+        {tx.attachments.length > 0 && (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-9 w-9 sm:h-10 sm:w-10"
+            onClick={() => setPreviewOpen(true)}
+            aria-label="Anteprima allegati"
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+        )}
         <Button
           size="icon"
           variant="ghost"
@@ -426,6 +442,14 @@ function TransactionRow({ tx, spineColor, onEdit, onDelete }: RowProps) {
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
+
+      {tx.attachments.length > 0 && (
+        <AttachmentPreviewDialog
+          attachments={tx.attachments}
+          open={previewOpen}
+          onOpenChange={setPreviewOpen}
+        />
+      )}
     </li>
   );
 }

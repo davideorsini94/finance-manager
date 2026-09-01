@@ -1,6 +1,7 @@
 import ky, { HTTPError, type KyInstance } from 'ky';
 import { useUIStore } from '@/store/uiStore';
 import { demoHandle } from '@/lib/demo/handlers';
+import { demoAttachmentFileFromPath } from '@/lib/demo/attachments';
 
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '/api';
 
@@ -40,6 +41,15 @@ async function maybeDemoResponse(request: Request): Promise<Response | null> {
   if (!isDemo) return null;
 
   const url = new URL(request.url, window.location.origin);
+
+  // Allegati: il contenuto è binario, non JSON. In demo lo serviamo dai file
+  // statici di `public/demo/` con un passthrough, così l'anteprima (PDF e
+  // immagini) funziona anche senza backend.
+  const demoFile = demoAttachmentFileFromPath(url.pathname);
+  if (demoFile && request.method === 'GET') {
+    return fetch(demoFile);
+  }
+
   // Alcuni handler demo (es. selezione/download modello LLM) hanno bisogno
   // del body per sapere *cosa* è stato richiesto, non solo l'URL/metodo.
   let requestBody: unknown;
