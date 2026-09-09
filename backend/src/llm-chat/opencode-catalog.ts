@@ -212,13 +212,16 @@ const OPCODE_META_SEED: readonly OpencodeModelMeta[] = [
     description: 'Versione "build" di Grok a costo ridotto.',
   },
   {
-    modelId: 'muse-spark-1.2',
+    // L'ID reale del gateway ha il suffisso `-contributor` (modello a opt-in):
+    // senza, questa voce non combaciava con nessun modello e restava inerte.
+    modelId: 'muse-spark-1.2-contributor',
     displayName: 'Muse Spark 1.2',
     family: 'Meta',
     inputPrice: 1.25,
     outputPrice: 4.25,
     quality: 'eccellente',
-    description: 'Modello Meta agente di alto livello: ottimo per tool-calling complessi.',
+    description:
+      'Modello Meta agente di alto livello: ottimo per tool-calling complessi. Richiede opt-in sull\'account OpenCode.',
   },
 ];
 
@@ -226,7 +229,14 @@ export const OPENCODE_MODEL_META: ReadonlyMap<string, OpencodeModelMeta> = new M
   OPCODE_META_SEED.map((m) => [m.modelId, m]),
 );
 
-/** Allowlist per la selezione: solo modelli presenti nei metadati sono selezionabili. */
-export function isOpencodeCatalogModel(modelId: string): boolean {
+/**
+ * Ci sono metadati (prezzo/qualità) per questo modello?
+ *
+ * **Non è un'allowlist**: la selezione del modello si valida contro l'elenco
+ * vivo della tier in `LlmModelsService.selectOpencodeModel`. Usarla come
+ * allowlist rifiutava come "fuori catalogo" modelli realmente serviti, appena
+ * il gateway ne aggiungeva di nuovi.
+ */
+export function hasOpencodeModelMeta(modelId: string): boolean {
   return OPENCODE_MODEL_META.has(modelId);
 }

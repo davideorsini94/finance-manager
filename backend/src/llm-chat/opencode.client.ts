@@ -44,6 +44,42 @@ export interface OpenAiMessage {
   tool_call_id?: string;
 }
 
+/**
+ * Da dove viene la risposta che stiamo giudicando: `usage` è un endpoint
+ * autenticato che non coinvolge alcun modello, `chat` è il ripiego su
+ * `chat/completions` (quindi nella risposta si mescola la salute del modello).
+ */
+export type KeyCheckSource = 'usage' | 'chat';
+
+/**
+ * La risposta dimostra che la API key è autenticata? `null` = non lo dimostra
+ * né lo smentisce (nessuna risposta: rete, DNS, timeout).
+ *
+ * La regola vale **solo sull'autenticazione**, mai sulla salute di un modello:
+ * legare la validità della chiave a un modello la faceva dichiarare invalida
+ * quando era perfetta (modello deprecato, a opt-in, o momentaneamente rotto).
+ * Quindi `402` credito esaurito, `429` rate limit, `400` modello non
+ * supportato e `500/503` del gateway **dimostrano** che la chiave è passata.
+ * Il `403` è ambiguo e dipende dalla fonte: su `usage` è un rifiuto della
+ * chiave, su `chat` è il modello che richiede un'adesione esplicita.
+ */
+export function keyIsAuthenticated(source: KeyCheckSource, status: number): boolean | null {
+  if (status === 0) return null;
+  if (status === 401) return false;
+  if (status === 403) return source === 'chat';
+  return true;
+}
+
+/** Esito del controllo di una API key su una singola tier. */
+export interface TierKeyCheck {
+  tier: OpencodeTier;
+  /** La chiave ha superato l'autenticazione su questa tier. */
+  ok: boolean;
+  /** Stato HTTP osservato (`0` = nessuna risposta: rete o timeout). */
+  status: number;
+  detail: string;
+}
+
 /** Chunk normalizzato prodotto dal parse dello stream SSE. */
 export interface OpenAiStreamChunk {
   content?: string;
@@ -65,7 +101,12 @@ export interface OpenAiChatBody {
 const DEFAULT_ZEN_URL = 'https://opencode.ai/zen/v1';
 const DEFAULT_GO_URL = 'https://opencode.ai/zen/go/v1';
 
-/** Modello presente su entrambe le tier: usato come probe per la chiave. */
+/**
+ * Modello usato come ripiego per validare una chiave quando la tier non
+ * espone `GET /usage` (vedi `checkKeyOnTier`). Non è un requisito: un errore
+ * SUO non rende invalida la chiave, conta solo se la richiesta ha passato
+ * l'autenticazione.
+ */
 const PROBE_MODEL = 'deepseek-v4-flash';
 
 /**
@@ -108,34 +149,79 @@ export class OpencodeClient {
    * si usa se valido. Ritorna `null` se nessun endpoint accetta la chiave.
    */
   async probeTier(apiKey: string, preferred?: OpencodeTier): Promise<OpencodeTier | null> {
+    return (await this.probeTierDetailed(apiKey, preferred)).tier;
+  }
+
+  /**
+   * Come `probeTier`, ma conserva **cosa ha risposto ogni tier**: serve a dire
+   * all'admin perché una chiave è stata rifiutata (chiave errata, credito
+   * esaurito, rate limit, gateway giù) invece del nudo "non valida".
+   */
+  async probeTierDetailed(
+    apiKey: string,
+    preferred?: OpencodeTier,
+  ): Promise<{ tier: OpencodeTier | null; checks: TierKeyCheck[] }> {
     const candidates: OpencodeTier[] = preferred
       ? [preferred, ...(['zen', 'go'] as OpencodeTier[]).filter((t) => t !== preferred)]
       : ['zen', 'go'];
 
+    const checks: TierKeyCheck[] = [];
     for (const tier of candidates) {
-      if (await this.tierAcceptsKey(tier, apiKey)) return tier;
+      const check = await this.checkKeyOnTier(tier, apiKey);
+      checks.push(check);
+      if (check.ok) return { tier, checks };
     }
-    return null;
+    return { tier: null, checks };
   }
 
-  private async tierAcceptsKey(tier: OpencodeTier, apiKey: string): Promise<boolean> {
+  /**
+   * La chiave è autenticata su questa tier?
+   *
+   * **Non si valuta la salute di un modello**: il gateway elenca modelli che
+   * poi risponde 500/503/400/403 (vedi `probeModel`), e legare la validità
+   * della chiave a uno di essi la faceva dichiarare "non valida" quando era
+   * perfetta — bastava che il modello di probe fosse deprecato, a opt-in, o
+   * momentaneamente rotto. Conta una cosa sola: la richiesta ha superato
+   * l'autenticazione? Quindi **solo un 401 (e un 403 su un endpoint non
+   * legato ai modelli) significa chiave non valida**; qualunque altra
+   * risposta — 402 credito esaurito, 429 rate limit, 500 del gateway, 400
+   * modello non supportato — dimostra che la chiave è stata accettata.
+   */
+  private async checkKeyOnTier(tier: OpencodeTier, apiKey: string): Promise<TierKeyCheck> {
+    // 1) Endpoint autenticato e indipendente dai modelli. Esiste sulla tier Go
+    //    (404 su Zen): è il controllo più pulito quando c'è.
+    const usage = await this.authenticatedStatus(`${this.baseUrlFor(tier)}/usage`, apiKey);
+    if (usage.status !== 404) {
+      const verdict = keyIsAuthenticated('usage', usage.status);
+      if (verdict !== null) {
+        return { tier, ok: verdict, status: usage.status, detail: usage.detail };
+      }
+    }
+
+    // 2) Ripiego: tier senza `/usage`, oppure `/usage` che non ha risposto.
+    const probe = await this.probeModel(tier, apiKey, PROBE_MODEL);
+    if (probe.ok) return { tier, ok: true, status: 200, detail: 'ok' };
+    return {
+      tier,
+      ok: keyIsAuthenticated('chat', probe.status) === true,
+      status: probe.status,
+      detail: probe.detail,
+    };
+  }
+
+  /** GET autenticata che ritorna solo stato e corpo d'errore leggibile. */
+  private async authenticatedStatus(
+    url: string,
+    apiKey: string,
+  ): Promise<{ status: number; detail: string }> {
     try {
-      const res = await fetch(`${this.baseUrlFor(tier)}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: PROBE_MODEL,
-          messages: [{ role: 'user', content: 'ping' }],
-          max_tokens: 1,
-        }),
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${apiKey}` },
         signal: AbortSignal.timeout(30_000),
       });
-      return res.ok;
-    } catch {
-      return false;
+      return { status: res.status, detail: res.ok ? 'ok' : await readErrorBody(res) };
+    } catch (e) {
+      return { status: 0, detail: (e as Error).message || 'nessuna risposta' };
     }
   }
 

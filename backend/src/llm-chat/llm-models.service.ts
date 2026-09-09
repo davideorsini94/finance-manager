@@ -5,9 +5,9 @@ import {
   LlmConfigService,
   type LlmProvider,
 } from './llm-config.service';
-import { OpencodeClient, type OpencodeTier } from './opencode.client';
+import { OpencodeClient, type OpencodeTier, type TierKeyCheck } from './opencode.client';
 import { isCatalogModel, LLM_CATALOG, type LlmCatalogEntry } from './llm-catalog';
-import { OPENCODE_MODEL_META, isOpencodeCatalogModel } from './opencode-catalog';
+import { OPENCODE_MODEL_META } from './opencode-catalog';
 
 export interface InstalledModel {
   name: string;
@@ -296,11 +296,14 @@ export class LlmModelsService {
     if (!key) {
       throw new BadRequestException('La API key non può essere vuota.');
     }
-    const tier = await this.opencode.probeTier(key, preferredTier);
+    const { tier, checks } = await this.opencode.probeTierDetailed(key, preferredTier);
     if (!tier) {
-      throw new BadRequestException(
-        'La API key non è stata accettata da nessun endpoint OpenCode (Zen o Go): verificala e riprova.',
+      this.logger.warn(
+        `API key OpenCode rifiutata: ${checks
+          .map((c) => `${c.tier} HTTP ${c.status} ${c.detail}`)
+          .join(' · ')}`,
       );
+      throw new BadRequestException(keyRejectedMessage(checks));
     }
     await this.llmConfig.setOpencodeCredentials(userId, key, tier);
     this.logger.log(`API key OpenCode salvata (tier ${tier}) da utente ${userId}`);
@@ -352,13 +355,15 @@ export class LlmModelsService {
     });
   }
 
-  /** Seleziona il modello OpenCode attivo e attiva il provider opencode. */
   /**
    * Salva il modello OpenCode attivo, **provandolo prima sul gateway**.
    *
-   * `GET /models` elenca anche modelli che poi non vengono serviti (500
+   * Due controlli, in quest'ordine: (1) il modello è nell'elenco vivo della
+   * tier (`GET /models`) — mai nella mappa dei metadati, che serve solo a
+   * prezzo/qualità e resta indietro sui modelli nuovi; (2) il gateway lo serve
+   * davvero, perché `GET /models` elenca anche modelli che poi rispondono 500
    * "Internal server error", 503 "Endpoint is unavailable", 400 "Unsupported
-   * model", 403 opt-in richiesto). Sceglierne uno lasciava la chat muta: il
+   * model" o 403 (opt-in richiesto). Sceglierne uno lasciava la chat muta: il
    * fallimento arrivava solo al primo messaggio, per ogni messaggio. Meglio
    * rifiutare qui, quando l'admin sta scegliendo e può leggere il perché.
    */
@@ -366,21 +371,31 @@ export class LlmModelsService {
     userId: string,
     model: string,
   ): Promise<{ activeModel: string }> {
-    if (!isOpencodeCatalogModel(model)) {
-      throw new BadRequestException('Modello non presente nel catalogo OpenCode.');
-    }
-
     const key = await this.llmConfig.getOpencodeKey();
     if (key) {
-      const tier = (await this.opencode.probeTier(key)) ?? undefined;
+      const status = await this.llmConfig.getStatus();
+      const tier =
+        status.opencode.tier ?? (await this.opencode.probeTier(key)) ?? undefined;
       if (tier) {
+        // L'allowlist è l'elenco VIVO della tier, non la mappa dei metadati:
+        // quella serve solo per prezzo e qualità e resta indietro ogni volta
+        // che il gateway aggiunge un modello (era il motivo per cui modelli
+        // realmente serviti venivano rifiutati come "fuori catalogo").
+        const available = await this.opencode.listModels(tier);
+        if (!available.includes(model)) {
+          throw new BadRequestException(
+            `Il gateway OpenCode (tier ${tier}) non elenca il modello "${model}".`,
+          );
+        }
         const probe = await this.opencode.probeModel(tier, key, model);
         if (!probe.ok) {
           this.logger.warn(
             `Modello OpenCode ${model} rifiutato dal gateway (HTTP ${probe.status}): ${probe.detail}`,
           );
           throw new BadRequestException(
-            `Il gateway OpenCode elenca "${model}" ma non lo serve (HTTP ${probe.status}: ${probe.detail}). Scegli un altro modello.`,
+            probe.status === 403
+              ? `Il modello "${model}" richiede un'adesione esplicita (opt-in) sul tuo account OpenCode: il gateway lo elenca ma risponde 403 (${probe.detail}). Abilitalo su opencode.ai oppure scegli un altro modello.`
+              : `Il gateway OpenCode elenca "${model}" ma non lo serve (HTTP ${probe.status}: ${probe.detail}). Scegli un altro modello.`,
           );
         }
       }
@@ -424,6 +439,24 @@ function toIso(value: Date | string | undefined): string | undefined {
   if (!value) return undefined;
   const d = value instanceof Date ? value : new Date(value);
   return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
+}
+
+/**
+ * Messaggio per una chiave rifiutata da tutte le tier. Distingue i casi che
+ * prima finivano tutti in un generico "non valida": la chiave arriva qui solo
+ * quando nessun endpoint ha superato l'autenticazione, ma il **perché** può
+ * essere un 401 (chiave davvero errata) o l'assenza di risposta (gateway
+ * irraggiungibile, timeout, DNS) — che non dice nulla sulla chiave.
+ */
+function keyRejectedMessage(checks: readonly TierKeyCheck[]): string {
+  const unreachable = checks.filter((c) => c.status === 0);
+  if (unreachable.length === checks.length) {
+    return `Nessuna risposta dagli endpoint OpenCode (${unreachable
+      .map((c) => c.tier)
+      .join(', ')}): gateway irraggiungibile o timeout, la chiave non è stata verificata. Riprova.`;
+  }
+  const detail = checks.map((c) => `${c.tier}: HTTP ${c.status} ${c.detail}`).join(' · ');
+  return `La API key non è stata accettata da nessun endpoint OpenCode (${detail}). Verificala e riprova.`;
 }
 
 /** Primi 4 + … + ultimi 4 della API key. Chiavi corte mascherate per intero. */
