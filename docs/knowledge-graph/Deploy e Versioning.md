@@ -16,6 +16,7 @@ Lo stack gira con `docker compose` ([[Infrastruttura Docker]]). Backend e fronte
 
 ## Note
 
+- `docker compose up -d` può **non ricreare** un container la cui immagine è stata ricostruita (visto sul frontend alla 0.16.1: diceva `Running` e continuava a servire la 0.16.0): verificare sempre con `docker inspect fm-frontend --format '{{.Image}}'` e in caso forzare con `up -d --force-recreate <servizio>`
 - Il CMD di produzione del backend esegue `prisma db push --accept-data-loss` all'avvio
 - Eventuali errori `tsc` locali da client Prisma stantio si risolvono nella build Docker (`prisma generate`)
 - `node_modules` del frontend può essere stato installato su macOS: per buildare in locale su Linux serve `npm install --no-save @rollup/rollup-linux-x64-gnu`
