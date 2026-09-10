@@ -214,7 +214,14 @@ export function demoHandle(ctx: Ctx): unknown | null {
     return { ok: true, demo: true };
   }
   if (matches(pathname, 'settings/llm/opencode/models') && method === 'GET') {
-    return DEMO_OPENCODE_MODELS;
+    // Stessa forma della risposta vera: solo modelli verificati, più quando è
+    // stata fatta la verifica e quanti ne sono stati esclusi.
+    return {
+      models: DEMO_OPENCODE_MODELS,
+      checkedAt: new Date().toISOString(),
+      excludedCount: 2,
+      refreshing: false,
+    };
   }
   if (matches(pathname, 'settings/llm/opencode/model') && method === 'PUT') {
     return demoSelectOpencodeModel(body);

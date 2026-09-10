@@ -7,7 +7,16 @@ import {
 } from './llm-config.service';
 import { OpencodeClient, type OpencodeTier, type TierKeyCheck } from './opencode.client';
 import { isCatalogModel, LLM_CATALOG, type LlmCatalogEntry } from './llm-catalog';
-import { OPENCODE_MODEL_META } from './opencode-catalog';
+import { OPENCODE_MODEL_META, pickReplacementModel } from './opencode-catalog';
+import {
+  OpencodeAvailabilityService,
+  type AvailabilitySnapshot,
+  type ModelAvailability,
+} from './opencode-availability.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { NotificationType, UserRole } from '@prisma/client';
+import type { LlmConfigStatus } from './llm-config.service';
 
 export interface InstalledModel {
   name: string;
@@ -30,6 +39,21 @@ export interface OpencodeModelEntry {
   quality: string | null;
   description: string | null;
   recommended: boolean;
+}
+
+/**
+ * Elenco proposto in Impostazioni: **solo modelli verificati funzionanti**.
+ * `checkedAt` dice quando è stata fatta la verifica (null = non verificati,
+ * manca la API key), `excludedCount` quanti il gateway elenca ma non serve —
+ * si mostra il numero e non i nomi: la tendina deve contenere solo roba che va.
+ */
+export interface OpencodeModelList {
+  models: OpencodeModelEntry[];
+  /** ISO 8601 dell'ultima verifica; `null` se non è stato possibile verificare. */
+  checkedAt: string | null;
+  excludedCount: number;
+  /** Una passata di verifica è in corso: il client può ripollare. */
+  refreshing: boolean;
 }
 
 export interface LlmOverview {
@@ -84,10 +108,16 @@ export class LlmModelsService {
   /** null = nessun download mai avviato in questo processo. */
   private pullJob: PullJobState | null = null;
 
+  /** Riparazione del modello attivo in corso: una alla volta, non una per richiesta. */
+  private healing: Promise<void> | null = null;
+
   constructor(
     config: ConfigService,
     private readonly llmConfig: LlmConfigService,
     private readonly opencode: OpencodeClient,
+    private readonly availability: OpencodeAvailabilityService,
+    private readonly notifications: NotificationsService,
+    private readonly prisma: PrismaService,
   ) {
     const host = config.get<string>('OLLAMA_BASE_URL');
     this.ollama = host ? new Ollama({ host }) : null;
@@ -306,12 +336,16 @@ export class LlmModelsService {
       throw new BadRequestException(keyRejectedMessage(checks));
     }
     await this.llmConfig.setOpencodeCredentials(userId, key, tier);
+    // Chiave nuova = modelli potenzialmente diversi (anche la tier può essere
+    // cambiata): la foto di disponibilità non vale più.
+    this.availability.invalidate();
     this.logger.log(`API key OpenCode salvata (tier ${tier}) da utente ${userId}`);
     return { tier, apiKeyMasked: maskKey(key) };
   }
 
   async removeOpencodeKey(): Promise<void> {
     await this.llmConfig.removeOpencodeKey();
+    this.availability.invalidate();
   }
 
   /**
@@ -320,7 +354,7 @@ export class LlmModelsService {
    * letto dall'endpoint pubblico `GET /models`: la lista è quindi quella reale
    * della tipologia di chiave.
    */
-  async getOpencodeModels(tier?: OpencodeTier): Promise<OpencodeModelEntry[]> {
+  async getOpencodeModels(tier?: OpencodeTier): Promise<OpencodeModelList> {
     const status = await this.llmConfig.getStatus();
     const effective = tier ?? status.opencode.tier;
     if (!effective) {
@@ -328,31 +362,126 @@ export class LlmModelsService {
         'Nessuna tier OpenCode configurata: salva la API key per rilevarla automaticamente.',
       );
     }
-    const ids = await this.opencode.listModels(effective);
-    return ids.map((modelId) => {
-      const meta = OPENCODE_MODEL_META.get(modelId);
-      return meta
-        ? {
-            modelId,
-            displayName: meta.displayName,
-            family: meta.family,
-            inputPrice: meta.inputPrice,
-            outputPrice: meta.outputPrice,
-            quality: meta.quality,
-            description: meta.description,
-            recommended: meta.recommended ?? false,
-          }
-        : {
-            modelId,
-            displayName: modelId,
-            family: null,
-            inputPrice: null,
-            outputPrice: null,
-            quality: null,
-            description: null,
-            recommended: false,
-          };
+
+    const key = await this.llmConfig.getOpencodeKey();
+    if (!key) {
+      // Senza chiave non si può provare nulla: si elenca quello che il gateway
+      // dice e lo si dichiara non verificato, invece di mostrare una lista
+      // vuota che sembrerebbe un guasto.
+      const ids = await this.opencode.listModels(effective);
+      return {
+        models: [...ids].sort((a, b) => a.localeCompare(b)).map((id) => this.describeModel(id)),
+        checkedAt: null,
+        excludedCount: 0,
+        refreshing: false,
+      };
+    }
+
+    const { snapshot, refreshing } = await this.availability.get(effective, key);
+    // Se è caduto il modello ATTIVO l'app si ripara da sé: un modello morto in
+    // configurazione significa chat rotta a ogni messaggio.
+    await this.healActiveModel(snapshot, status);
+
+    const working = snapshot.models.filter((m) => m.ok);
+    return {
+      models: working.map((m) => this.describeModel(m.modelId)),
+      checkedAt: snapshot.checkedAt.toISOString(),
+      excludedCount: snapshot.models.length - working.length,
+      refreshing,
+    };
+  }
+
+  /** Una voce di elenco: metadati dal catalogo se ci sono, altrimenti il solo id. */
+  private describeModel(modelId: string): OpencodeModelEntry {
+    const meta = OPENCODE_MODEL_META.get(modelId);
+    return meta
+      ? {
+          modelId,
+          displayName: meta.displayName,
+          family: meta.family,
+          inputPrice: meta.inputPrice,
+          outputPrice: meta.outputPrice,
+          quality: meta.quality,
+          description: meta.description,
+          recommended: meta.recommended ?? false,
+        }
+      : {
+          modelId,
+          displayName: modelId,
+          family: null,
+          inputPrice: null,
+          outputPrice: null,
+          quality: null,
+          description: null,
+          recommended: false,
+        };
+  }
+
+  /**
+   * Il modello attivo non è più servito (o non è più elencato)? Se ne imposta
+   * uno verificato e si avvisano gli admin.
+   *
+   * Guardie, tutte necessarie: solo se il provider attivo è OpenCode; solo se
+   * la foto riguarda la tier configurata (le impostazioni possono chiedere
+   * `?tier=` per curiosità e quella lista non deve riscrivere la
+   * configurazione); e mai se non funziona **niente** — in quel caso resta il
+   * modello di prima, con la riserva Ollama che risponde.
+   */
+  private async healActiveModel(
+    snapshot: AvailabilitySnapshot,
+    status: LlmConfigStatus,
+  ): Promise<void> {
+    if (status.provider !== 'opencode') return;
+    if (snapshot.tier !== status.opencode.tier) return;
+
+    const active = (status.opencode.model ?? '').trim();
+    if (!active) return;
+
+    const entry = snapshot.models.find((m) => m.modelId === active);
+    if (entry?.ok) return;
+
+    const replacement = pickReplacementModel(
+      snapshot.models.filter((m) => m.ok).map((m) => m.modelId),
+    );
+    if (!replacement || replacement === active) return;
+
+    // Una riparazione alla volta: il frontend ripolla ogni 3s durante un
+    // rinfresco e non deve poter innescare due cambi e due notifiche.
+    if (this.healing) return this.healing;
+    this.healing = this.switchActiveModel(active, replacement, entry).finally(() => {
+      this.healing = null;
     });
+    return this.healing;
+  }
+
+  private async switchActiveModel(
+    from: string,
+    to: string,
+    entry: ModelAvailability | undefined,
+  ): Promise<void> {
+    const reason = entry
+      ? `HTTP ${entry.status}: ${entry.detail}`
+      : 'non è più elencato dal gateway';
+    this.logger.warn(
+      `Modello OpenCode attivo "${from}" non più utilizzabile (${reason}): passo a "${to}".`,
+    );
+    // updatedBy null: non l'ha chiesto nessun admin, è stato il sistema.
+    await this.llmConfig.setOpencodeModel(null, to);
+
+    const admins = await this.prisma.user.findMany({
+      where: { role: UserRole.admin },
+      select: { id: true },
+    });
+    for (const admin of admins) {
+      await this.notifications.create({
+        userId: admin.id,
+        type: NotificationType.system,
+        title: 'Modello AI cambiato automaticamente',
+        body: `Il gateway OpenCode non serve più "${from}" (${reason}). Ho impostato "${to}", verificato funzionante. Puoi scegliere un altro modello in Impostazioni → Modello AI.`,
+        data: { kind: 'system', level: 'warning', href: '/settings' },
+        dedupKey: `opencode-model-switch:${from}:${to}`,
+      });
+    }
   }
 
   /**

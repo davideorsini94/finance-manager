@@ -240,3 +240,44 @@ export const OPENCODE_MODEL_META: ReadonlyMap<string, OpencodeModelMeta> = new M
 export function hasOpencodeModelMeta(modelId: string): boolean {
   return OPENCODE_MODEL_META.has(modelId);
 }
+
+/**
+ * Ordine di preferenza quando l'app deve **sostituire da sé** il modello
+ * attivo che il gateway non serve più: prima il consigliato del catalogo, poi
+ * la qualità migliore (a pari qualità il più economico in input), infine — se
+ * nessun candidato ha metadati — il primo id in ordine alfabetico. Nessuna
+ * scelta casuale: lo stesso guasto deve portare sempre allo stesso modello,
+ * altrimenti non si capisce più chi sta rispondendo.
+ *
+ * `null` se non funziona niente: meglio lasciare in configurazione un modello
+ * rotto (con la riserva Ollama che risponde) che scriverne uno inventato.
+ */
+export function pickReplacementModel(workingModelIds: readonly string[]): string | null {
+  if (!workingModelIds.length) return null;
+
+  const withMeta = workingModelIds
+    .map((modelId) => ({ modelId, meta: OPENCODE_MODEL_META.get(modelId) }))
+    .filter((c): c is { modelId: string; meta: OpencodeModelMeta } => !!c.meta);
+
+  const recommended = withMeta.find((c) => c.meta.recommended);
+  if (recommended) return recommended.modelId;
+
+  if (withMeta.length) {
+    return [...withMeta].sort(
+      (a, b) =>
+        QUALITY_RANK[a.meta.quality] - QUALITY_RANK[b.meta.quality] ||
+        a.meta.inputPrice - b.meta.inputPrice ||
+        a.modelId.localeCompare(b.modelId),
+    )[0].modelId;
+  }
+
+  return [...workingModelIds].sort((a, b) => a.localeCompare(b))[0];
+}
+
+/** Qualità dalla migliore alla peggiore, per la scelta del sostituto. */
+const QUALITY_RANK: Record<OpencodeQuality, number> = {
+  eccellente: 0,
+  'molto buona': 1,
+  buona: 2,
+  gratuito: 3,
+};

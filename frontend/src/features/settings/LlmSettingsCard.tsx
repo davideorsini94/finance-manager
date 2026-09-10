@@ -112,6 +112,9 @@ export function LlmSettingsCard() {
     queryFn: () => llmApi.opencodeModels(opencodeTier),
     enabled: opencodeConfigured && !!opencodeTier,
     staleTime: 5 * 60_000,
+    // Mentre il backend verifica i modelli in background si ripolla, così la
+    // lista si completa da sé senza far ricaricare la pagina.
+    refetchInterval: (query) => (query.state.data?.refreshing ? 3000 : false),
   });
 
   // Quando il pull passa da attivo a non-attivo: mostra l'esito e aggiorna
@@ -594,7 +597,9 @@ export function LlmSettingsCard() {
                   Salva la API key per elencare i modelli della tua tipologia di chiave.
                 </p>
               ) : opencodeModelsQuery.isLoading ? (
-                <p className="text-sm text-muted-foreground">Caricamento…</p>
+                <p className="text-sm text-muted-foreground">
+                  Verifico quali modelli il gateway serve davvero… (qualche secondo)
+                </p>
               ) : opencodeModelsQuery.isError ? (
                 <p className="text-sm text-destructive flex items-center gap-1">
                   <AlertCircle className="h-4 w-4 shrink-0" />
@@ -603,8 +608,22 @@ export function LlmSettingsCard() {
                     : 'Errore nel caricamento dei modelli.'}
                 </p>
               ) : (
+                <>
+                <p className="text-xs text-muted-foreground">
+                  {opencodeModelsQuery.data?.refreshing
+                    ? 'Verifico quali modelli funzionano…'
+                    : opencodeModelsQuery.data?.checkedAt
+                      ? `Verificati alle ${new Date(opencodeModelsQuery.data.checkedAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}`
+                      : 'Non verificati: manca la API key'}
+                  {!!opencodeModelsQuery.data?.excludedCount &&
+                    ` · ${opencodeModelsQuery.data.excludedCount} ${
+                      opencodeModelsQuery.data.excludedCount === 1
+                        ? 'modello elencato dal gateway non è utilizzabile'
+                        : 'modelli elencati dal gateway non sono utilizzabili'
+                    }`}
+                </p>
                 <ul className="space-y-2">
-                  {opencodeModelsQuery.data?.map((m: OpencodeModelEntry) => {
+                  {opencodeModelsQuery.data?.models.map((m: OpencodeModelEntry) => {
                     const isActive = m.modelId === settings?.activeModel;
                     return (
                       <li key={m.modelId} className="rounded-md border p-3 space-y-2">
@@ -655,6 +674,7 @@ export function LlmSettingsCard() {
                     );
                   })}
                 </ul>
+                </>
               )}
             </div>
           </>

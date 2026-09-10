@@ -276,7 +276,8 @@ export class LlmConfigService {
   }
 
   /** Salva il modello OpenCode attivo e invalida la cache. */
-  async setOpencodeModel(userId: string, model: string): Promise<ActiveLlmConfig> {
+  /** `userId` null = cambio deciso dal sistema (auto-riparazione del modello). */
+  async setOpencodeModel(userId: string | null, model: string): Promise<ActiveLlmConfig> {
     await this.prisma.llmConfig.upsert({
       where: { id: SINGLETON_ID },
       create: { id: SINGLETON_ID, opencodeModel: model, updatedBy: userId },

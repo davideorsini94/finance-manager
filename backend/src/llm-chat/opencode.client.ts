@@ -140,6 +140,16 @@ export function opencodeSessionHeader(sessionId?: string): string {
 const STREAM_IDLE_TIMEOUT_MS = 120_000;
 
 /**
+ * Tetto della micro-chiamata di sonda (`probeModel`). 15s e non 45: la sonda
+ * decide se un modello è **usabile**, e un modello che non risponde a un ping
+ * da 1 token entro 15s non lo è per una chat. Un solo valore per un solo
+ * significato: la lista delle impostazioni e il salvataggio del modello devono
+ * dare lo stesso verdetto (con 45s qui e 15s nella verifica in blocco, un
+ * modello escluso dalla lista sarebbe rimasto salvabile).
+ */
+export const PROBE_TIMEOUT_MS = 15_000;
+
+/**
  * Se per questo intervallo lo stream produce solo "ragionamento" o delta vuoti
  * senza MAI arrivare a contenuto o tool call, viene abortito. Copre il caso
  * (frequente con i modelli reasoning tramite il gateway) in cui i bytes
@@ -295,7 +305,7 @@ export class OpencodeClient {
           messages: [{ role: 'user', content: 'ping' }],
           max_tokens: 1,
         }),
-        signal: AbortSignal.timeout(45_000),
+        signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
       });
       if (res.ok) return { ok: true };
       return { ok: false, status: res.status, detail: await readErrorBody(res) };

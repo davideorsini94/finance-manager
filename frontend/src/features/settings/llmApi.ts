@@ -24,6 +24,19 @@ export interface OpencodeModelEntry {
   recommended: boolean;
 }
 
+/**
+ * Risposta di `GET settings/llm/opencode/models`: contiene **solo** modelli
+ * verificati funzionanti. `checkedAt` = quando è stata fatta la verifica (null
+ * = non verificata, manca la API key), `excludedCount` = quanti il gateway
+ * elenca ma non serve, `refreshing` = una verifica è in corso.
+ */
+export interface OpencodeModelList {
+  models: OpencodeModelEntry[];
+  checkedAt: string | null;
+  excludedCount: number;
+  refreshing: boolean;
+}
+
 export interface LlmSettings {
   provider: LlmProvider;
   activeModel: string;
@@ -82,7 +95,7 @@ export const llmApi = {
   opencodeModels: (tier?: OpencodeTier) =>
     api
       .get(tier ? `settings/llm/opencode/models?tier=${tier}` : 'settings/llm/opencode/models')
-      .json<OpencodeModelEntry[]>(),
+      .json<OpencodeModelList>(),
   saveOpencodeKey: (apiKey: string, tier?: OpencodeTier) =>
     api
       .put('settings/llm/opencode/key', { json: { apiKey, ...(tier ? { tier } : {}) } })
