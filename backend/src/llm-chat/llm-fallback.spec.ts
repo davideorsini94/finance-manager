@@ -46,6 +46,21 @@ describe('isFallbackWorthy', () => {
     expect(isFallbackWorthy(gatewayError(400, 'Unsupported model'))).toBe(true);
   });
 
+  it('NON ripiega sul 400 MissingSessionID: quello è un difetto nostro', () => {
+    // Il gateway Go pretende l'header `x-opencode-session` (vedi
+    // `opencodeSessionHeader`). Se manca, la colpa è della NOSTRA richiesta:
+    // ripiegare su Ollama nasconderebbe il difetto facendo sembrare il cloud
+    // rotto, esattamente il caso che il modulo si impegna a non coprire.
+    expect(
+      isFallbackWorthy(
+        gatewayError(
+          400,
+          'Request is missing x-opencode-session and cannot be routed efficiently.',
+        ),
+      ),
+    ).toBe(false);
+  });
+
   it('ripiega su una risposta vuota', () => {
     expect(isFallbackWorthy(new EmptyLlmResponseError('gpt-x'))).toBe(true);
   });

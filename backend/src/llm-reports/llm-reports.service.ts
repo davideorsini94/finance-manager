@@ -225,7 +225,12 @@ export class LlmReportsService {
     const startedAt = Date.now();
     try {
       const snapshot = await this.buildSnapshot(userId, params);
-      const { content, config } = await this.generateContent(snapshot);
+      // Chiave di sessione per OpenCode: stabile per report, così una
+      // rigenerazione dello stesso periodo riusa il prompt caching.
+      const { content, config } = await this.generateContent(
+        snapshot,
+        `report-${key.scope}-${key.periodKey}-${key.accountsKey}`,
+      );
       await this.prisma.llmReport.update({
         where: { userId_scope_periodKey_accountsKey: key },
         data: {
@@ -272,6 +277,7 @@ export class LlmReportsService {
    */
   private async generateContent(
     snapshot: ReportSnapshot,
+    sessionKey: string,
   ): Promise<{ content: string; config: ActiveLlmConfig }> {
     const config = await this.llmConfig.getActiveConfig();
     if (!config.model) {
@@ -282,7 +288,7 @@ export class LlmReportsService {
     // Il prompt di base è quello scelto dall'admin nelle impostazioni, se c'è.
     const prompt = buildReportPrompt(snapshot, config.reportPrompt);
     try {
-      return { content: await this.runOn(config, prompt), config };
+      return { content: await this.runOn(config, prompt, sessionKey), config };
     } catch (e) {
       if (config.provider !== 'opencode' || !isFallbackWorthy(e)) throw e;
       if (isQuotaError(e)) this.llmConfig.noteOpencodeQuotaExhausted();
@@ -293,7 +299,7 @@ export class LlmReportsService {
         `Report LLM: OpenCode ha fallito (${describeError(e)}), riprovo con il modello locale ${fallback.model}.`,
       );
       try {
-        return { content: await this.runOn(fallback, prompt), config: fallback };
+        return { content: await this.runOn(fallback, prompt, sessionKey), config: fallback };
       } catch (fallbackError) {
         // L'utente deve vedere che hanno fallito ENTRAMBI, non solo il secondo.
         throw new ServiceUnavailableException(
@@ -304,13 +310,21 @@ export class LlmReportsService {
   }
 
   /** Una singola generazione su un provider preciso. Vuoto = fallimento. */
-  private async runOn(config: ActiveLlmConfig, prompt: string): Promise<string> {
-    const content = (await this.callLlm(config, prompt)).trim();
+  private async runOn(
+    config: ActiveLlmConfig,
+    prompt: string,
+    sessionKey: string,
+  ): Promise<string> {
+    const content = (await this.callLlm(config, prompt, sessionKey)).trim();
     if (!content) throw new EmptyLlmResponseError(config.model);
     return content;
   }
 
-  private async callLlm(config: ActiveLlmConfig, prompt: string): Promise<string> {
+  private async callLlm(
+    config: ActiveLlmConfig,
+    prompt: string,
+    sessionKey: string,
+  ): Promise<string> {
     if (config.provider === 'opencode') {
       if (!config.apiKey || !config.tier) {
         throw new ServiceUnavailableException(
@@ -318,10 +332,15 @@ export class LlmReportsService {
         );
       }
       // Niente `temperature`: alcuni modelli reasoning la rifiutano.
-      return this.opencode.chat(config.tier, config.apiKey, {
-        model: config.model,
-        messages: [{ role: 'user', content: prompt }],
-      });
+      return this.opencode.chat(
+        config.tier,
+        config.apiKey,
+        {
+          model: config.model,
+          messages: [{ role: 'user', content: prompt }],
+        },
+        sessionKey,
+      );
     }
     if (!this.ollama) {
       throw new ServiceUnavailableException(

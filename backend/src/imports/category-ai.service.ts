@@ -98,10 +98,18 @@ export class CategoryAiService {
         // Niente `temperature`/`response_format`: alcuni modelli reasoning li
         // rifiutano. Il prompt chiede JSON puro e `parseResponse` estrae
         // comunque l'array dal testo (anche con wrapper).
-        const text = await this.opencode.chat(config.tier, config.apiKey, {
-          model: config.model,
-          messages: [{ role: 'user', content: prompt }],
-        });
+        const text = await this.opencode.chat(
+          config.tier,
+          config.apiKey,
+          {
+            model: config.model,
+            messages: [{ role: 'user', content: prompt }],
+          },
+          // Qui non c'è una conversazione: una chiave fissa tiene i batch di
+          // categorizzazione sulla stessa rotta e ne condivide il prompt
+          // caching (l'elenco categorie è lo stesso a ogni chiamata).
+          'categorize',
+        );
         const suggestions = this.parseResponse(text, inputs, categories);
         this.logger.log(
           `Batch categorie ${inputs.length} righe in ${elapsedSeconds(startedAt)}s (OpenCode ${config.model})`,

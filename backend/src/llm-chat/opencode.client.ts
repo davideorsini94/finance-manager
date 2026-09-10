@@ -1,4 +1,5 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 
 /**
@@ -110,6 +111,28 @@ const DEFAULT_GO_URL = 'https://opencode.ai/zen/go/v1';
 const PROBE_MODEL = 'deepseek-v4-flash';
 
 /**
+ * Valore dell'header `x-opencode-session` per una conversazione.
+ *
+ * **Non è un'ottimizzazione, è un requisito**: dal 2026-09-10 la tier Go
+ * risponde `400 MissingSessionID` ("Request is missing x-opencode-session and
+ * cannot be routed efficiently") a QUALUNQUE `chat/completions` senza header —
+ * verificato su tutti i 36 modelli elencati, nessuno escluso. La
+ * documentazione (https://opencode.ai/docs/go/) chiede un id **stabile per
+ * conversazione**, che il gateway usa per il routing e per il prompt caching:
+ * quindi la chat passa l'id della `ChatSession`, i report la loro identità di
+ * periodo, la categorizzazione la chiave del batch.
+ *
+ * Senza id si genera un valore casuale invece di omettere l'header: una
+ * richiesta senza header non arriva al modello, e un chiamante nuovo che si
+ * dimentica il parametro deve funzionare comunque (male: senza cache, non
+ * rotto).
+ */
+export function opencodeSessionHeader(sessionId?: string): string {
+  const trimmed = sessionId?.trim();
+  return `fm-${trimmed || randomUUID()}`;
+}
+
+/**
  * Se lo stream non produce NESSUNA riga per questo intervallo, viene
  * abortito: un modello reasoning che non emette token, o una connessione
  * rimasta appesa dal gateway, non devono bloccare la chat per sempre.
@@ -141,6 +164,19 @@ export class OpencodeClient {
 
   baseUrlFor(tier: OpencodeTier): string {
     return tier === 'zen' ? this.zenUrl : this.goUrl;
+  }
+
+  /**
+   * Header di una chiamata a `chat/completions`. `x-opencode-session` è
+   * obbligatorio (vedi `opencodeSessionHeader`): sta qui, in un unico punto,
+   * perché le tre chiamate al gateway non possano divergere.
+   */
+  private chatHeaders(apiKey: string, sessionId?: string): Record<string, string> {
+    return {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+      'x-opencode-session': opencodeSessionHeader(sessionId),
+    };
   }
 
   /**
@@ -248,14 +284,12 @@ export class OpencodeClient {
     tier: OpencodeTier,
     apiKey: string,
     model: string,
+    sessionId?: string,
   ): Promise<{ ok: true } | { ok: false; status: number; detail: string }> {
     try {
       const res = await fetch(`${this.baseUrlFor(tier)}/chat/completions`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
+        headers: this.chatHeaders(apiKey, sessionId),
         body: JSON.stringify({
           model,
           messages: [{ role: 'user', content: 'ping' }],
@@ -275,6 +309,7 @@ export class OpencodeClient {
     tier: OpencodeTier,
     apiKey: string,
     body: Omit<OpenAiChatBody, 'stream'>,
+    sessionId?: string,
   ): AsyncGenerator<OpenAiStreamChunk> {
     // Due watchdog:
     // 1. Connessione: il timeout copre solo l'apertura (i primi header), così
@@ -289,10 +324,7 @@ export class OpencodeClient {
     try {
       res = await fetch(`${this.baseUrlFor(tier)}/chat/completions`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
+        headers: this.chatHeaders(apiKey, sessionId),
         body: JSON.stringify({ ...body, stream: true }),
         signal: abort.signal,
       });
@@ -435,13 +467,11 @@ export class OpencodeClient {
     tier: OpencodeTier,
     apiKey: string,
     body: Omit<OpenAiChatBody, 'stream'>,
+    sessionId?: string,
   ): Promise<string> {
     const res = await fetch(`${this.baseUrlFor(tier)}/chat/completions`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
+      headers: this.chatHeaders(apiKey, sessionId),
       body: JSON.stringify({ ...body, stream: false }),
       signal: AbortSignal.timeout(120_000),
     });

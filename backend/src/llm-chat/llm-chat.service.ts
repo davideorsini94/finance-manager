@@ -258,11 +258,18 @@ Esempi:
         const roundStartedAt = Date.now();
         let lastThinkingAt = 0;
         try {
-          for await (const chunk of this.opencode.streamChat(config.tier!, config.apiKey!, {
-            model: config.model,
-            messages: history.map(toOpenAiMessage),
-            tools,
-          })) {
+          for await (const chunk of this.opencode.streamChat(
+            config.tier!,
+            config.apiKey!,
+            {
+              model: config.model,
+              messages: history.map(toOpenAiMessage),
+              tools,
+            },
+            // Id di sessione per il gateway: stabile su tutti i round della
+            // stessa conversazione (routing e prompt caching), obbligatorio.
+            sessionId,
+          )) {
             if (chunk.thinking) {
               // Il reasoning arriva token per token: lo segnaliamo al frontend
               // al massimo ogni 2s, per non inondare la UI di eventi.
