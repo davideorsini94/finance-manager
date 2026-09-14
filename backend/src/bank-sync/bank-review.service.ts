@@ -692,6 +692,9 @@ export class BankReviewService {
           ? TransactionType.expense
           : TransactionType.income;
 
+    // Il segno segue il TIPO: se l'utente ha forzato il verso, comanda quello.
+    const signedAmount = signedAmountForType(type, row.amountCents);
+
     const categoryId = row.finalCategoryId;
     if (categoryId) await this.assertCategoryOwned(userId, categoryId);
 
@@ -702,7 +705,7 @@ export class BankReviewService {
           // Autore del movimento = chi conferma, non il proprietario della
           // connessione: è la stessa regola delle transazioni inserite a mano.
           userId,
-          amountCents: row.amountCents,
+          amountCents: signedAmount,
           type,
           categoryId,
           // Già sanificata all'ingestione (sanitizeExternalText).
@@ -714,7 +717,7 @@ export class BankReviewService {
       });
       await tx.account.update({
         where: { id: row.link.accountId },
-        data: { balanceCents: { increment: row.amountCents } },
+        data: { balanceCents: { increment: signedAmount } },
       });
       // Guard sullo stato: se qualcun altro ha confermato la riga nel
       // frattempo, la transazione viene annullata invece di creare un doppione.
@@ -730,7 +733,7 @@ export class BankReviewService {
 
     void this.audit.log(userId, AuditAction.create, AuditEntity.transaction, created.id, {
       accountId: row.link.accountId,
-      amountCents: row.amountCents.toString(),
+      amountCents: signedAmount.toString(),
       type,
       source: 'bank_sync',
       stagedId: row.id,
@@ -864,6 +867,22 @@ async function clearPairs(
     where: { OR: [{ id: { in: targets } }, { matchedStagedId: { in: targets } }] },
     data: { matchedStagedId: null, suggestedType: null },
   });
+}
+
+/**
+ * Importo con il segno che il **tipo** richiede, non quello che ha mandato la
+ * banca.
+ *
+ * Serve perché in revisione si può forzare entrata/uscita su una riga: senza
+ * questa conversione il movimento nasceva con il segno grezzo della banca
+ * mentre il tipo diceva il contrario — un accredito forzato a "Uscita" veniva
+ * mostrato come −5.000 € (il frontend calcola il verso da sé) ma **alzava** il
+ * saldo di 5.000. Stessa regola di `TransactionsService.toSignedAmount`, qui
+ * su `bigint` perché gli importi del sync arrivano già così.
+ */
+export function signedAmountForType(type: TransactionType, amountCents: bigint): bigint {
+  const abs = amountCents < 0n ? -amountCents : amountCents;
+  return type === TransactionType.income ? abs : -abs;
 }
 
 function toReviewItem(row: StagedForReview, pair: PairView | undefined): ReviewItem {

@@ -510,7 +510,13 @@ export class SyncEngineService {
       // parte del sync vero e proprio (una banca che non lo espone non deve
       // far risultare fallito lo scaricamento dei movimenti).
       const balanceCents = await this.fetchLinkBalance(link);
-      await this.touchLink(link, now, maxBookingDate, balanceCents);
+      await this.touchLink(
+        link,
+        now,
+        maxBookingDate,
+        balanceCents,
+        new Set(candidates.map((c) => c.dedupHash)),
+      );
 
       // Riepilogo per collegamento: da `docker logs` si legge subito perché un
       // movimento non è arrivato in coda (non contabilizzato, valuta diversa,
@@ -911,6 +917,8 @@ export class SyncEngineService {
     now: Date,
     maxBookingDate: Date | null,
     balanceCents: bigint | null,
+    /** Hash dei movimenti che la banca ha restituito in QUESTO fetch. */
+    seenHashes: Set<string>,
   ): Promise<void> {
     const advance =
       maxBookingDate && (!link.lastBookedDate || maxBookingDate > link.lastBookedDate)
@@ -926,19 +934,37 @@ export class SyncEngineService {
         ...(balanceCents !== null ? { lastBalanceCents: balanceCents, lastBalanceAt: now } : {}),
       },
     });
-    await this.pruneIgnored(link, advance ?? link.lastBookedDate);
+    await this.pruneIgnored(link, advance ?? link.lastBookedDate, seenHashes);
   }
 
   /**
-   * Pulizia degli **ignorati** usciti dalla finestra di sync: una riga più
-   * vecchia di `cursore - OVERLAP_DAYS` non verrà mai più ri-scaricata dalla
-   * banca, quindi tenerla in staging non serve più a niente (l'utente l'ha già
-   * scartata). Le righe `duplicate` restano: potrebbero ancora essere
-   * ripristinate per correggere un falso positivo del matcher.
+   * Pulizia degli **ignorati** che la banca non manda più: tenerli in staging
+   * non serve a niente, l'utente li ha già scartati. Le righe `duplicate`
+   * restano: potrebbero ancora essere ripristinate per correggere un falso
+   * positivo del matcher.
+   *
+   * **La riga ignorata è la lapide**: l'indice unico `(linkId, dedupHash)` con
+   * `skipDuplicates` è ciò che impedisce al sync successivo di rimettere in
+   * coda un movimento già scartato. Cancellarla è quindi sicuro solo quando la
+   * banca ha davvero smesso di mandarla.
+   *
+   * La vecchia condizione era di calendario — più vecchia di
+   * `cursore - OVERLAP_DAYS`, cioè fuori dalla finestra che chiediamo con
+   * `date_from` — e dava per scontato che la banca rispettasse `date_from`.
+   * **Trade Republic no**: con il cursore all'11/09 (quindi `date_from` al
+   * 04/09) continuava a restituire un movimento del 26/08. Risultato: la
+   * lapide veniva cancellata e il sync dopo rimetteva la riga in coda, a ogni
+   * giro. Ora la condizione è osservativa — si cancella solo ciò che **questo
+   * fetch non ha riportato** — quindi si adatta da sé al comportamento di ogni
+   * banca: per chi rispetta `date_from` il risultato è identico a prima.
    *
    * Best-effort: un errore qui non deve far fallire il sync appena riuscito.
    */
-  private async pruneIgnored(link: LinkForSync, cursor: Date | null): Promise<void> {
+  private async pruneIgnored(
+    link: LinkForSync,
+    cursor: Date | null,
+    seenHashes: Set<string>,
+  ): Promise<void> {
     // Senza cursore il link non ha mai completato un sync: niente da pulire.
     if (!cursor) return;
     const cutoff = addDays(cursor, -OVERLAP_DAYS);
@@ -948,6 +974,9 @@ export class SyncEngineService {
           linkId: link.id,
           status: StagedTxStatus.ignored,
           effectiveDate: { lt: cutoff },
+          // Ciò che la banca ha appena rimandato NON si tocca, per vecchio che
+          // sia: è la prova che continuerà a mandarlo.
+          ...(seenHashes.size ? { dedupHash: { notIn: [...seenHashes] } } : {}),
         },
       });
       if (deleted.count > 0) {
