@@ -14,8 +14,10 @@ Finance Manager ti permette di:
 - 🔁 **Automatizzare ricorrenze** (stipendi, affitti, bollette, anche giroconti) con scheduler giornaliero
 - 📊 **Visualizzare dashboard, report annuali e confronti** tra periodi con grafici interattivi (Recharts)
 - 🎯 **Tracciare budget mensili per categoria** e **obiettivi di risparmio** con progress bar
-- 💬 **Chattare con un LLM locale** (Ollama) che ha accesso ai tuoi dati tramite tool calling sicuro (es. "Quanto ho speso in ristoranti questo mese?")
+- 💬 **Chattare con un LLM** (Ollama locale o OpenCode cloud, a scelta) che ha accesso ai tuoi dati tramite tool calling sicuro (es. "Quanto ho speso in ristoranti questo mese?"), più un report testuale generato dall'AI per ogni periodo nella pagina Report
 - 📥 **Importare estratti conto CSV/OFX** con suggerimento automatico di categoria via AI
+- 🏦 **Sincronizzare i conti con la banca** (Enable Banking, Open Banking in sola lettura) con coda di revisione per confermare/ignorare i movimenti importati, deduplica e riconoscimento automatico dei giroconti
+- 📈 **Proiettare il saldo futuro dei conti** in base a ricorrenze e storico (pagina Previsioni)
 - 📦 **Backup & restore full-system** in un singolo `.zip` (DB + allegati MinIO)
 - 📱 **Installare come PWA** su mobile (iOS/Android) con bottom-nav, safe-area, dark mode, lingua IT/EN
 - 🧪 **Modalità Demo** con dati realistici simulati per esplorare l'app senza toccare il DB reale
@@ -52,7 +54,7 @@ L'app è una classica architettura a tre livelli + AI locale, orchestrata con `d
 2. Il frontend si autentica via `httpOnly cookie` (access JWT 15min + refresh JWT 30 giorni con rotation)
 3. Tutte le chiamate API passano per `nginx → backend`; gli allegati vengono caricati su MinIO con presigned URL
 4. Il backend applica ACL (`AccountPolicyService`) su ogni risorsa: un utente vede solo i conti propri o condivisi con lui
-5. Il modulo Chat usa Ollama in streaming SSE, con **tool calling** che inietta `userId` server-side (l'LLM non può mai accedere a dati di altri utenti)
+5. Il modulo Chat usa Ollama o OpenCode in streaming SSE, con **tool calling** che inietta `userId` server-side (l'LLM non può mai accedere a dati di altri utenti)
 6. Cron giornaliero alle 01:00 esegue ricorrenze e addebiti differiti delle carte di credito
 
 ### Stack tecnico
@@ -63,7 +65,8 @@ L'app è una classica architettura a tre livelli + AI locale, orchestrata con `d
 | **Backend** | NestJS, Prisma ORM, JWT (httpOnly cookie + refresh rotation), Argon2id, BullMQ-style scheduler interno |
 | **Database** | PostgreSQL 16 (immagine pinnata via sha256) |
 | **Object storage** | MinIO (S3-compatible) per allegati con MIME-sniff e presigned URL |
-| **LLM** | Ollama locale, modello default `qwen2.5:7b-instruct-q4_K_M` (~4.5 GB), tool calling sicuro |
+| **LLM** | Ollama locale (default `qwen2.5:7b-instruct-q4_K_M`, ~4.5 GB) oppure OpenCode cloud (tier Zen/Go, con API key propria) — tool calling sicuro, fallback automatico su Ollama se OpenCode esaurisce la quota |
+| **Open Banking** | Enable Banking API (AIS, sola lettura) per il collegamento dei conti bancari |
 | **Reverse proxy** | nginx (TLS-ready, config commentata per Let's Encrypt) |
 | **Deploy** | docker-compose (prod + override dev per hot reload) |
 
@@ -97,7 +100,7 @@ Apri **`http://localhost/`** e fai login con le credenziali `SEED_ADMIN_*` defin
 
 > ⏳ Al primo avvio Ollama scarica il modello (qualche minuto). Console MinIO disponibile su `http://localhost:9001`.
 
-> 💡 **Accesso da mobile / LAN**: imposta `APP_PUBLIC_URL` in `.env` con l'IP/dominio raggiungibile dai client (es. `http://192.168.1.10` o `https://finance.example.com`). Serve a generare correttamente i link nelle email (invito, reset password).
+> 💡 **APP_PUBLIC_URL**: normalmente non serve impostarla — i link nelle email (invito, reset password) usano automaticamente l'host da cui hai aperto l'app (LAN, dominio, ngrok...). Va impostata in `.env` solo se usi la sincronizzazione bancaria (Enable Banking), che richiede un URL pubblico fisso per il callback OAuth.
 
 ### Modalità sviluppo (hot reload)
 
@@ -146,8 +149,11 @@ docker compose exec backend npm run test:e2e
 | Obiettivi di risparmio con progress bar | ✅ |
 | Dashboard con KPI + 3 grafici Recharts + filtri periodo | ✅ |
 | Report annuali + confronto periodi side-by-side | ✅ |
-| Chat LLM locale con SSE streaming + tool calling sicuro | ✅ |
-| Import CSV/OFX con suggerimento categoria via Ollama | ✅ |
+| Chat LLM (Ollama locale o OpenCode cloud) con SSE streaming + tool calling sicuro | ✅ |
+| Report AI per periodo ("Report dell'assistente"), cache in DB e prompt personalizzabile da admin | ✅ |
+| Import CSV/OFX con suggerimento categoria via AI (Ollama/OpenCode) | ✅ |
+| Sincronizzazione bancaria (Enable Banking) con coda di revisione, deduplica e match automatico dei giroconti | ✅ |
+| Proiezioni di saldo futuro per conto, basate su ricorrenze e storico | ✅ |
 | Backup & Restore full system (DB + MinIO) in `.zip` | ✅ |
 | PWA installabile + manifest + service worker | ✅ |
 | Mobile-first con bottom nav + safe-area iOS (notch) + dark mode + i18n IT/EN | ✅ |
@@ -172,7 +178,7 @@ finance-manager/
 ├── ollama/entrypoint.sh        # auto-pull del modello
 ├── backend/                    # NestJS
 │   ├── prisma/
-│   │   ├── schema.prisma       # 14 modelli + enums + indici
+│   │   ├── schema.prisma       # 30 modelli + enums + indici
 │   │   └── seed.ts
 │   ├── src/
 │   │   ├── auth/               # login, refresh rotation, invite, change-password, reset-password
@@ -188,8 +194,10 @@ finance-manager/
 │   │   ├── budgets/            # CRUD + spent aggregation
 │   │   ├── goals/              # CRUD obiettivi
 │   │   ├── reports/            # totals/categorie/serie giornaliera/compare
-│   │   ├── llm-chat/           # sessions + SSE + tools sicuri (date/accounts/categories nel system prompt)
-│   │   ├── imports/            # CSV/OFX + Ollama suggest + confirm
+│   │   ├── llm-chat/           # sessions + SSE + tools sicuri (date/accounts/categories nel system prompt); provider Ollama/OpenCode
+│   │   ├── llm-reports/        # report AI per periodo, cache + lock + fallback
+│   │   ├── imports/            # CSV/OFX + suggerimento categoria AI + confirm
+│   │   ├── bank-sync/          # Enable Banking (Open Banking AIS) + coda di revisione movimenti
 │   │   ├── backup/             # export/restore full ZIP
 │   │   ├── notifications/      # SSE notifiche in-app (condivisioni, ecc.)
 │   │   ├── mail/               # SMTP + template email
@@ -217,7 +225,11 @@ finance-manager/
         │   ├── reports/        # ReportsPage (annual + compare)
         │   ├── chat/           # ChatPage + useChatStream (SSE)
         │   ├── import/         # ImportPage wizard
-        │   └── settings/       # SettingsPage (profilo + password + tema + lingua + backup)
+        │   ├── bank-review/    # coda di revisione dei movimenti sincronizzati dalla banca
+        │   ├── projections/    # ProjectionsPage: previsione saldo per conto
+        │   ├── notifications/  # NotificationsProvider + preferenze notifiche
+        │   ├── sharing/        # accettazione inviti + gestione membri conto
+        │   └── settings/       # SettingsPage (profilo + password + tema + lingua + backup, provider LLM, credenziali banca)
         ├── hooks/              # usePWAInstall
         ├── lib/{api,i18n,auth,utils}
         ├── store/              # Zustand UI state
@@ -235,6 +247,7 @@ finance-manager/
 - **ACL conti** via `AccountPolicyService` su tutti gli endpoint dati
 - **Tool calling LLM** con `userId` iniettato server-side (mai dall'LLM) → isolamento dati garantito
 - **Allegati**: MIME sniff con `file-type` (no fiducia nell'header del browser), size max 10 MB, presigned URL TTL 15 min
+- **Credenziali cifrate at-rest** (AES-256-GCM): password SMTP, chiave privata Enable Banking, API key OpenCode — mai esposte in chiaro dopo il salvataggio
 - **Audit log** su create/update/delete delle transazioni
 - nginx TLS-ready (esempio Let's Encrypt commentato in `nginx/nginx.conf`)
 
