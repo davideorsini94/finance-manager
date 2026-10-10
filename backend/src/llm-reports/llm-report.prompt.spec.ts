@@ -44,6 +44,51 @@ const snapshot: ReportSnapshot = {
     { date: '2026-07-02', description: 'Affitto luglio', amountCents: '-80000', categoryName: 'Affitto' },
     { date: '2026-07-15', description: null, amountCents: '-12000', categoryName: null },
   ],
+  previousExpenseTree: [],
+  accounts: [
+    {
+      name: 'Fineco',
+      type: 'checking',
+      holders: 1,
+      currentBalanceCents: '500000',
+      openingBalanceCents: '-12345',
+      closingBalanceCents: '420000',
+      incomeCents: '250000',
+      expenseCents: '180000',
+      transfersInCents: '0',
+      transfersOutCents: '30000',
+      txCount: 40,
+    },
+    {
+      name: 'Cointestato',
+      type: 'checking',
+      holders: 2,
+      currentBalanceCents: '1000',
+      openingBalanceCents: '0',
+      closingBalanceCents: '1000',
+      incomeCents: '0',
+      expenseCents: '0',
+      transfersInCents: '30000',
+      transfersOutCents: '0',
+      txCount: 2,
+    },
+  ],
+  transfers: [{ date: '2026-07-05', fromAccount: 'Fineco', toAccount: 'Cointestato', amountCents: '30000' }],
+  toVerify: {
+    items: [{ date: '2026-07-09', description: 'Pagamento X', amountCents: '-1800', accountName: 'Fineco' }],
+    total: 3,
+  },
+  recurring: [
+    {
+      description: 'Affitto',
+      amountCents: '-80000',
+      type: 'expense',
+      frequency: 'monthly',
+      accountName: 'Fineco',
+      toAccountName: null,
+      categoryName: 'Casa',
+    },
+  ],
 };
 
 describe('formatEuro', () => {
@@ -138,5 +183,22 @@ describe('buildReportPrompt con un prompt di base personalizzato', () => {
   it('un prompt vuoto o di soli spazi equivale a nessun prompt', () => {
     expect(buildReportPrompt(snapshot, '   ')).toBe(buildReportPrompt(snapshot));
     expect(buildReportPrompt(snapshot, '')).toBe(buildReportPrompt(snapshot));
+  });
+});
+
+describe('buildReportPrompt: dati per conto', () => {
+  const prompt = buildReportPrompt(snapshot);
+
+  it('elenca i conti con saldi iniziale e finale col segno', () => {
+    expect(prompt).toContain('Fineco (checking): saldo iniziale -123.45 €');
+    expect(prompt).toContain('saldo finale 4200.00 €');
+    expect(prompt).toContain('Cointestato (checking, cointestato con 2 intestatari)');
+  });
+
+  it('riporta giroconti, da verificare e ricorrenti', () => {
+    expect(prompt).toContain('2026-07-05 · Fineco → Cointestato · 300.00 €');
+    expect(prompt).toContain('3 in totale');
+    expect(prompt).toContain('… e altri 2');
+    expect(prompt).toContain('Affitto · 800.00 € · mensile · Fineco · Casa');
   });
 });

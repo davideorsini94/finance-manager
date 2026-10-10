@@ -10,6 +10,7 @@ import { Ollama } from 'ollama';
 import { LlmReportStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReportsService } from '../reports/reports.service';
+import { ReportContextService } from '../reports/report-context.service';
 import { LlmConfigService, type ActiveLlmConfig } from '../llm-chat/llm-config.service';
 import { OpencodeClient } from '../llm-chat/opencode.client';
 import {
@@ -87,6 +88,7 @@ export class LlmReportsService {
     config: ConfigService,
     private readonly prisma: PrismaService,
     private readonly reports: ReportsService,
+    private readonly reportContext: ReportContextService,
     private readonly llmConfig: LlmConfigService,
     private readonly opencode: OpencodeClient,
   ) {
@@ -361,7 +363,19 @@ export class LlmReportsService {
     const { from, to } = periodRange(scope, year, month);
     const prev = previousPeriodRange(scope, year, month);
 
-    const [totals, previousTotals, expenseTree, incomeTree, topExpenses, series] = await Promise.all(
+    const [
+      totals,
+      previousTotals,
+      expenseTree,
+      incomeTree,
+      topExpenses,
+      series,
+      previousExpenseTree,
+      accounts,
+      transfers,
+      toVerify,
+      recurring,
+    ] = await Promise.all(
       [
         this.reports.periodTotals(userId, from, to, accountIds),
         this.reports.periodTotals(userId, prev.from, prev.to, accountIds),
@@ -383,6 +397,11 @@ export class LlmReportsService {
                 expenseCents: d.expenseCents,
               })),
             ),
+        this.reports.categoryBreakdownTree(userId, prev.from, prev.to, accountIds, undefined, 'expense'),
+        this.reportContext.accountsOverview(userId, from, to, accountIds),
+        this.reportContext.transfers(userId, from, to, accountIds),
+        this.reportContext.toVerify(userId, from, to, accountIds),
+        this.reportContext.recurringRules(userId, accountIds),
       ],
     );
 
@@ -393,8 +412,6 @@ export class LlmReportsService {
         scope === 'annual'
           ? periodLabel('annual', year - 1)
           : periodLabel('monthly', prev.from.getUTCFullYear(), prev.from.getUTCMonth() + 1),
-      // Niente nomi di conto: servirebbe una query ACL in più per un dettaglio
-      // che il report non usa davvero.
       accountsLabel:
         accountIds && accountIds.length > 0
           ? `${accountIds.length} conti selezionati`
@@ -405,6 +422,11 @@ export class LlmReportsService {
       expenseTree,
       incomeTree,
       topExpenses,
+      previousExpenseTree,
+      accounts,
+      transfers,
+      toVerify,
+      recurring,
     };
   }
 }
