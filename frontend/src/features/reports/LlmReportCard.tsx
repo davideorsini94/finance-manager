@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import { Loader2, RefreshCw, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { MARKDOWN_COMPONENTS } from '@/components/shared/markdown';
+import { MARKDOWN_COMPONENTS, MARKDOWN_REMARK_PLUGINS } from '@/components/shared/markdown';
 import { useConfirm } from '@/components/shared/confirm';
 import { llmReportsApi, type LlmReportScope } from './reportsLlmApi';
 import { llmApi } from '@/features/settings/llmApi';
@@ -183,7 +183,7 @@ export function LlmReportCard({ scope, year, month, accountIds, accountIdsKey }:
 function MarkdownReport({ content }: { content: string }) {
   return (
     <div className="prose prose-sm dark:prose-invert max-w-none">
-      <ReactMarkdown components={MARKDOWN_COMPONENTS}>{content}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={MARKDOWN_REMARK_PLUGINS} components={MARKDOWN_COMPONENTS}>{content}</ReactMarkdown>
     </div>
   );
 }

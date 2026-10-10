@@ -621,6 +621,9 @@
   .prose-sm h3 { @apply text-sm; }
   .prose-sm strong { @apply font-semibold; }
   .prose-sm a { @apply text-primary underline; }
+  .prose-sm table { @apply w-full border-collapse text-xs; }
+  .prose-sm th, .prose-sm td { @apply border border-border px-2 py-1 text-left align-top; }
+  .prose-sm th { @apply bg-muted font-semibold; }
   .prose-sm blockquote { @apply border-l-2 border-muted-foreground pl-3 my-2 italic; }
 
   /* ============================================================
