@@ -17,7 +17,7 @@ export const DialogOverlay = React.forwardRef<
     className={cn(
       // h esplicita: con il bug viewport iOS 26 (vedi --fm-lvh-fix in
       // index.css) inset-0 si fermerebbe 62px sopra il fondo dello schermo.
-      'fixed inset-0 h-[calc(100dvh-var(--fm-lvh-fix,0px))] z-50 bg-black/60 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+      'fixed inset-0 h-[calc(100dvh-var(--fm-lvh-fix,0px))] z-50 bg-black/40 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
       className,
     )}
     {...props}
@@ -34,7 +34,7 @@ export const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed left-1/2 top-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 border bg-background p-6 shadow-lg sm:rounded-lg',
+        'fm-material-thick fixed left-1/2 top-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 border p-6 sm:rounded-2xl',
         // Default: scroll interno quando il contenuto non ci sta (mobile,
         // tastiera aperta). `cn`/tailwind-merge fa vincere i `max-h-*` già
         // specificati dai call-site (es. TransactionForm.tsx `max-h-[90dvh]`).

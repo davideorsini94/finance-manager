@@ -35,12 +35,15 @@ export function AppShell({ children }: { children: ReactNode }) {
         >
           <Sidebar />
           <div className="flex min-w-0 flex-1 flex-col">
-            <TopBar />
-            <DemoBanner />
-            <OnlineIndicator />
+            {/* La TopBar sta DENTRO lo scroller (sticky): così il contenuto le
+                scorre sotto e il vetro ha qualcosa da sfocare. Fuori, sarebbe
+                stata una striscia opaca qualunque. */}
             <main
-              className="flex-1 overflow-y-auto overscroll-contain pb-[calc(env(safe-area-inset-bottom)+6rem)] lg:pb-0"
+              className="flex-1 scroll-pt-[calc(var(--safe-top)+4rem)] overflow-y-auto overscroll-contain pb-[calc(env(safe-area-inset-bottom)+6rem)] lg:pb-0"
             >
+              <TopBar />
+              <DemoBanner />
+              <OnlineIndicator />
               <div className="mx-auto w-full max-w-7xl px-4 py-5 lg:px-8 lg:py-7">{children}</div>
             </main>
             <BottomNav />

@@ -8,7 +8,7 @@ Riferimento: la **carta a righe verdi** dei moduli contabili (greenbar). Fondo v
 
 - `--background 100 14% 92%` (carta) · `--card 90 25% 98%` (foglio) · `--foreground 153 20% 11%` (inchiostro)
 - `--primary 205 62% 26%` (blu penna): l'**unico** accento. Verde e rosso sono riservati al DATO (`--pos`/`--neg`), mai alla decorazione — per questo l'accento non è né verde né rosso
-- `--radius 0.5rem`; niente vetri e niente blob (le classi `fm-glass`/`fm-bg-decor`/`fm-hero-glow` sono scoped su `[data-theme='glass']` e restano inerti qui)
+- `--radius 0.5rem`; superfici dei contenuti opache (il vetro c'è solo sulla navigazione, vedi *Materiali in vetro*), niente blob (le classi `fm-glass`/`fm-bg-decor`/`fm-hero-glow` sono scoped su `[data-theme='glass']` e restano inerti qui)
 - I temi precedenti (`glass`, `fintech`, `linear`, `nordic`, `sunset`) sono ancora selezionabili: restano come rete di sicurezza per un rilascio, poi si tolgono. Migrazione store v3→v4: chi era sul vecchio default `glass` passa a `registro`, chi aveva scelto altro resta dov'è
 
 ## Tipografia
@@ -53,6 +53,18 @@ Recharts con griglia **solo orizzontale** e tratto continuo tenue (la griglia a 
 - **Controlli**: niente velo al tap, `touch-action: manipulation`, niente selezione del testo/callout con la pressione lunga (solo su button/role=button/tab, i contenuti restano selezionabili)
 - **Ingressi**: `fm-card-in` 360ms, stagger 40ms. Le pagine si aprono decine di volte al giorno
 - **Non toccato**: il `maximum-scale=1` solo iOS di [[PWA e Mobile]] resta, anche se la skill mobile-native lo sconsiglia: senza, Safari zoomava sugli input e il pan restava incastrato
+
+## Materiali in vetro (2026-10-16)
+
+Effetto vetro alla Apple, **solo sul livello di navigazione** che galleggia sopra i contenuti. Le card con gli importi restano fogli pieni: un numero su un fondo che cambia si legge peggio. Utility in `frontend/src/index.css`, colori dai token del tema (funzionano in tutti i temi):
+
+- `.fm-material`: pannelli piccoli (select, popover, tab bar, banner). Blur 24px + saturazione, spigolo chiaro in alto, ombra tinta
+- `.fm-material-bar`: barre agganciate a un bordo (TopBar, barra azioni di [[Sync Bancario]]), senza ombra
+- `.fm-material-thick`: superfici grandi e modali (Dialog, drawer del menu mobile), più opache e più sfocate. Lo scrim del Dialog passa da `black/60` a `black/40` + blur 2px
+- `.fm-material-nested`: **pieno**, per pannelli dentro una superficie che ha già `backdrop-filter` (pannello notifiche nella TopBar). Il genitore diventa la "backdrop root": il figlio non può sfocare la pagina e resterebbe trasparente, col testo di sotto leggibile attraverso. I popover Radix sono in portal e non hanno il problema
+- **Tab bar mobile** (`BottomNav.tsx`): capsula flottante staccata dai bordi, voce attiva con `.fm-tab-lens` (lente tenue, non colore pieno), FAB `.fm-fab` con riflesso e ombra del suo colore. Il colore sta sempre su uno strato pieno, mai sul vetro. Il `<nav>` esterno resta fixed e trasparente, perché è lui che `ios-viewport.ts` sposta; il `::after` anti-banda ora ha il colore della pagina, non della barra
+- **TopBar dentro lo scroller** (`AppShell.tsx`): è `sticky` dentro `<main>`, così il contenuto le scorre sotto (fuori dallo scroller il vetro non avrebbe niente da sfocare). `<main>` ha `scroll-padding-top` per non nascondere sotto la barra le card portate in vista
+- Ripieghi: senza `backdrop-filter`, con `prefers-reduced-transparency` o con `prefers-contrast: more` la superficie torna piena
 
 ## Superfici con colore del conto
 

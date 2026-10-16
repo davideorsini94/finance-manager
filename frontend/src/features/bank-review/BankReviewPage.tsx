@@ -688,7 +688,7 @@ function BulkActionBar({
     // sotto lg) + spazio per il FAB centrale che sporge di 12px.
     <div
       className={cn(
-        'fm-actionbar fixed left-0 right-0 z-30 border-t bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80',
+        'fm-actionbar fm-material-bar fixed left-0 right-0 z-30 border-t',
         'bottom-[calc(env(safe-area-inset-bottom)+4.75rem+var(--fm-lvh-fix,0px))] lg:bottom-[var(--fm-lvh-fix,0px)] lg:pb-[env(safe-area-inset-bottom)]',
         'shadow-[0_-6px_20px_-8px_rgb(0_0_0_/_0.25)]',
         sidebarCollapsed ? 'lg:left-[68px]' : 'lg:left-64',

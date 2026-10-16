@@ -106,7 +106,7 @@ export function NotificationBell() {
             // sinistra. Da `sm` in su lo spazio abbonda e resta ancorato.
             'fixed inset-x-2 top-14 z-40 w-auto',
             'sm:absolute sm:inset-x-auto sm:right-0 sm:top-11 sm:w-[380px] sm:max-w-[calc(100vw-2rem)]',
-            'rounded-lg border bg-popover text-popover-foreground shadow-lg',
+            'fm-material fm-material-nested rounded-2xl border text-popover-foreground',
           )}
           role="dialog"
         >

@@ -11,8 +11,8 @@ L'app è **mobile-first** e installabile come PWA (usata soprattutto da iPhone i
 
 ## Layout mobile
 
-- `AppShell`: tutto lo scroll avviene **dentro `<main>`** (overflow-y-auto); il documento non scrolla mai
-- `BottomNav` (solo `<lg`): 4 voci + bottone centrale "+" che apre la modale globale "Nuovo movimento" via `quickAddStore` (vedi [[Pagina Movimenti]] per il conto proposto)
+- `AppShell`: tutto lo scroll avviene **dentro `<main>`** (overflow-y-auto); il documento non scrolla mai. Dal 2026-10-16 la `TopBar` (sticky) e i banner stanno dentro `<main>`
+- `BottomNav` (solo `<lg`): capsula di vetro flottante (dal 2026-10-16, → [[Design System]]), 4 voci + bottone centrale "+" che apre la modale globale "Nuovo movimento" via `quickAddStore` (vedi [[Pagina Movimenti]] per il conto proposto)
 - Safe-area iOS: variabili CSS `--safe-top/bottom/left/right` da `env(safe-area-inset-*)`; `viewport-fit=cover` in `index.html`
 
 ## Fix specifici iOS (2026-07-11)

@@ -572,7 +572,9 @@
     right: 0;
     top: 100%;
     height: 6rem;
-    background: hsl(var(--card));
+    /* Colore della pagina: la tab bar è una capsula flottante, sotto di lei
+       c'è lo sfondo, non la barra. */
+    background: hsl(var(--background));
     pointer-events: none;
   }
 
@@ -741,6 +743,107 @@
   @keyframes fm-pulse-glow {
     0%, 100% { opacity: 0.6; transform: scale(1); }
     50%      { opacity: 1;   transform: scale(1.1); }
+  }
+
+  /* ============ MATERIALI (vetro alla Apple) ============
+     Il vetro sta SOLO sul livello di navigazione che galleggia sopra i
+     contenuti (barre, tab bar, menu, popover, modali): le card con gli
+     importi restano fogli pieni, perché un numero su fondo che cambia si
+     legge peggio. Tre spessori: più la superficie è grande, più è "spessa"
+     (blur e ombra maggiori). Il bordo chiaro in alto è la luce che prende lo
+     spigolo del materiale; i colori vengono dai token del tema. */
+  .fm-material,
+  .fm-material-bar,
+  .fm-material-thick {
+    --fm-mat-alpha: 0.66;
+    --fm-mat-blur: 24px;
+    --fm-mat-edge: 0 0% 100% / 0.6;
+    --fm-mat-line: var(--foreground) / 0.07;
+    --fm-mat-shadow: var(--foreground) / 0.16;
+    background-color: hsl(var(--card) / var(--fm-mat-alpha));
+    -webkit-backdrop-filter: blur(var(--fm-mat-blur)) saturate(180%);
+    backdrop-filter: blur(var(--fm-mat-blur)) saturate(180%);
+  }
+  .dark .fm-material,
+  .dark .fm-material-bar,
+  .dark .fm-material-thick {
+    --fm-mat-alpha: 0.58;
+    --fm-mat-edge: 0 0% 100% / 0.09;
+    --fm-mat-line: 0 0% 100% / 0.07;
+    --fm-mat-shadow: 0 0% 0% / 0.5;
+  }
+  /* Pannelli piccoli che fluttuano: menu, popover, tab bar. */
+  .fm-material {
+    border-color: hsl(var(--fm-mat-line));
+    box-shadow:
+      inset 0 1px 0 0 hsl(var(--fm-mat-edge)),
+      0 0 0 0.5px hsl(var(--fm-mat-line)),
+      0 10px 30px -10px hsl(var(--fm-mat-shadow)),
+      0 2px 6px -2px hsl(var(--fm-mat-shadow));
+  }
+  /* Barre agganciate a un bordo (top bar): niente ombra, solo un filo
+     tenue dove il contenuto scorre sotto. */
+  .fm-material-bar {
+    --fm-mat-alpha: 0.72;
+    --fm-mat-blur: 20px;
+    border-color: hsl(var(--fm-mat-line));
+  }
+  /* Superfici grandi e modali: più opache e più sfocate, ombra profonda. */
+  .fm-material-thick {
+    --fm-mat-alpha: 0.82;
+    --fm-mat-blur: 40px;
+    border-color: hsl(var(--fm-mat-line));
+    box-shadow:
+      inset 0 1px 0 0 hsl(var(--fm-mat-edge)),
+      0 0 0 0.5px hsl(var(--fm-mat-line)),
+      0 24px 60px -16px hsl(var(--fm-mat-shadow));
+  }
+  .dark .fm-material-thick {
+    --fm-mat-alpha: 0.76;
+  }
+  /* Pannelli DENTRO una superficie che ha già backdrop-filter (es. il
+     pannello notifiche nella TopBar): il genitore diventa la "backdrop root"
+     e il figlio non può sfocare la pagina sotto → resterebbe trasparente con
+     il testo di sotto leggibile attraverso. Quasi pieno, mantiene spigolo e ombra. */
+  .fm-material-nested {
+    --fm-mat-alpha: 1 !important;
+  }
+
+  /* Senza backdrop-filter il vetro trasparente sarebbe solo "sbiadito":
+     torna quasi pieno. Idem per chi chiede meno trasparenza o più contrasto. */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .fm-material, .fm-material-bar, .fm-material-thick { --fm-mat-alpha: 0.97; }
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .fm-material, .fm-material-bar, .fm-material-thick {
+      --fm-mat-alpha: 1;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+  }
+  @media (prefers-contrast: more) {
+    .fm-material, .fm-material-bar, .fm-material-thick {
+      --fm-mat-alpha: 1;
+      --fm-mat-line: var(--foreground) / 0.35;
+    }
+  }
+
+  /* Pillola dell'elemento attivo nella tab bar: vetro più chiaro sopra il
+     vetro della barra (lente), non un colore pieno. */
+  .fm-tab-lens {
+    background: hsl(var(--primary) / 0.1);
+    box-shadow: inset 0 1px 0 0 hsl(var(--fm-mat-edge, 0 0% 100% / 0.5)),
+      inset 0 0 0 0.5px hsl(var(--primary) / 0.14);
+  }
+
+  /* FAB: colore su strato pieno (mai sul vetro), con riflesso in alto e
+     ombra tinta del suo colore. */
+  .fm-fab {
+    background-image: linear-gradient(180deg, hsl(0 0% 100% / 0.22), hsl(0 0% 100% / 0) 55%);
+    box-shadow:
+      inset 0 1px 0 0 hsl(0 0% 100% / 0.35),
+      inset 0 -1px 0 0 hsl(0 0% 0% / 0.12),
+      0 8px 20px -6px hsl(var(--primary) / 0.55);
   }
 
   /* Strisce a scorrimento orizzontale (card conti, chip filtri): la barra di

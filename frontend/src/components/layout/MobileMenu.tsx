@@ -72,7 +72,7 @@ export function MobileMenu() {
       {/* Drawer */}
       <aside
         className={cn(
-          'fixed left-0 top-0 z-50 flex h-[calc(100dvh-var(--fm-lvh-fix,0px))] w-72 max-w-[85vw] flex-col border-r bg-card shadow-xl',
+          'fixed left-0 top-0 z-50 flex h-[calc(100dvh-var(--fm-lvh-fix,0px))] w-72 max-w-[85vw] flex-col border-r fm-material-thick',
           'transition-transform duration-200 lg:hidden',
           open ? 'translate-x-0' : '-translate-x-full',
         )}
