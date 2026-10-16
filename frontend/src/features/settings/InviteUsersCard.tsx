@@ -126,7 +126,7 @@ export function InviteUsersCard() {
 
         {lastInvite && (
           <div className="rounded-md border border-emerald-500/40 bg-emerald-500/5 p-3 text-sm space-y-2">
-            <p className="flex items-center gap-2 font-medium text-emerald-700 dark:text-emerald-400">
+            <p className="flex items-center gap-2 font-medium text-[hsl(var(--pos))]">
               <Check className="h-4 w-4" />
               Invito creato per {lastInvite.email}
             </p>

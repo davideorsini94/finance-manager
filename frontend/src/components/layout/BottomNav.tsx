@@ -26,11 +26,11 @@ export function BottomNav() {
         <Link
           to={item.to}
           className={cn(
-            'flex flex-col items-center justify-center gap-0.5 py-2.5 text-[11px] transition-colors',
-            active ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
+            'mx-0.5 flex flex-col items-center justify-center gap-0.5 rounded-[20px] py-1.5 text-[10.5px] font-medium tracking-[0.01em] transition-[color,background-color] duration-200',
+            active ? 'fm-tab-lens text-primary' : 'text-foreground/60 hover:text-foreground',
           )}
         >
-          <Icon className="h-5 w-5" />
+          <Icon className="h-[22px] w-[22px]" strokeWidth={active ? 2.2 : 1.8} />
           <span>{t(item.labelKey)}</span>
         </Link>
       </li>
@@ -38,11 +38,14 @@ export function BottomNav() {
   };
 
   return (
+    // Tab bar flottante alla iOS 26: capsula di vetro staccata dai bordi, il
+    // contenuto scorre sotto e si intravede. Il <nav> esterno resta fixed e
+    // trasparente perché `ios-viewport.ts` compensa il pan su `.fm-bottomnav`.
     <nav
-      className="fm-bottomnav lg:hidden fixed inset-x-0 bottom-[var(--fm-lvh-fix,0px)] z-30 border-t bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
+      className="fm-bottomnav lg:hidden pointer-events-none fixed inset-x-0 bottom-[var(--fm-lvh-fix,0px)] z-30 px-3 pb-[max(0.625rem,calc(env(safe-area-inset-bottom)-0.375rem))] pl-[calc(0.75rem+env(safe-area-inset-left))] pr-[calc(0.75rem+env(safe-area-inset-right))]"
       aria-label="primary"
     >
-      <ul className="relative flex items-stretch">
+      <ul className="fm-material pointer-events-auto relative mx-auto flex max-w-md items-stretch rounded-[28px] border p-1">
         {left.map(renderItem)}
 
         <li className="flex w-16 items-center justify-center">
@@ -50,9 +53,9 @@ export function BottomNav() {
             type="button"
             onClick={showQuickAdd}
             aria-label={t('common.add')}
-            className="grid h-12 w-12 -translate-y-3 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 ring-4 ring-background transition-transform active:scale-95"
+            className="fm-fab grid h-12 w-12 place-items-center rounded-full bg-primary text-primary-foreground transition-transform duration-150 ease-[var(--ease-out)] active:scale-[0.92]"
           >
-            <Plus className="h-6 w-6" />
+            <Plus className="h-6 w-6" strokeWidth={2.4} />
           </button>
         </li>
 

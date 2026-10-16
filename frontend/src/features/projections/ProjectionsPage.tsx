@@ -83,7 +83,7 @@ export function ProjectionsPage() {
       </div>
 
       {projQuery.isError && (
-        <p className="text-sm text-red-600 dark:text-red-400">
+        <p className="text-sm text-[hsl(var(--neg))]">
           Errore nel caricamento delle proiezioni.
         </p>
       )}
@@ -148,7 +148,7 @@ function KpiRow({ data }: { data: ProjectionResult }) {
           <CardDescription>Variazione attesa</CardDescription>
           <CardTitle
             className={`text-2xl tabular-nums ${
-              diff >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
+              diff >= 0 ? 'text-[hsl(var(--pos))]' : 'text-[hsl(var(--neg))]'
             }`}
           >
             {diff >= 0 ? '+' : ''}
@@ -283,7 +283,7 @@ function YearEndTable({ data }: { data: ProjectionResult }) {
 }
 
 function signClass(cents: string): string {
-  return Number(cents) < 0 ? 'text-red-600 dark:text-red-400' : '';
+  return Number(cents) < 0 ? 'text-[hsl(var(--neg))]' : '';
 }
 
 function formatMonth(ym: string): string {

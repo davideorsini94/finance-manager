@@ -1,4 +1,10 @@
 import type { CategoryNode, PeriodTotals } from '../reports/reports.service';
+import type {
+  AccountOverview,
+  RecurringItem,
+  ToVerifyItem,
+  TransferItem,
+} from '../reports/report-context.service';
 import type { LlmReportScope } from './llm-report.keys';
 
 /** Un movimento "grosso" del periodo, materiale per la sezione anomalie. */
@@ -25,6 +31,11 @@ export interface ReportSnapshot {
   expenseTree: CategoryNode[];
   incomeTree: CategoryNode[];
   topExpenses: TopExpense[];
+  previousExpenseTree: CategoryNode[];
+  accounts: AccountOverview[];
+  transfers: TransferItem[];
+  toVerify: { items: ToVerifyItem[]; total: number };
+  recurring: RecurringItem[];
 }
 
 /** Quante categorie di primo livello passare per verso. Oltre è rumore. */
@@ -43,6 +54,67 @@ export function formatEuro(cents: string): string {
   const units = abs / 100n;
   const decimals = abs % 100n;
   return `${units}.${String(decimals).padStart(2, '0')} €`;
+}
+
+/** Come `formatEuro` ma col segno: per i saldi, che possono essere negativi. */
+function formatSignedEuro(cents: string): string {
+  return `${BigInt(cents) < 0n ? '-' : ''}${formatEuro(cents)}`;
+}
+
+const FREQUENCY_LABEL: Record<string, string> = {
+  daily: 'giornaliera',
+  weekly: 'settimanale',
+  biweekly: 'ogni 2 settimane',
+  monthly: 'mensile',
+  quarterly: 'trimestrale',
+  yearly: 'annuale',
+};
+
+function formatAccounts(accounts: AccountOverview[]): string {
+  if (accounts.length === 0) return '  (nessun conto)';
+  return accounts
+    .map((a) => {
+      const shared = a.holders > 1 ? `, cointestato con ${a.holders} intestatari` : '';
+      return (
+        `  - ${a.name} (${a.type}${shared}): saldo iniziale ${formatSignedEuro(a.openingBalanceCents)}, ` +
+        `entrate ${formatEuro(a.incomeCents)}, uscite ${formatEuro(a.expenseCents)}, ` +
+        `giroconti in entrata ${formatEuro(a.transfersInCents)}, in uscita ${formatEuro(a.transfersOutCents)}, ` +
+        `saldo finale ${formatSignedEuro(a.closingBalanceCents)}, ${a.txCount} movimenti ` +
+        `(saldo attuale ${formatSignedEuro(a.currentBalanceCents)})`
+      );
+    })
+    .join('\n');
+}
+
+function formatTransfers(items: TransferItem[]): string {
+  if (items.length === 0) return '  (nessun giroconto tra conti)';
+  return items
+    .map((t) => `  - ${t.date} · ${t.fromAccount} → ${t.toAccount} · ${formatEuro(t.amountCents)}`)
+    .join('\n');
+}
+
+function formatToVerify(v: { items: ToVerifyItem[]; total: number }): string {
+  if (v.total === 0) return '  (nessun movimento senza categoria)';
+  const lines = v.items.map(
+    (t) =>
+      `  - ${t.date} · ${t.accountName} · ${t.description?.trim() || '(senza descrizione)'} · ${formatSignedEuro(t.amountCents)}`,
+  );
+  if (v.total > v.items.length) lines.push(`  (… e altri ${v.total - v.items.length})`);
+  return lines.join('\n');
+}
+
+function formatRecurring(items: RecurringItem[]): string {
+  if (items.length === 0) return '  (nessuna regola ricorrente attiva)';
+  return items
+    .map((r) => {
+      const where =
+        r.type === 'transfer' && r.toAccountName
+          ? `${r.accountName} → ${r.toAccountName}`
+          : r.accountName;
+      const cat = r.categoryName ? ` · ${r.categoryName}` : '';
+      return `  - ${r.description?.trim() || '(senza descrizione)'} · ${formatEuro(r.amountCents)} · ${FREQUENCY_LABEL[r.frequency] ?? r.frequency} · ${where}${cat}`;
+    })
+    .join('\n');
 }
 
 function formatTotals(totals: PeriodTotals): string {
@@ -115,14 +187,29 @@ Periodo precedente (${s.previousLabel}): ${formatTotals(s.previousTotals)}
 ${seriesLabel}:
 ${series || '  (nessun dato)'}
 
+Conti (saldo finale = saldo attuale meno i movimenti successivi al periodo; saldo iniziale = finale meno i movimenti del periodo):
+${formatAccounts(s.accounts)}
+
 Uscite per categoria:
 ${formatTree(s.expenseTree)}
+
+Uscite per categoria nel periodo precedente (${s.previousLabel}):
+${formatTree(s.previousExpenseTree)}
 
 Entrate per categoria:
 ${formatTree(s.incomeTree)}
 
 Movimenti di uscita più grandi:
 ${top || '  (nessun movimento)'}
+
+Giroconti tra i conti (non sono entrate né uscite):
+${formatTransfers(s.transfers)}
+
+Movimenti senza categoria (da verificare, ${s.toVerify.total} in totale):
+${formatToVerify(s.toVerify)}
+
+Regole ricorrenti attive:
+${formatRecurring(s.recurring)}
 
 REGOLE
 - Rispondi in italiano, in **markdown**.

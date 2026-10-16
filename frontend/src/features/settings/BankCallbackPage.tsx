@@ -74,7 +74,7 @@ export function BankCallbackPage() {
 
           {status === 'ok' && (
             <>
-              <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-600" />
+              <CheckCircle2 className="mx-auto h-10 w-10 text-[hsl(var(--pos))]" />
               <p className="text-base font-medium">Autorizzazione completata ✓</p>
               <p className="text-sm text-muted-foreground">
                 Torna all&apos;app Finance Manager per scegliere quali conti collegare. Puoi
@@ -85,7 +85,7 @@ export function BankCallbackPage() {
 
           {status === 'error' && (
             <>
-              <XCircle className="mx-auto h-10 w-10 text-rose-600" />
+              <XCircle className="mx-auto h-10 w-10 text-[hsl(var(--neg))]" />
               <p className="text-base font-medium">Autorizzazione non riuscita</p>
               <p className="text-sm text-muted-foreground break-words">{message}</p>
               <p className="text-xs text-muted-foreground">

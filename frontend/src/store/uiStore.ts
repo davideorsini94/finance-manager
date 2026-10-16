@@ -10,6 +10,8 @@ interface UIState {
   theme: ThemeMode;
   colorTheme: ColorTheme;
   numFont: NumFont;
+  /** Sfocatura dei materiali di vetro (barre, menu, card). Default attiva. */
+  glassBlur: boolean;
   privacy: boolean;
   demoData: boolean;
   sidebarCollapsed: boolean;
@@ -19,6 +21,7 @@ interface UIState {
   setTheme: (theme: ThemeMode) => void;
   setColorTheme: (t: ColorTheme) => void;
   setNumFont: (f: NumFont) => void;
+  setGlassBlur: (v: boolean) => void;
   setPrivacy: (v: boolean) => void;
   togglePrivacy: () => void;
   setDemoData: (v: boolean) => void;
@@ -33,6 +36,7 @@ export const useUIStore = create<UIState>()(
       theme: 'system',
       colorTheme: 'registro',
       numFont: 'sans',
+      glassBlur: true,
       privacy: false,
       demoData: false,
       sidebarCollapsed: false,
@@ -40,6 +44,7 @@ export const useUIStore = create<UIState>()(
       setTheme: (theme) => set({ theme }),
       setColorTheme: (colorTheme) => set({ colorTheme }),
       setNumFont: (numFont) => set({ numFont }),
+      setGlassBlur: (glassBlur) => set({ glassBlur }),
       setPrivacy: (privacy) => set({ privacy }),
       togglePrivacy: () => set((s) => ({ privacy: !s.privacy })),
       setDemoData: (demoData) => set({ demoData }),
@@ -52,7 +57,7 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: 'fm.ui',
-      version: 4,
+      version: 5,
       migrate: (persisted: unknown, version: number) => {
         const base = (persisted ?? {}) as Partial<UIState>;
         if (version < 2) {
@@ -78,6 +83,8 @@ export const useUIStore = create<UIState>()(
           // un altro tema resta dov'è.
           if (base.colorTheme === 'glass') base.colorTheme = 'registro';
         }
+        // v4 → v5: nuova preferenza sfocatura vetro, attiva per tutti.
+        if (base.glassBlur === undefined) base.glassBlur = true;
         if (!base.sectionsCollapsed) base.sectionsCollapsed = {};
         return base;
       },
@@ -115,11 +122,13 @@ export function applyTheme(theme: ThemeMode): void {
 export function applyUIChrome(state: {
   colorTheme: ColorTheme;
   numFont: NumFont;
+  glassBlur: boolean;
   privacy: boolean;
 }): void {
   const root = document.documentElement;
   root.dataset.theme = state.colorTheme;
   root.dataset.numFont = state.numFont;
+  root.dataset.glass = state.glassBlur ? 'on' : 'off';
   root.dataset.privacy = state.privacy ? 'on' : 'off';
   syncThemeColorMeta();
 }

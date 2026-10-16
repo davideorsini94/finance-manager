@@ -61,6 +61,7 @@ function ThemeBootstrap() {
   const theme = useUIStore((s) => s.theme);
   const colorTheme = useUIStore((s) => s.colorTheme);
   const numFont = useUIStore((s) => s.numFont);
+  const glassBlur = useUIStore((s) => s.glassBlur);
   const privacy = useUIStore((s) => s.privacy);
 
   useEffect(() => {
@@ -72,8 +73,8 @@ function ThemeBootstrap() {
   }, [theme]);
 
   useEffect(() => {
-    applyUIChrome({ colorTheme, numFont, privacy });
-  }, [colorTheme, numFont, privacy]);
+    applyUIChrome({ colorTheme, numFont, glassBlur, privacy });
+  }, [colorTheme, numFont, glassBlur, privacy]);
 
   return null;
 }

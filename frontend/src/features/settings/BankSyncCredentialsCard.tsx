@@ -181,7 +181,7 @@ export function BankSyncCredentialsCard() {
             </p>
           )}
           {save.isSuccess && (
-            <p className="text-sm text-emerald-600 inline-flex items-center gap-1">
+            <p className="text-sm text-[hsl(var(--pos))] inline-flex items-center gap-1">
               <CheckCircle2 className="h-4 w-4" /> Credenziali salvate.
             </p>
           )}
@@ -223,7 +223,7 @@ export function BankSyncCredentialsCard() {
 
         {testResult && (
           <p
-            className={`text-sm flex items-start gap-1 ${testResult.ok ? 'text-emerald-600' : 'text-destructive'}`}
+            className={`text-sm flex items-start gap-1 ${testResult.ok ? 'text-[hsl(var(--pos))]' : 'text-destructive'}`}
           >
             {testResult.ok ? (
               <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />

@@ -1,6 +1,9 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   darkMode: 'class',
+  // :hover solo dove l'hover esiste (mouse): su iPhone il primo tap lasciava
+  // lo stato hover "incollato" all'elemento fino al tap successivo.
+  future: { hoverOnlyWhenSupported: true },
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     container: { center: true, padding: '1rem', screens: { '2xl': '1400px' } },

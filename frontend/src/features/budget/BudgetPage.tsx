@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils/cn';
 import { Progress } from '@/components/ui/progress';
 import {
   Dialog,
@@ -115,30 +116,34 @@ export function BudgetPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="fm-stagger grid gap-3 md:grid-cols-2">
           {items.map((b) => {
             const limit = Number(b.limitCents);
             const spent = Number(b.spentCents);
             const pct = limit > 0 ? (spent / limit) * 100 : 0;
-            const tone =
-              pct >= 100
-                ? 'bg-destructive'
-                : pct >= 80
-                  ? 'bg-amber-500'
-                  : 'bg-emerald-500';
+            // Token di tema, non emerald/amber di Tailwind: il verde è il colore
+            // delle entrate e quello fisso ignorava il tema (→ Design System).
+            const over = pct >= 100;
+            const tone = over
+              ? 'bg-[hsl(var(--neg))]'
+              : pct >= 80
+                ? 'bg-[hsl(var(--warn))]'
+                : 'bg-[hsl(var(--pos))]';
+            const remaining = limit - spent;
             return (
-              <Card key={b.id}>
-                <CardHeader className="flex-row items-start justify-between space-y-0 pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
+              <Card key={b.id} className="fm-card-in">
+                <CardHeader className="flex-row items-center justify-between space-y-0 pb-1 pt-4">
+                  <CardTitle className="flex min-w-0 items-center gap-2 text-base font-medium">
                     <span
-                      className="h-3 w-3 rounded-full"
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
                       style={{ backgroundColor: b.category.color ?? 'hsl(var(--muted-foreground))' }}
                     />
-                    {b.category.name}
+                    <span className="truncate">{b.category.name}</span>
                   </CardTitle>
                   <Button
                     size="icon"
                     variant="ghost"
+                    className="-mr-2 h-9 w-9 text-muted-foreground"
                     aria-label="Elimina"
                     onClick={async () => {
                       const ok = await confirm({
@@ -153,13 +158,35 @@ export function BudgetPage() {
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-baseline justify-between text-sm">
-                    <span className="font-semibold"><MoneyAmount cents={spent} /></span>
-                    <span className="text-muted-foreground">/ <MoneyAmount cents={limit} /></span>
+                <CardContent className="space-y-2.5 pb-4">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-2xl font-semibold tracking-tight">
+                      <MoneyAmount cents={spent} size="row" />
+                    </span>
+                    <span
+                      className={cn(
+                        'text-sm font-medium tabular-nums',
+                        over ? 'text-[hsl(var(--neg))]' : 'text-muted-foreground',
+                      )}
+                    >
+                      {pct.toFixed(0)}%
+                    </span>
                   </div>
                   <Progress value={Math.min(100, pct)} indicatorClassName={tone} />
-                  <p className="text-xs text-muted-foreground">{pct.toFixed(0)}% utilizzato</p>
+                  <p className="text-xs text-muted-foreground">
+                    {over ? (
+                      <>
+                        Sforato di{' '}
+                        <MoneyAmount cents={-remaining} className="text-[hsl(var(--neg))]" />{' '}
+                        su <MoneyAmount cents={limit} />
+                      </>
+                    ) : (
+                      <>
+                        Restano <MoneyAmount cents={remaining} className="text-foreground" /> su{' '}
+                        <MoneyAmount cents={limit} />
+                      </>
+                    )}
+                  </p>
                 </CardContent>
               </Card>
             );

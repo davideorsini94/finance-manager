@@ -288,7 +288,7 @@ function CompareSection({
                     </td>
                     <td
                       className={`px-3 py-2 text-right font-mono text-xs ${
-                        r.deltaExpense > 0 ? 'text-rose-600' : 'text-emerald-600'
+                        r.deltaExpense > 0 ? 'text-[hsl(var(--neg))]' : 'text-[hsl(var(--pos))]'
                       }`}
                     >
                       {r.deltaExpense > 0 ? (
@@ -328,17 +328,17 @@ function SummaryCard({
       <div className="mt-2 grid grid-cols-2 gap-2">
         <div>
           <div className="text-xs text-muted-foreground">Entrate</div>
-          <div className="font-mono text-emerald-600">{fmt(income)}</div>
+          <div className="font-mono text-[hsl(var(--pos))]">{fmt(income)}</div>
         </div>
         <div>
           <div className="text-xs text-muted-foreground">Uscite</div>
-          <div className="font-mono text-rose-600">{fmt(expense)}</div>
+          <div className="font-mono text-[hsl(var(--neg))]">{fmt(expense)}</div>
         </div>
       </div>
       <div className="mt-2 border-t pt-2">
         <div className="text-xs text-muted-foreground">Netto</div>
         <div
-          className={`font-mono ${income - expense >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}
+          className={`font-mono ${income - expense >= 0 ? 'text-[hsl(var(--pos))]' : 'text-[hsl(var(--neg))]'}`}
         >
           {fmt(income - expense)}
         </div>
@@ -378,7 +378,7 @@ function SankeySection({ data }: { data: SankeyResult | null }) {
       </p>
       <div className="mt-4 grid grid-cols-[1fr_auto_1fr] gap-6 overflow-hidden">
         <div className="min-w-0">
-          <div className="mb-2 text-xs font-medium uppercase text-emerald-600">Entrate</div>
+          <div className="mb-2 text-xs font-medium uppercase text-[hsl(var(--pos))]">Entrate</div>
           <ul className="space-y-1.5">
             {incomeNodes.map((n) => {
               const v = data.links.find((l) => l.source === n.id)?.value ?? 0;
@@ -390,7 +390,7 @@ function SankeySection({ data }: { data: SankeyResult | null }) {
                 >
                   <div className="flex items-center justify-between text-xs">
                     <span className="truncate">{n.label}</span>
-                    <span className="font-mono font-medium text-emerald-700">{fmt(v)}</span>
+                    <span className="font-mono font-medium text-[hsl(var(--pos))]">{fmt(v)}</span>
                   </div>
                 </li>
               );
@@ -404,7 +404,7 @@ function SankeySection({ data }: { data: SankeyResult | null }) {
           </div>
         </div>
         <div className="min-w-0">
-          <div className="mb-2 text-xs font-medium uppercase text-rose-600">Uscite</div>
+          <div className="mb-2 text-xs font-medium uppercase text-[hsl(var(--neg))]">Uscite</div>
           <ul className="space-y-1.5">
             {expenseNodes.map((n) => {
               const v = data.links.find((l) => l.target === n.id)?.value ?? 0;
@@ -416,7 +416,7 @@ function SankeySection({ data }: { data: SankeyResult | null }) {
                 >
                   <div className="flex items-center justify-between text-xs">
                     <span className="truncate">{n.label}</span>
-                    <span className="font-mono font-medium text-rose-700">{fmt(v)}</span>
+                    <span className="font-mono font-medium text-[hsl(var(--neg))]">{fmt(v)}</span>
                   </div>
                 </li>
               );

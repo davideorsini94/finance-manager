@@ -529,6 +529,36 @@
      invece del nero di sistema. */
   html {
     @apply bg-background;
+    /* Niente velo grigio/blu al tap su iOS/Android: è il segnale più forte di
+       "sito dentro un browser". Il feedback lo danno gli stati :active. */
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Controlli: tap immediato (niente attesa del doppio tap) e niente
+     selezione del testo/callout con la pressione lunga. Solo sui controlli:
+     il testo dei contenuti resta selezionabile (descrizioni, IBAN, errori). */
+  button,
+  [role='button'],
+  [role='tab'],
+  a {
+    touch-action: manipulation;
+  }
+  button,
+  [role='button'],
+  [role='tab'] {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  /* Curve di movimento condivise: le easing native di CSS sono troppo
+     deboli. ease-out per ciò che entra/risponde, ease-in-out per ciò che si
+     sposta sullo schermo, drawer per i pannelli che scorrono (curva iOS). */
+  :root {
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+    --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
   }
 
   /* iOS standalone: se il layout viewport termina sopra l'home indicator
@@ -542,7 +572,9 @@
     right: 0;
     top: 100%;
     height: 6rem;
-    background: hsl(var(--card));
+    /* Colore della pagina: la tab bar è una capsula flottante, sotto di lei
+       c'è lo sfondo, non la barra. */
+    background: hsl(var(--background));
     pointer-events: none;
   }
 
@@ -621,6 +653,9 @@
   .prose-sm h3 { @apply text-sm; }
   .prose-sm strong { @apply font-semibold; }
   .prose-sm a { @apply text-primary underline; }
+  .prose-sm table { @apply w-full border-collapse text-xs; }
+  .prose-sm th, .prose-sm td { @apply border border-border px-2 py-1 text-left align-top; }
+  .prose-sm th { @apply bg-muted font-semibold; }
   .prose-sm blockquote { @apply border-l-2 border-muted-foreground pl-3 my-2 italic; }
 
   /* ============================================================
@@ -691,7 +726,13 @@
   }
 
   /* Hero glow utility — radiale primario in alto a destra del card/area. */
+  /* Alone decorativo: solo nel tema glass. Nel Registro (superfici opache e
+     piatte) si leggeva come una macchia grigia dietro i filtri. */
   .fm-hero-glow {
+    display: none;
+  }
+  [data-theme='glass'] .fm-hero-glow {
+    display: block;
     position: absolute;
     top: 0; right: 0;
     width: 320px; height: 320px;
@@ -702,6 +743,215 @@
   @keyframes fm-pulse-glow {
     0%, 100% { opacity: 0.6; transform: scale(1); }
     50%      { opacity: 1;   transform: scale(1.1); }
+  }
+
+  /* ============ REGISTRO: VETRO SULLE CARD ============
+     Perché la trasparenza si veda serve qualcosa dietro: un fondo piatto
+     sotto una card traslucida dà solo una card sbiadita. Lo sfondo ambientale
+     è fermo (niente blob animati: costano batteria e un'oscillazione lenta a
+     tutto schermo dà fastidio) e sta sullo shell, che non scorre — le card ci
+     passano sopra scorrendo e il colore cambia sotto di loro. Tinte del tema:
+     blu penna in alto a destra, salvia in basso a sinistra, carta al centro. */
+  [data-theme='registro'] .fm-shell {
+    background-color: hsl(var(--background));
+    background-image:
+      radial-gradient(60rem 40rem at 105% -10%, hsl(205 60% 76% / 0.8), transparent 60%),
+      radial-gradient(50rem 36rem at -10% 110%, hsl(150 35% 72% / 0.75), transparent 60%),
+      radial-gradient(40rem 30rem at 45% 45%, hsl(45 45% 90% / 0.6), transparent 70%);
+  }
+  .dark[data-theme='registro'] .fm-shell {
+    background-image:
+      radial-gradient(60rem 40rem at 105% -10%, hsl(205 55% 26% / 0.55), transparent 60%),
+      radial-gradient(50rem 36rem at -10% 110%, hsl(150 30% 20% / 0.6), transparent 60%),
+      radial-gradient(40rem 30rem at 45% 45%, hsl(160 12% 14% / 0.6), transparent 70%);
+  }
+
+  /* Card di vetro. Più opaca del materiale di navigazione (0.6 vs 0.66 ma
+     blur minore): ci sono sopra gli importi, devono restare netti. Lo spigolo
+     chiaro in alto è la luce sul bordo; l'ombra è tinta dell'inchiostro, non
+     nera. Specificità (0,2,0): vince su `bg-card`/`shadow-sm` della Card. */
+  [data-theme='registro'] .fm-glass {
+    background-color: hsl(var(--card) / 0.6);
+    border-color: hsl(0 0% 100% / 0.55);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    backdrop-filter: blur(18px) saturate(160%);
+    box-shadow:
+      inset 0 1px 0 0 hsl(0 0% 100% / 0.7),
+      0 1px 2px 0 hsl(var(--foreground) / 0.05),
+      0 12px 32px -14px hsl(var(--foreground) / 0.18);
+  }
+  .dark[data-theme='registro'] .fm-glass {
+    background-color: hsl(var(--card) / 0.55);
+    border-color: hsl(0 0% 100% / 0.08);
+    box-shadow:
+      inset 0 1px 0 0 hsl(0 0% 100% / 0.07),
+      0 12px 32px -14px hsl(0 0% 0% / 0.6);
+  }
+  /* Campi e pulsanti contornati dentro le card: traslucidi anche loro, così
+     non sembrano mattonelle piene appoggiate sul vetro. */
+  [data-theme='registro'] .fm-glass-field {
+    background-color: hsl(var(--background) / 0.55);
+  }
+  .dark[data-theme='registro'] .fm-glass-field {
+    background-color: hsl(var(--background) / 0.45);
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    [data-theme='registro'] .fm-glass { background-color: hsl(var(--card) / 0.96); }
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    [data-theme='registro'] .fm-glass {
+      background-color: hsl(var(--card));
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+    [data-theme='registro'] .fm-glass-field { background-color: hsl(var(--background)); }
+  }
+
+  /* ============ MATERIALI (vetro alla Apple) ============
+     Il vetro sta SOLO sul livello di navigazione che galleggia sopra i
+     contenuti (barre, tab bar, menu, popover, modali): le card con gli
+     importi restano fogli pieni, perché un numero su fondo che cambia si
+     legge peggio. Tre spessori: più la superficie è grande, più è "spessa"
+     (blur e ombra maggiori). Il bordo chiaro in alto è la luce che prende lo
+     spigolo del materiale; i colori vengono dai token del tema. */
+  .fm-material,
+  .fm-material-bar,
+  .fm-material-thick {
+    --fm-mat-alpha: 0.66;
+    --fm-mat-blur: 24px;
+    --fm-mat-edge: 0 0% 100% / 0.6;
+    --fm-mat-line: var(--foreground) / 0.07;
+    --fm-mat-shadow: var(--foreground) / 0.16;
+    background-color: hsl(var(--card) / var(--fm-mat-alpha));
+    -webkit-backdrop-filter: blur(var(--fm-mat-blur)) saturate(180%);
+    backdrop-filter: blur(var(--fm-mat-blur)) saturate(180%);
+  }
+  .dark .fm-material,
+  .dark .fm-material-bar,
+  .dark .fm-material-thick {
+    --fm-mat-alpha: 0.58;
+    --fm-mat-edge: 0 0% 100% / 0.09;
+    --fm-mat-line: 0 0% 100% / 0.07;
+    --fm-mat-shadow: 0 0% 0% / 0.5;
+  }
+  /* Pannelli piccoli che fluttuano: menu, popover, tab bar. */
+  .fm-material {
+    border-color: hsl(var(--fm-mat-line));
+    box-shadow:
+      inset 0 1px 0 0 hsl(var(--fm-mat-edge)),
+      0 0 0 0.5px hsl(var(--fm-mat-line)),
+      0 10px 30px -10px hsl(var(--fm-mat-shadow)),
+      0 2px 6px -2px hsl(var(--fm-mat-shadow));
+  }
+  /* Barre agganciate a un bordo (top bar): niente ombra, solo un filo
+     tenue dove il contenuto scorre sotto. */
+  .fm-material-bar {
+    --fm-mat-alpha: 0.72;
+    --fm-mat-blur: 20px;
+    border-color: hsl(var(--fm-mat-line));
+  }
+  /* Superfici grandi e modali: più opache e più sfocate, ombra profonda. */
+  .fm-material-thick {
+    --fm-mat-alpha: 0.82;
+    --fm-mat-blur: 40px;
+    border-color: hsl(var(--fm-mat-line));
+    box-shadow:
+      inset 0 1px 0 0 hsl(var(--fm-mat-edge)),
+      0 0 0 0.5px hsl(var(--fm-mat-line)),
+      0 24px 60px -16px hsl(var(--fm-mat-shadow));
+  }
+  .dark .fm-material-thick {
+    --fm-mat-alpha: 0.76;
+  }
+  /* Pannelli DENTRO una superficie che ha già backdrop-filter (es. il
+     pannello notifiche nella TopBar): il genitore diventa la "backdrop root"
+     e il figlio non può sfocare la pagina sotto → resterebbe trasparente con
+     il testo di sotto leggibile attraverso. Quasi pieno, mantiene spigolo e ombra. */
+  .fm-material-nested {
+    --fm-mat-alpha: 1 !important;
+  }
+
+  /* Senza backdrop-filter il vetro trasparente sarebbe solo "sbiadito":
+     torna quasi pieno. Idem per chi chiede meno trasparenza o più contrasto. */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .fm-material, .fm-material-bar, .fm-material-thick { --fm-mat-alpha: 0.97; }
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .fm-material, .fm-material-bar, .fm-material-thick {
+      --fm-mat-alpha: 1;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+  }
+  @media (prefers-contrast: more) {
+    .fm-material, .fm-material-bar, .fm-material-thick {
+      --fm-mat-alpha: 1;
+      --fm-mat-line: var(--foreground) / 0.35;
+    }
+  }
+
+  /* Sfocatura disattivata dall'utente (menu temi → "Sfocatura vetro"): via
+     ogni backdrop-filter e le superfici tornano piene. Un vetro trasparente
+     senza blur farebbe solo leggere il contenuto di sotto attraverso. Lo
+     sfondo ambientale resta: non costa nulla. */
+  :root[data-glass='off'] *,
+  :root[data-glass='off'] *::before,
+  :root[data-glass='off'] *::after {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+  :root[data-glass='off'] .fm-material,
+  :root[data-glass='off'] .fm-material-bar,
+  :root[data-glass='off'] .fm-material-thick {
+    --fm-mat-alpha: 1 !important;
+  }
+  :root[data-glass='off'][data-theme='registro'] .fm-glass {
+    background-color: hsl(var(--card));
+  }
+  :root[data-glass='off'][data-theme='registro'] .fm-glass-field {
+    background-color: hsl(var(--background));
+  }
+  :root[data-glass='off'] {
+    --glass-bg-alpha: 0.96;
+  }
+  :root[data-glass='off'][data-theme='glass'] .fm-chrome {
+    background: hsl(var(--card));
+  }
+
+  /* Pillola dell'elemento attivo nella tab bar: vetro più chiaro sopra il
+     vetro della barra (lente), non un colore pieno. */
+  .fm-tab-lens {
+    background: hsl(var(--primary) / 0.1);
+    box-shadow: inset 0 1px 0 0 hsl(var(--fm-mat-edge, 0 0% 100% / 0.5)),
+      inset 0 0 0 0.5px hsl(var(--primary) / 0.14);
+  }
+
+  /* FAB: colore su strato pieno (mai sul vetro), con riflesso in alto e
+     ombra tinta del suo colore. */
+  .fm-fab {
+    background-image: linear-gradient(180deg, hsl(0 0% 100% / 0.22), hsl(0 0% 100% / 0) 55%);
+    box-shadow:
+      inset 0 1px 0 0 hsl(0 0% 100% / 0.35),
+      inset 0 -1px 0 0 hsl(0 0% 0% / 0.12),
+      0 8px 20px -6px hsl(var(--primary) / 0.55);
+  }
+
+  /* Strisce a scorrimento orizzontale (card conti, chip filtri): la barra di
+     scorrimento è rumore, lo snap e il bordo tagliato bastano a dire "scorri". */
+  .fm-no-scrollbar {
+    scrollbar-width: none;
+  }
+  .fm-no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Feedback alla pressione per superfici cliccabili che non sono <Button>
+     (card conto, card KPI, righe): risponde al dito appena appoggiato. */
+  .fm-press {
+    transition: transform 140ms var(--ease-out);
+  }
+  .fm-press:active {
+    transform: scale(0.98);
   }
 
   /* Shimmer skeleton (sostituisce animate-pulse "grezzo"). */
@@ -728,27 +978,29 @@
      children e parent `.fm-stagger` per i delay incrementali. */
   .fm-card-in {
     opacity: 0;
-    transform: translateY(12px);
-    animation: fm-card-in 700ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    transform: translateY(8px);
+    /* Le pagine si aprono decine di volte al giorno: l'ingresso deve dare il
+       senso di ordine senza far aspettare i numeri. */
+    animation: fm-card-in 360ms var(--ease-out) forwards;
   }
   @keyframes fm-card-in {
     to { opacity: 1; transform: translateY(0); }
   }
-  .fm-stagger > *:nth-child(1) { animation-delay:  50ms; }
-  .fm-stagger > *:nth-child(2) { animation-delay: 120ms; }
-  .fm-stagger > *:nth-child(3) { animation-delay: 190ms; }
-  .fm-stagger > *:nth-child(4) { animation-delay: 260ms; }
-  .fm-stagger > *:nth-child(5) { animation-delay: 330ms; }
-  .fm-stagger > *:nth-child(6) { animation-delay: 400ms; }
-  .fm-stagger > *:nth-child(7) { animation-delay: 470ms; }
-  .fm-stagger > *:nth-child(8) { animation-delay: 540ms; }
+  .fm-stagger > *:nth-child(1) { animation-delay: 0ms; }
+  .fm-stagger > *:nth-child(2) { animation-delay: 40ms; }
+  .fm-stagger > *:nth-child(3) { animation-delay: 80ms; }
+  .fm-stagger > *:nth-child(4) { animation-delay: 120ms; }
+  .fm-stagger > *:nth-child(5) { animation-delay: 160ms; }
+  .fm-stagger > *:nth-child(6) { animation-delay: 200ms; }
+  .fm-stagger > *:nth-child(7) { animation-delay: 240ms; }
+  .fm-stagger > *:nth-child(8) { animation-delay: 280ms; }
 
   /* Reveal on scroll (toggled via IntersectionObserver: classe `is-visible`). */
   .fm-reveal {
     opacity: 0;
-    transform: translateY(16px);
-    transition: opacity 600ms cubic-bezier(0.16, 1, 0.3, 1),
-                transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
+    transform: translateY(10px);
+    transition: opacity 400ms var(--ease-out),
+                transform 400ms var(--ease-out);
   }
   .fm-reveal.is-visible {
     opacity: 1;
@@ -782,6 +1034,9 @@
     .fm-shimmer::after,
     .fm-spark-path {
       animation: none !important;
+    }
+    .fm-press:active {
+      transform: none;
     }
     .fm-card-in,
     .fm-reveal {

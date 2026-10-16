@@ -13,7 +13,7 @@ export function TopBar() {
 
   return (
     <header
-      className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur fm-chrome"
+      className="fm-material-bar fm-chrome sticky top-0 z-20 border-b"
       style={{ paddingTop: 'var(--safe-top)' }}
     >
       <div className="flex h-14 items-center gap-2 px-4 lg:px-6">

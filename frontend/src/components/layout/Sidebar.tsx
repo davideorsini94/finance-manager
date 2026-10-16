@@ -17,7 +17,7 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        'hidden lg:flex shrink-0 flex-col border-r bg-card fm-chrome transition-[width] duration-200',
+        'fm-material-bar fm-chrome hidden lg:flex shrink-0 flex-col border-r transition-[width] duration-200',
         collapsed ? 'w-[68px]' : 'w-64',
       )}
     >

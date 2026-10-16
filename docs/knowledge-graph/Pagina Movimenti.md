@@ -9,6 +9,10 @@ Route `/transactions` — file `frontend/src/features/transactions/TransactionsP
 3. **Lista movimenti** paginata (10/25/50/100 per pagina) con anteprima allegati/edit/delete per riga
 4. **`TransactionForm`** (modale) per creazione/modifica
 
+## Layout della riga (2026-10-16)
+
+Due linee: descrizione e importo sulla stessa linea di base, sotto categoria (pallino col suo colore, non più pillola contornata) · data · conto (solo da `sm`) · allegati. Su mobile l'icona di verso è nascosta (segno e colore dell'importo bastano). Quando non ci sono allegati resta uno slot vuoto largo quanto il bottone "occhio", così gli importi restano incolonnati. Su mobile i filtri conto/categoria/date stanno dietro un bottone accanto alla ricerca, con contatore dei filtri attivi; da `sm` sono sempre visibili.
+
 ## Comportamenti chiave
 
 - **Card conti cliccabili (2026-07-11)**: click su una card = filtro per quel conto; secondo click sulla stessa = rimuove il filtro. Tutte le card restano visibili anche con filtro attivo (cambiare conto è un solo click). La selezionata è evidenziata con **outline** (NON ring: nel tema glass `fm-glass` sovrascrive il box-shadow e il ring sparirebbe) e le altre sono attenuate (`opacity-50 saturate-50`). Le card sono `<button>` con `aria-pressed`.

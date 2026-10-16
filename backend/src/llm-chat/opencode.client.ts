@@ -161,6 +161,13 @@ const STREAM_NO_OUTPUT_TIMEOUT_MS = 120_000;
 /** Tetto assoluto di durata per una singola chiamata in streaming. */
 const STREAM_TOTAL_TIMEOUT_MS = 480_000;
 
+/**
+ * Tetto della chat non in streaming. Gli header arrivano solo a risposta
+ * finita, e undici abortisce a 300s (`headersTimeout`): restiamo sotto. I
+ * report con i modelli reasoning grandi impiegano ~100-120s.
+ */
+const CHAT_TIMEOUT_MS = 280_000;
+
 @Injectable()
 export class OpencodeClient {
   private readonly logger = new Logger(OpencodeClient.name);
@@ -483,7 +490,7 @@ export class OpencodeClient {
       method: 'POST',
       headers: this.chatHeaders(apiKey, sessionId),
       body: JSON.stringify({ ...body, stream: false }),
-      signal: AbortSignal.timeout(120_000),
+      signal: AbortSignal.timeout(CHAT_TIMEOUT_MS),
     });
 
     if (!res.ok) {

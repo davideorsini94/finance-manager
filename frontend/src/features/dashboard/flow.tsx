@@ -39,7 +39,7 @@ export const FLOW_UI: Record<
     itemsPlural: 'spese',
     noneLabel: 'Nessuna spesa.',
     emptyChart: 'Nessuna spesa nel periodo',
-    selected: 'outline outline-1 outline-offset-0 outline-[hsl(var(--neg))] bg-[hsl(var(--neg-soft))]',
+    selected: 'outline outline-1 outline-offset-0 outline-[hsl(var(--neg))] !bg-[hsl(var(--neg-soft)/0.75)]',
     selectedTint: 'bg-[hsl(var(--neg-soft))]',
   },
   income: {
@@ -48,7 +48,7 @@ export const FLOW_UI: Record<
     itemsPlural: 'entrate',
     noneLabel: 'Nessuna entrata.',
     emptyChart: 'Nessuna entrata nel periodo',
-    selected: 'outline outline-1 outline-offset-0 outline-[hsl(var(--pos))] bg-[hsl(var(--pos-soft))]',
+    selected: 'outline outline-1 outline-offset-0 outline-[hsl(var(--pos))] !bg-[hsl(var(--pos-soft)/0.75)]',
     selectedTint: 'bg-[hsl(var(--pos-soft))]',
   },
 };

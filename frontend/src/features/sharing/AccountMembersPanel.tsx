@@ -193,7 +193,7 @@ export function AccountMembersPanel({ accountId, currentUserId }: { accountId: s
                       type="button"
                       onClick={() => revokeInvite(inv.id)}
                       title="Revoca"
-                      className="rounded p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                      className="rounded p-1.5 text-[hsl(var(--neg))] hover:bg-rose-50 dark:hover:bg-rose-950/30"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -251,7 +251,7 @@ function MemberRow(props: {
           <button
             type="button"
             onClick={props.onRemove}
-            className="rounded p-1 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+            className="rounded p-1 text-[hsl(var(--neg))] hover:bg-rose-50 dark:hover:bg-rose-950/30"
           >
             <Trash2 className="h-4 w-4" />
           </button>

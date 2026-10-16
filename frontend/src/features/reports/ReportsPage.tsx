@@ -491,9 +491,9 @@ function KpiCard({
 }) {
   const cls =
     tone === 'emerald'
-      ? 'text-emerald-600 dark:text-emerald-400'
+      ? 'text-[hsl(var(--pos))]'
       : tone === 'red'
-        ? 'text-red-600 dark:text-red-400'
+        ? 'text-[hsl(var(--neg))]'
         : '';
   return (
     <Card
@@ -541,7 +541,7 @@ function ComparisonColumn({
           <TotalCell
             label="Entrate"
             value={totals.incomeCents}
-            valueClassName="text-emerald-600 dark:text-emerald-400"
+            valueClassName="text-[hsl(var(--pos))]"
             select={{
               active: flow === 'income',
               hint: 'Mostra le entrate per categoria',
@@ -552,7 +552,7 @@ function ComparisonColumn({
           <TotalCell
             label="Uscite"
             value={totals.expenseCents}
-            valueClassName="text-red-600 dark:text-red-400"
+            valueClassName="text-[hsl(var(--neg))]"
             select={{
               active: flow === 'expense',
               hint: 'Mostra le spese per categoria',
@@ -764,7 +764,7 @@ function TransactionRows({
     );
   }
   if (query.isError) {
-    return <p className="px-2 py-2 text-sm text-red-600 dark:text-red-400">Errore nel caricamento.</p>;
+    return <p className="px-2 py-2 text-sm text-[hsl(var(--neg))]">Errore nel caricamento.</p>;
   }
   const items = query.data?.items ?? [];
   if (items.length === 0) {
@@ -806,7 +806,7 @@ function DeltaRow({ label, a, b }: { label: string; a: string; b: string }) {
   const bN = Number(b);
   const diff = bN - aN;
   const pct = aN !== 0 ? (diff / Math.abs(aN)) * 100 : 0;
-  const tone = diff >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400';
+  const tone = diff >= 0 ? 'text-[hsl(var(--pos))]' : 'text-[hsl(var(--neg))]';
   return (
     <div className="flex items-center justify-between border-b py-2 last:border-0 text-sm">
       <span className="text-muted-foreground">{label}</span>

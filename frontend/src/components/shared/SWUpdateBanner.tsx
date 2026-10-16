@@ -39,7 +39,7 @@ export function SWUpdateBanner() {
   };
 
   return (
-    <div className="fixed bottom-24 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full border bg-card px-4 py-2 shadow-lg lg:bottom-4">
+    <div className="fixed bottom-24 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 fm-material rounded-full border px-4 py-2 lg:bottom-4">
       <span className="inline-flex items-center gap-2 text-sm">
         <RefreshCw className="h-4 w-4" />
         Nuova versione disponibile

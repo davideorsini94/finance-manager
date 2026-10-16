@@ -5,7 +5,7 @@ Route `/` — file `frontend/src/features/dashboard/DashboardPage.tsx`, client A
 ## Struttura
 
 1. **Filtri in alto**: conti (`AccountMultiSelect`), categorie padre (`CategoryMultiSelect`), preset 7g/30g/90g/YTD e date da/a — stato locale, un'unica query `GET reports/dashboard` con quei parametri
-2. **Tre card KPI**: Entrate, Uscite, Netto (componente locale `KpiCard`, con `AnimatedNumber` e `SparkLine`)
+2. **Tre card KPI**: Entrate, Uscite, Netto (componente locale `KpiCard`, con `AnimatedNumber` e `SparkLine`). Su mobile Entrate e Uscite sono affiancate e Netto va sotto a tutta larghezza; i filtri stanno su una riga scorrevole (da `sm` vanno a capo sotto il titolo)
 3. **Andamento patrimonio** (`BalanceArea`) e **card "per categoria"** (`CategoryPieChart` + legenda con importi)
 4. **Entrate vs uscite** per giornata (`IncomeExpenseBar`) e **Ultime operazioni** (10 movimenti)
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Palette, Check, FlaskConical } from 'lucide-react';
+import { Palette, Check, FlaskConical, Droplets } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -23,7 +23,7 @@ const FONTS: { key: NumFont; labelKey: string; preview: string }[] = [
 ];
 
 const itemCls =
-  'flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground';
+  'flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent';
 
 export function PaletteToggle() {
   const { t } = useTranslation();
@@ -32,6 +32,8 @@ export function PaletteToggle() {
   const setColorTheme = useUIStore((s) => s.setColorTheme);
   const numFont = useUIStore((s) => s.numFont);
   const setNumFont = useUIStore((s) => s.setNumFont);
+  const glassBlur = useUIStore((s) => s.glassBlur);
+  const setGlassBlur = useUIStore((s) => s.setGlassBlur);
   const demoData = useUIStore((s) => s.demoData);
   const toggleDemoData = useUIStore((s) => s.toggleDemoData);
   const [open, setOpen] = useState(false);
@@ -70,6 +72,38 @@ export function PaletteToggle() {
             {colorTheme === p.key && <Check className="h-3.5 w-3.5" />}
           </button>
         ))}
+
+        {/* Interruttore della sfocatura: switch (role=switch) invece di una
+            spunta, perché è un on/off e non una scelta tra opzioni. */}
+        <button
+          type="button"
+          role="switch"
+          aria-checked={glassBlur}
+          className={cn(itemCls, 'mt-1')}
+          onClick={() => setGlassBlur(!glassBlur)}
+        >
+          <Droplets className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="flex-1 text-left">
+            <span className="block">{t('common.theme.glassBlur')}</span>
+            <span className="block text-[11px] font-normal text-muted-foreground">
+              {t('common.theme.glassBlurHint')}
+            </span>
+          </span>
+          <span
+            aria-hidden
+            className={cn(
+              'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200',
+              glassBlur ? 'bg-primary' : 'bg-muted-foreground/30',
+            )}
+          >
+            <span
+              className={cn(
+                'h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ease-[var(--ease-out)]',
+                glassBlur ? 'translate-x-[18px]' : 'translate-x-0.5',
+              )}
+            />
+          </span>
+        </button>
 
         <div className="my-1.5 h-px bg-border" />
 
@@ -115,8 +149,9 @@ export function PaletteToggle() {
           type="button"
           className={cn(itemCls, 'justify-center text-muted-foreground')}
           onClick={() => {
-            setColorTheme('glass');
+            setColorTheme('registro');
             setNumFont('sans');
+            setGlassBlur(true);
           }}
         >
           Reset

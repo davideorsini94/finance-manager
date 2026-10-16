@@ -47,8 +47,8 @@ const TYPE_HREF: Partial<Record<NotificationType, '/bank-review' | '/settings'>>
 const TYPE_HUE: Record<NotificationType, string> = {
   budget_threshold: 'text-amber-600 bg-amber-50 dark:bg-amber-950/40',
   recurring_executed: 'text-sky-600 bg-sky-50 dark:bg-sky-950/40',
-  cc_payment_due: 'text-rose-600 bg-rose-50 dark:bg-rose-950/40',
-  goal_reached: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40',
+  cc_payment_due: 'text-[hsl(var(--neg))] bg-rose-50 dark:bg-rose-950/40',
+  goal_reached: 'text-[hsl(var(--pos))] bg-emerald-50 dark:bg-emerald-950/40',
   large_transaction: 'text-violet-600 bg-violet-50 dark:bg-violet-950/40',
   account_shared: 'text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40',
   import_ready: 'text-teal-600 bg-teal-50 dark:bg-teal-950/40',
@@ -106,7 +106,7 @@ export function NotificationBell() {
             // sinistra. Da `sm` in su lo spazio abbonda e resta ancorato.
             'fixed inset-x-2 top-14 z-40 w-auto',
             'sm:absolute sm:inset-x-auto sm:right-0 sm:top-11 sm:w-[380px] sm:max-w-[calc(100vw-2rem)]',
-            'rounded-lg border bg-popover text-popover-foreground shadow-lg',
+            'fm-material fm-material-nested rounded-2xl border text-popover-foreground',
           )}
           role="dialog"
         >
@@ -229,7 +229,7 @@ function NotificationRow({
               e.stopPropagation();
               onDelete();
             }}
-            className="invisible inline-flex items-center gap-1 hover:text-rose-600 group-hover:visible"
+            className="invisible inline-flex items-center gap-1 hover:text-[hsl(var(--neg))] group-hover:visible"
           >
             <Trash2 className="h-3 w-3" /> elimina
           </button>

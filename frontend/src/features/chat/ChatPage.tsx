@@ -11,7 +11,7 @@ import { chatApi, type ChatMessage } from './chatApi';
 import { useChatStream, type ChatWorking } from './useChatStream';
 import { llmApi } from '@/features/settings/llmApi';
 import { useConfirm } from '@/components/shared/confirm';
-import { MARKDOWN_COMPONENTS } from '@/components/shared/markdown';
+import { MARKDOWN_COMPONENTS, MARKDOWN_REMARK_PLUGINS } from '@/components/shared/markdown';
 
 export function ChatPage() {
   const queryClient = useQueryClient();
@@ -364,7 +364,7 @@ function MessageBubble({ message, streaming }: { message: ChatMessage; streaming
           <p className="whitespace-pre-wrap">{message.content}</p>
         ) : (
           <div className="prose prose-sm dark:prose-invert max-w-none">
-            <ReactMarkdown components={MARKDOWN_COMPONENTS}>{message.content}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={MARKDOWN_REMARK_PLUGINS} components={MARKDOWN_COMPONENTS}>{message.content}</ReactMarkdown>
             {streaming && <span className="inline-block animate-pulse">▋</span>}
           </div>
         )}

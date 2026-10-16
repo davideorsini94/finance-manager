@@ -74,7 +74,9 @@
       "fontSans": "Sans",
       "fontMono": "Mono",
       "fontSerif": "Serif",
-      "registro": "Registro"
+      "registro": "Registro",
+      "glassBlur": "Glass blur",
+      "glassBlurHint": "Translucent, blurred bars, menus and cards"
     },
     "privacy": {
       "label": "Privacy mode",
