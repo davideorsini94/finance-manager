@@ -240,7 +240,7 @@ export function SmtpSettingsCard() {
             <p className="text-sm text-destructive">{(save.error as Error).message}</p>
           )}
           {save.isSuccess && (
-            <p className="text-sm text-emerald-600 inline-flex items-center gap-1">
+            <p className="text-sm text-[hsl(var(--pos))] inline-flex items-center gap-1">
               <CheckCircle2 className="h-4 w-4" /> Configurazione salvata.
             </p>
           )}
@@ -297,7 +297,7 @@ export function SmtpSettingsCard() {
             </div>
             {testResult && (
               <p
-                className={`text-sm inline-flex items-center gap-1 ${testResult.startsWith('Errore') ? 'text-destructive' : 'text-emerald-600'}`}
+                className={`text-sm inline-flex items-center gap-1 ${testResult.startsWith('Errore') ? 'text-destructive' : 'text-[hsl(var(--pos))]'}`}
               >
                 {testResult.startsWith('Errore') ? (
                   <AlertCircle className="h-4 w-4" />

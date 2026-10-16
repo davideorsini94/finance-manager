@@ -639,7 +639,7 @@ export function BankLinkWizard({
               {outcomes.map((o) => (
                 <li key={o.uid} className="flex items-start gap-2 rounded-md border p-3 text-sm">
                   {o.ok ? (
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <CheckCircle2 className="h-4 w-4 text-[hsl(var(--pos))] shrink-0 mt-0.5" />
                   ) : (
                     <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
                   )}

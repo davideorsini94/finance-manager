@@ -593,7 +593,7 @@ function SyncScheduleSection() {
       )}
 
       {saved && !saveSchedule.isPending && !saveSchedule.isError && (
-        <p className="text-xs text-emerald-600 flex items-start gap-1">
+        <p className="text-xs text-[hsl(var(--pos))] flex items-start gap-1">
           <CheckCircle2 className="h-3.5 w-3.5 shrink-0 mt-0.5" />
           {t('bankSync.schedule.saved')}
         </p>
@@ -659,7 +659,7 @@ function RenewOutcomeMessage({ outcome }: { outcome: RenewOutcome }) {
   }
   return (
     <div className="space-y-1">
-      <p className="text-xs text-emerald-600 flex items-start gap-1">
+      <p className="text-xs text-[hsl(var(--pos))] flex items-start gap-1">
         <CheckCircle2 className="h-3.5 w-3.5 shrink-0 mt-0.5" />
         Collegamento rinnovato con successo.
       </p>

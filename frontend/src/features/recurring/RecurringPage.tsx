@@ -296,8 +296,8 @@ export function RecurringPage() {
             const tone = isTransfer
               ? 'text-muted-foreground'
               : r.type === 'income'
-                ? 'text-emerald-600'
-                : 'text-red-600';
+                ? 'text-[hsl(var(--pos))]'
+                : 'text-[hsl(var(--neg))]';
             const Icon = isTransfer
               ? ArrowLeftRight
               : r.type === 'income'
@@ -309,17 +309,16 @@ export function RecurringPage() {
             // convenzione visiva delle card della pagina Conti.
             const account = accountById.get(r.account.id);
             const tint = account?.color ?? undefined;
-            const cardStyle = tint
-              ? { backgroundColor: `${tint}24`, borderColor: `${tint}80` }
-              : undefined;
+            // Foglio con la sola spina colorata, come le card della pagina Conti.
+            const cardStyle = tint ? { borderLeftColor: tint } : undefined;
             return (
-              <Card key={r.id} className="border-l-4 transition-colors" style={cardStyle}>
+              <Card key={r.id} className="fm-card-in border-l-4" style={cardStyle}>
                 <CardHeader className="flex-row items-start justify-between space-y-0 pb-2">
                   <div className="flex items-start gap-2 min-w-0">
                     <div
                       className={`shrink-0 rounded-full p-1.5 ${tone}`}
                       style={{
-                        backgroundColor: tint ? `${tint}33` : 'hsl(var(--muted))',
+                        backgroundColor: tint ? `${tint}1f` : 'hsl(var(--muted))',
                       }}
                     >
                       <Icon className="h-3.5 w-3.5" />
@@ -341,7 +340,9 @@ export function RecurringPage() {
                 <CardContent className="space-y-3">
                   <p className={`text-2xl font-semibold tabular-nums ${tone}`}>
                     {isTransfer ? '↹ ' : r.type === 'income' ? '+' : '−'}
-                    <MoneyAmount cents={r.amountCents} size="row" colored />
+                    {/* Niente `colored`: l'importo è salvato positivo anche per le
+                        uscite e diventava verde; il colore lo dà il <p> col tipo. */}
+                    <MoneyAmount cents={r.amountCents} size="row" />
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Prossima esecuzione: {formatDate(r.nextRunDate)}

@@ -86,7 +86,7 @@ export function AcceptInvitePage() {
 
         {state === 'success' && result && (
           <div className="text-center">
-            <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-600" />
+            <CheckCircle2 className="mx-auto h-12 w-12 text-[hsl(var(--pos))]" />
             <h2 className="mt-4 text-lg font-semibold">Sei dentro!</h2>
             <p className="mt-2 text-sm text-muted-foreground">
               Ora hai accesso a <strong>{result.accountName}</strong> come <RoleInline role={result.role} />.
@@ -103,7 +103,7 @@ export function AcceptInvitePage() {
 
         {state === 'error' && (
           <div className="text-center">
-            <XCircle className="mx-auto h-12 w-12 text-rose-600" />
+            <XCircle className="mx-auto h-12 w-12 text-[hsl(var(--neg))]" />
             <h2 className="mt-4 text-lg font-semibold">Impossibile accettare l'invito</h2>
             <p className="mt-2 text-sm text-muted-foreground">{error}</p>
             <button

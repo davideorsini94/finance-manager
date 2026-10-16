@@ -88,7 +88,7 @@ export function InviteAcceptPage() {
               </span>
             )}
             {sharedAccountName && (
-              <span className="mt-2 block text-xs text-emerald-700 dark:text-emerald-400">
+              <span className="mt-2 block text-xs text-[hsl(var(--pos))]">
                 Aggiunto al conto: {sharedAccountName}
               </span>
             )}

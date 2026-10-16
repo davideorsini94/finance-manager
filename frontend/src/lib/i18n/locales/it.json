@@ -74,7 +74,9 @@
       "fontSans": "Sans",
       "fontMono": "Mono",
       "fontSerif": "Serif",
-      "registro": "Registro"
+      "registro": "Registro",
+      "glassBlur": "Sfocatura vetro",
+      "glassBlurHint": "Barre, menu e card traslucidi e sfocati"
     },
     "privacy": {
       "label": "Modalità privacy",

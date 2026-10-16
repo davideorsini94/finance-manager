@@ -139,7 +139,7 @@ export function SettingsPage() {
             <Input id="fullName" {...profileForm.register('fullName')} />
           </div>
           {profileMutation.isSuccess && (
-            <p className="text-xs text-emerald-600">Profilo aggiornato.</p>
+            <p className="text-xs text-[hsl(var(--pos))]">Profilo aggiornato.</p>
           )}
           <Button type="submit" disabled={profileMutation.isPending}>
             <Save className="h-4 w-4 mr-2" /> Salva
@@ -345,7 +345,7 @@ export function SettingsPage() {
 
             {restoreResult && (
               <p
-                className={`text-sm ${restoreResult.startsWith('Errore') ? 'text-destructive' : 'text-emerald-600'}`}
+                className={`text-sm ${restoreResult.startsWith('Errore') ? 'text-destructive' : 'text-[hsl(var(--pos))]'}`}
               >
                 {restoreResult}
               </p>

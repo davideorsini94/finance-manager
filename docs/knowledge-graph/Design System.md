@@ -37,6 +37,8 @@ Ogni riga della [[Pagina Movimenti]] porta un bordo sinistro di 3px col **colore
 
 ## Colori: token, non classi Tailwind
 
+Dal 2026-10-16 (v0.18.0) il testo di importi ed esiti in tutta l'app usa `--pos`/`--neg` (50 occorrenze `emerald-*`/`red-*`/`rose-*` sostituite in report, proiezioni, impostazioni, inviti, revisione). Restano con colori fissi solo alcuni banner di stato con fondo pieno. Il wizard di import (`ImportWizard.tsx`) era interamente in `slate`/`blue` e ora usa i token.
+
 Entrate/uscite si colorano con `hsl(var(--pos))` / `hsl(var(--neg))`, **mai** con `emerald-600`/`red-600`: i colori fissi di Tailwind ignorano il tema e nel tema Registro il rosso 500 era più acceso del `--neg`, tanto che una card selezionata sembrava in errore. Vale anche per gli stati di selezione (`FLOW_UI` in `features/dashboard/flow.tsx`), dove la selezione è un **filetto sottile + fondo tenue**: un anello spesso e staccato si legge come un allarme.
 
 ## Grafici
@@ -65,6 +67,8 @@ Effetto vetro alla Apple, **solo sul livello di navigazione** che galleggia sopr
 - **Tab bar mobile** (`BottomNav.tsx`): capsula flottante staccata dai bordi, voce attiva con `.fm-tab-lens` (lente tenue, non colore pieno), FAB `.fm-fab` con riflesso e ombra del suo colore. Il colore sta sempre su uno strato pieno, mai sul vetro. Il `<nav>` esterno resta fixed e trasparente, perché è lui che `ios-viewport.ts` sposta; il `::after` anti-banda ora ha il colore della pagina, non della barra
 - **TopBar dentro lo scroller** (`AppShell.tsx`): è `sticky` dentro `<main>`, così il contenuto le scorre sotto (fuori dallo scroller il vetro non avrebbe niente da sfocare). `<main>` ha `scroll-padding-top` per non nascondere sotto la barra le card portate in vista
 - Ripieghi: senza `backdrop-filter`, con `prefers-reduced-transparency` o con `prefers-contrast: more` la superficie torna piena
+
+- **Interruttore "Sfocatura vetro"** nel menu temi (`PaletteToggle.tsx`, switch `role=switch`), default **attivo**. Preferenza `glassBlur` in `uiStore` (persist v5, la migrazione da v4 la mette a `true`), pubblicata come `data-glass='on'|'off'` su `<html>` da `applyUIChrome`. Con `off` spariscono tutti i `backdrop-filter` e le superfici tornano piene (un vetro trasparente senza blur farebbe leggere il contenuto di sotto); lo sfondo ambientale resta. Il "Reset" del menu riporta a Registro + sfocatura attiva (prima riportava al vecchio default `glass`)
 
 ### Vetro anche sulle card (2026-10-16, su richiesta)
 

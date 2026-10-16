@@ -127,8 +127,8 @@ function displayCents(item: ReviewItem): number {
 function toneFor(type: EffectiveType): string {
   if (type === 'transfer') return 'text-muted-foreground';
   return type === 'income'
-    ? 'text-emerald-600 dark:text-emerald-400'
-    : 'text-red-600 dark:text-red-400';
+    ? 'text-[hsl(var(--pos))]'
+    : 'text-[hsl(var(--neg))]';
 }
 
 function itemLabel(item: ReviewItem): string {
@@ -479,7 +479,7 @@ export function BankReviewPage() {
                 <p className="p-6 text-sm text-muted-foreground">Caricamento…</p>
               ) : isEmpty ? (
                 <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
-                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-[hsl(var(--pos))] dark:bg-emerald-900/40 dark:text-emerald-300">
                     <Check className="h-6 w-6" />
                   </div>
                   <p className="text-base font-medium">Tutto confermato ✓</p>

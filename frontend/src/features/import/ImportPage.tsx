@@ -100,7 +100,7 @@ export function ImportPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Check className="h-5 w-5 text-emerald-500" />
+              <Check className="h-5 w-5 text-[hsl(var(--pos))]" />
               Import completato
             </CardTitle>
             <CardDescription>I movimenti sono stati creati.</CardDescription>
@@ -206,7 +206,7 @@ export function ImportPage() {
                       </td>
                       <td
                         className={`p-2 font-semibold tabular-nums whitespace-nowrap ${
-                          isIncome ? 'text-emerald-600' : 'text-red-600'
+                          isIncome ? 'text-[hsl(var(--pos))]' : 'text-[hsl(var(--neg))]'
                         }`}
                       >
                         <MoneyAmount cents={row.amountCents} size="row" colored />

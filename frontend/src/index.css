@@ -890,6 +890,34 @@
     }
   }
 
+  /* Sfocatura disattivata dall'utente (menu temi → "Sfocatura vetro"): via
+     ogni backdrop-filter e le superfici tornano piene. Un vetro trasparente
+     senza blur farebbe solo leggere il contenuto di sotto attraverso. Lo
+     sfondo ambientale resta: non costa nulla. */
+  :root[data-glass='off'] *,
+  :root[data-glass='off'] *::before,
+  :root[data-glass='off'] *::after {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+  :root[data-glass='off'] .fm-material,
+  :root[data-glass='off'] .fm-material-bar,
+  :root[data-glass='off'] .fm-material-thick {
+    --fm-mat-alpha: 1 !important;
+  }
+  :root[data-glass='off'][data-theme='registro'] .fm-glass {
+    background-color: hsl(var(--card));
+  }
+  :root[data-glass='off'][data-theme='registro'] .fm-glass-field {
+    background-color: hsl(var(--background));
+  }
+  :root[data-glass='off'] {
+    --glass-bg-alpha: 0.96;
+  }
+  :root[data-glass='off'][data-theme='glass'] .fm-chrome {
+    background: hsl(var(--card));
+  }
+
   /* Pillola dell'elemento attivo nella tab bar: vetro più chiaro sopra il
      vetro della barra (lente), non un colore pieno. */
   .fm-tab-lens {

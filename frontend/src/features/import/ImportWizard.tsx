@@ -198,7 +198,10 @@ export function ImportWizard() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-6">
+    <div className="mx-auto max-w-5xl space-y-6">
+      {/* Titolo come le altre pagine; il padding lo dà già il contenitore
+          dell'AppShell (qui c'era un p-6 in più che stringeva tutto su mobile). */}
+      <h1 className="text-2xl font-semibold tracking-tight">Importa CSV</h1>
       <Stepper step={step} />
 
       {step === 'upload' && (
@@ -250,16 +253,16 @@ export function ImportWizard() {
       )}
 
       {step === 'done' && batch && (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-8 text-center dark:border-emerald-900 dark:bg-emerald-950/40">
-          <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-600" />
+        <div className="rounded-lg border border-[hsl(var(--pos)/0.3)] bg-[hsl(var(--pos-soft))] p-8 text-center">
+          <CheckCircle2 className="mx-auto h-12 w-12 text-[hsl(var(--pos))]" />
           <h3 className="mt-4 text-lg font-semibold">Import completato</h3>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          <p className="mt-1 text-sm text-muted-foreground">
             {batch.rows.filter((r) => r.status === 'ready').length} transazioni importate su {batch.account.name}
           </p>
           <button
             type="button"
             onClick={() => { setStep('upload'); setBatchId(null); setBatch(null); setCsvText(''); }}
-            className="mt-6 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="mt-6 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
           >
             Nuovo import
           </button>
@@ -278,20 +281,28 @@ function Stepper({ step }: { step: Step }) {
   ];
   const idx = steps.findIndex((s) => s.id === step);
   return (
-    <ol className="flex items-center gap-2 text-sm">
+    // Su mobile le quattro etichette affiancate sforavano di ~90px: lì si
+    // mostra l'etichetta solo del passo attivo, da sm tutte.
+    <ol className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
       {steps.map((s, i) => (
         <li key={s.id} className="flex items-center gap-2">
           <span
             className={
               i <= idx
-                ? 'flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white'
-                : 'flex h-7 w-7 items-center justify-center rounded-full bg-slate-200 text-slate-500 dark:bg-slate-800'
+                ? 'flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground'
+                : 'flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground'
             }
           >
             {i < idx ? <CheckCircle2 className="h-4 w-4" /> : i + 1}
           </span>
-          <span className={i === idx ? 'font-medium' : 'text-slate-500'}>{s.label}</span>
-          {i < steps.length - 1 && <span className="mx-1 text-slate-300">→</span>}
+          <span
+            className={
+              i === idx ? 'font-medium' : 'hidden text-muted-foreground sm:inline'
+            }
+          >
+            {s.label.replace(/^\d\.\s*/, '')}
+          </span>
+          {i < steps.length - 1 && <span className="mx-0.5 text-muted-foreground/50">→</span>}
         </li>
       ))}
     </ol>
@@ -317,7 +328,7 @@ function UploadStep(props: {
           <select
             value={props.accountId}
             onChange={(e) => props.setAccountId(e.target.value)}
-            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+            className="fm-glass-field h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           >
             {sortByName(props.accounts).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
@@ -327,7 +338,7 @@ function UploadStep(props: {
           <select
             value={props.templateId}
             onChange={(e) => props.setTemplateId(e.target.value)}
-            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+            className="fm-glass-field h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           >
             <option value="">— nessuno —</option>
             {props.templates.map((t) => (
@@ -341,16 +352,16 @@ function UploadStep(props: {
         {...props.getRootProps()}
         className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-12 transition ${
           props.isDragActive
-            ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30'
-            : 'border-slate-300 bg-slate-50 hover:border-slate-400 dark:border-slate-700 dark:bg-slate-900'
+            ? 'border-primary bg-accent'
+            : 'border-input bg-muted/50 hover:border-input'
         }`}
       >
         <input {...props.getInputProps()} />
-        <Upload className="h-10 w-10 text-slate-400" />
+        <Upload className="h-10 w-10 text-muted-foreground" />
         <p className="mt-3 text-sm font-medium">
           {props.isDragActive ? 'Rilascia qui il file' : 'Trascina un CSV o clicca per scegliere'}
         </p>
-        <p className="mt-1 text-xs text-slate-500">.csv, .txt — fino a 10 MB</p>
+        <p className="mt-1 text-xs text-muted-foreground">.csv, .txt — fino a 10 MB</p>
       </div>
     </div>
   );
@@ -380,11 +391,11 @@ function MappingStep(props: {
       </div>
       <div className="grid grid-cols-3 gap-4">
         <label className="block">
-          <span className="mb-1 block text-xs font-medium uppercase text-slate-500">Delimiter</span>
+          <span className="mb-1 block text-xs font-medium uppercase text-muted-foreground">Delimiter</span>
           <select
             value={props.delimiter}
             onChange={(e) => props.setDelimiter(e.target.value)}
-            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+            className="fm-glass-field h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           >
             <option value=",">Virgola ,</option>
             <option value=";">Punto e virgola ;</option>
@@ -393,11 +404,11 @@ function MappingStep(props: {
           </select>
         </label>
         <label className="block">
-          <span className="mb-1 block text-xs font-medium uppercase text-slate-500">Decimale</span>
+          <span className="mb-1 block text-xs font-medium uppercase text-muted-foreground">Decimale</span>
           <select
             value={props.decimalSep}
             onChange={(e) => props.setDecimalSep(e.target.value)}
-            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+            className="fm-glass-field h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           >
             <option value=",">Virgola (1.234,56)</option>
             <option value=".">Punto (1,234.56)</option>
@@ -413,12 +424,12 @@ function MappingStep(props: {
         </label>
       </div>
 
-      <div className="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-800">
+      <div className="overflow-x-auto rounded-md border border-border">
         <table className="w-full text-xs">
-          <thead className="bg-slate-50 dark:bg-slate-900">
+          <thead className="bg-muted/50">
             <tr>
               {Array.from({ length: cols }).map((_, i) => (
-                <th key={i} className="px-3 py-2 text-left font-medium text-slate-500">
+                <th key={i} className="px-3 py-2 text-left font-medium text-muted-foreground">
                   Colonna {i}
                   <select
                     value={cm.date === i ? 'date' : cm.amount === i ? 'amount' : cm.description === i ? 'description' : ''}
@@ -434,7 +445,7 @@ function MappingStep(props: {
                       if (v === 'description') next.description = i;
                       props.setColumnMap(next);
                     }}
-                    className="mt-1 w-full rounded border border-slate-300 bg-white px-1 py-0.5 text-xs dark:border-slate-700 dark:bg-slate-900"
+                    className="mt-1 w-full rounded border border-input bg-background px-1 py-0.5 text-xs"
                   >
                     <option value="">— ignora —</option>
                     <option value="date">📅 Data</option>
@@ -445,7 +456,7 @@ function MappingStep(props: {
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+          <tbody className="divide-y divide-border">
             {props.previewLines.slice(props.hasHeader ? 1 : 0).slice(0, 4).map((row, ri) => (
               <tr key={ri}>
                 {row.map((cell, ci) => (
@@ -458,14 +469,14 @@ function MappingStep(props: {
       </div>
 
       <div className="flex justify-between pt-4">
-        <button type="button" onClick={props.onBack} className="rounded-md border border-slate-300 px-4 py-2 text-sm dark:border-slate-700">
+        <button type="button" onClick={props.onBack} className="rounded-md border border-input px-4 py-2 text-sm">
           Indietro
         </button>
         <button
           type="button"
           onClick={props.onNext}
           disabled={cm.date < 0 || cm.amount < 0}
-          className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
         >
           <Sparkles className="h-4 w-4" /> Analizza con AI
         </button>
@@ -490,9 +501,9 @@ function PreviewStep(props: {
   if (!props.batch || props.analyzing) {
     return (
       <div className="flex flex-col items-center justify-center py-16">
-        <Sparkles className="h-10 w-10 animate-pulse text-blue-500" />
+        <Sparkles className="h-10 w-10 animate-pulse text-primary" />
         <div className="mt-4 text-sm font-medium">Analisi in corso…</div>
-        <div className="mt-1 text-xs text-slate-500">Parsing CSV, rilevamento duplicati, categorizzazione AI</div>
+        <div className="mt-1 text-xs text-muted-foreground">Parsing CSV, rilevamento duplicati, categorizzazione AI</div>
       </div>
     );
   }
@@ -511,9 +522,9 @@ function PreviewStep(props: {
         <Stat label="Errori" value={errs} tone="error" />
       </div>
 
-      <div className="overflow-hidden rounded-md border border-slate-200 dark:border-slate-800">
+      <div className="overflow-hidden rounded-md border border-border">
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-900">
+          <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-3 py-2 text-left">Stato</th>
               <th className="px-3 py-2 text-left">Data</th>
@@ -523,14 +534,14 @@ function PreviewStep(props: {
               <th className="px-3 py-2"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+          <tbody className="divide-y divide-border">
             {b.rows.map((r) => <Row key={r.id} r={r} categories={props.categories} updateRow={props.updateRow} toggleSkip={props.toggleSkip} />)}
           </tbody>
         </table>
       </div>
 
-      <div className="flex items-center gap-3 rounded-md border border-dashed border-slate-300 p-3 text-sm dark:border-slate-700">
-        <Save className="h-4 w-4 text-slate-500" />
+      <div className="flex items-center gap-3 rounded-md border border-dashed border-input p-3 text-sm">
+        <Save className="h-4 w-4 text-muted-foreground" />
         <label className="flex items-center gap-2">
           <input type="checkbox" checked={props.saveTemplate} onChange={(e) => props.setSaveTemplate(e.target.checked)} />
           <span>Salva mappatura come template</span>
@@ -541,19 +552,19 @@ function PreviewStep(props: {
             placeholder="Nome template (es. Intesa SP)"
             value={props.templateName}
             onChange={(e) => props.setTemplateName(e.target.value)}
-            className="flex-1 rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
+            className="flex-1 rounded border border-input bg-background px-2 py-1 text-sm"
           />
         )}
       </div>
 
       <div className="flex justify-between pt-2">
-        <button type="button" onClick={props.onBack} className="rounded-md border border-slate-300 px-4 py-2 text-sm dark:border-slate-700">
+        <button type="button" onClick={props.onBack} className="rounded-md border border-input px-4 py-2 text-sm">
           Indietro
         </button>
         <button
           type="button"
           onClick={props.onConfirm}
-          className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
         >
           Importa {toImport} transazioni
         </button>
@@ -568,14 +579,14 @@ function Row(props: { r: BatchRow; categories: Category[]; updateRow: (rowId: st
   const isNeg = amount !== null && amount < 0;
   const conf = r.suggestedConfidence ?? 0;
   return (
-    <tr className={r.status === 'skipped' ? 'opacity-40' : r.status === 'duplicate' ? 'bg-amber-50/50 dark:bg-amber-950/20' : r.status === 'error' ? 'bg-rose-50/50 dark:bg-rose-950/20' : ''}>
+    <tr className={r.status === 'skipped' ? 'opacity-40' : r.status === 'duplicate' ? 'bg-[hsl(var(--warn-soft)/0.5)]' : r.status === 'error' ? 'bg-[hsl(var(--neg-soft)/0.5)]' : ''}>
       <td className="px-3 py-2">
         <StatusBadge status={r.status} />
       </td>
       <td className="px-3 py-2 whitespace-nowrap font-mono text-xs">
         {r.parsedDate ? new Date(r.parsedDate).toLocaleDateString('it-IT') : '—'}
       </td>
-      <td className={`px-3 py-2 text-right font-mono ${isNeg ? 'text-rose-600' : 'text-emerald-600'}`}>
+      <td className={`px-3 py-2 text-right font-mono ${isNeg ? 'text-[hsl(var(--neg))]' : 'text-[hsl(var(--pos))]'}`}>
         {amount !== null ? new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(amount) : '—'}
       </td>
       <td className="max-w-xs truncate px-3 py-2">{r.parsedDescription ?? '—'}</td>
@@ -584,26 +595,26 @@ function Row(props: { r: BatchRow; categories: Category[]; updateRow: (rowId: st
           <select
             value={r.finalCategory?.id ?? ''}
             onChange={(e) => props.updateRow(r.id, e.target.value || null)}
-            className="rounded border border-slate-300 bg-white px-1.5 py-1 text-xs dark:border-slate-700 dark:bg-slate-900"
+            className="rounded border border-input bg-background px-1.5 py-1 text-xs"
           >
             <option value="">— scegli —</option>
             {sortByName(props.categories).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
           {r.suggestedCategory && conf > 0 && (
-            <span title={`Confidence ${(conf * 100).toFixed(0)}%`} className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${conf >= 0.7 ? 'bg-emerald-100 text-emerald-700' : conf >= 0.4 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
+            <span title={`Confidence ${(conf * 100).toFixed(0)}%`} className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${conf >= 0.7 ? 'bg-[hsl(var(--pos-soft))] text-[hsl(var(--pos))]' : conf >= 0.4 ? 'bg-[hsl(var(--warn-soft))] text-[hsl(var(--warn))]' : 'bg-muted text-muted-foreground'}`}>
               <Sparkles className="h-2.5 w-2.5" /> {(conf * 100).toFixed(0)}%
             </span>
           )}
         </div>
         {r.duplicateOf && (
-          <div className="mt-1 text-[10px] text-amber-700">
+          <div className="mt-1 text-[10px] text-[hsl(var(--warn))]">
             Duplicato di: {r.duplicateOf.description} ({new Date(r.duplicateOf.transactionDate).toLocaleDateString('it-IT')})
           </div>
         )}
-        {r.errorMessage && <div className="mt-1 text-[10px] text-rose-600">{r.errorMessage}</div>}
+        {r.errorMessage && <div className="mt-1 text-[10px] text-[hsl(var(--neg))]">{r.errorMessage}</div>}
       </td>
       <td className="px-3 py-2 text-right">
-        <button type="button" onClick={() => props.toggleSkip(r.id)} className="text-slate-400 hover:text-rose-600" title={r.status === 'skipped' ? 'Reincludi' : 'Salta'}>
+        <button type="button" onClick={() => props.toggleSkip(r.id)} className="text-muted-foreground hover:text-[hsl(var(--neg))]" title={r.status === 'skipped' ? 'Reincludi' : 'Salta'}>
           <X className="h-4 w-4" />
         </button>
       </td>
@@ -613,22 +624,22 @@ function Row(props: { r: BatchRow; categories: Category[]; updateRow: (rowId: st
 
 function StatusBadge({ status }: { status: BatchRow['status'] }) {
   const cfg: Record<string, { label: string; cls: string }> = {
-    pending: { label: 'pending', cls: 'bg-slate-100 text-slate-600' },
-    ready: { label: '✓ pronta', cls: 'bg-emerald-100 text-emerald-700' },
-    duplicate: { label: '⚠ duplicato', cls: 'bg-amber-100 text-amber-700' },
-    imported: { label: 'importata', cls: 'bg-blue-100 text-blue-700' },
-    skipped: { label: 'saltata', cls: 'bg-slate-100 text-slate-500' },
-    error: { label: '✕ errore', cls: 'bg-rose-100 text-rose-700' },
+    pending: { label: 'pending', cls: 'bg-muted text-muted-foreground' },
+    ready: { label: '✓ pronta', cls: 'bg-[hsl(var(--pos-soft))] text-[hsl(var(--pos))]' },
+    duplicate: { label: '⚠ duplicato', cls: 'bg-[hsl(var(--warn-soft))] text-[hsl(var(--warn))]' },
+    imported: { label: 'importata', cls: 'bg-accent text-accent-foreground' },
+    skipped: { label: 'saltata', cls: 'bg-muted text-muted-foreground' },
+    error: { label: '✕ errore', cls: 'bg-[hsl(var(--neg-soft))] text-[hsl(var(--neg))]' },
   };
   const c = cfg[status] ?? cfg.pending;
   return <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${c.cls}`}>{c.label}</span>;
 }
 
 function Stat({ label, value, tone }: { label: string; value: number; tone?: 'success' | 'warning' | 'error' }) {
-  const toneCls = tone === 'success' ? 'text-emerald-600' : tone === 'warning' ? 'text-amber-600' : tone === 'error' ? 'text-rose-600' : '';
+  const toneCls = tone === 'success' ? 'text-[hsl(var(--pos))]' : tone === 'warning' ? 'text-[hsl(var(--warn))]' : tone === 'error' ? 'text-[hsl(var(--neg))]' : '';
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
-      <div className="text-xs text-slate-500">{label}</div>
+    <div className="rounded-md border border-border bg-background p-3">
+      <div className="text-xs text-muted-foreground">{label}</div>
       <div className={`mt-1 text-2xl font-semibold ${toneCls}`}>{value}</div>
     </div>
   );

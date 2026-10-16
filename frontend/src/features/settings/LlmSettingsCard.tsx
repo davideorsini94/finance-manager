@@ -382,7 +382,7 @@ export function LlmSettingsCard() {
 
             {pullResult && (
               <p
-                className={`text-sm flex items-start gap-1 ${pullResult.ok ? 'text-emerald-600' : 'text-destructive'}`}
+                className={`text-sm flex items-start gap-1 ${pullResult.ok ? 'text-[hsl(var(--pos))]' : 'text-destructive'}`}
               >
                 {pullResult.ok ? (
                   <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
@@ -568,7 +568,7 @@ export function LlmSettingsCard() {
               )}
               {opencodeTestResult && (
                 <p
-                  className={`text-sm flex items-center gap-1 ${opencodeTestResult.ok ? 'text-emerald-600' : 'text-destructive'}`}
+                  className={`text-sm flex items-center gap-1 ${opencodeTestResult.ok ? 'text-[hsl(var(--pos))]' : 'text-destructive'}`}
                 >
                   {opencodeTestResult.ok ? (
                     <CheckCircle2 className="h-4 w-4 shrink-0" />

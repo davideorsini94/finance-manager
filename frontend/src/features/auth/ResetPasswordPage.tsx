@@ -72,7 +72,7 @@ export function ResetPasswordPage() {
 
           {status === 'invalid' && (
             <div className="space-y-4 py-2 text-center">
-              <XCircle className="mx-auto h-10 w-10 text-rose-600" />
+              <XCircle className="mx-auto h-10 w-10 text-[hsl(var(--neg))]" />
               <p className="text-sm text-muted-foreground">
                 Il link non è valido o è scaduto. Richiedi un nuovo reset dalla pagina di login.
               </p>
@@ -119,7 +119,7 @@ export function ResetPasswordPage() {
 
           {status === 'done' && (
             <div className="space-y-4 py-2 text-center">
-              <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-600" />
+              <CheckCircle2 className="mx-auto h-10 w-10 text-[hsl(var(--pos))]" />
               <p className="text-sm text-muted-foreground">
                 Password aggiornata. Ora puoi accedere con le nuove credenziali.
               </p>
