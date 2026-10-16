@@ -27,7 +27,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="fm-blob-3" />
         </div>
         <div
-          className="relative z-[1] flex h-dvh w-full bg-background text-foreground"
+          className="fm-shell relative z-[1] flex h-dvh w-full bg-background text-foreground"
           style={{
             paddingLeft: 'var(--safe-left)',
             paddingRight: 'var(--safe-right)',

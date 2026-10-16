@@ -745,6 +745,68 @@
     50%      { opacity: 1;   transform: scale(1.1); }
   }
 
+  /* ============ REGISTRO: VETRO SULLE CARD ============
+     Perché la trasparenza si veda serve qualcosa dietro: un fondo piatto
+     sotto una card traslucida dà solo una card sbiadita. Lo sfondo ambientale
+     è fermo (niente blob animati: costano batteria e un'oscillazione lenta a
+     tutto schermo dà fastidio) e sta sullo shell, che non scorre — le card ci
+     passano sopra scorrendo e il colore cambia sotto di loro. Tinte del tema:
+     blu penna in alto a destra, salvia in basso a sinistra, carta al centro. */
+  [data-theme='registro'] .fm-shell {
+    background-color: hsl(var(--background));
+    background-image:
+      radial-gradient(60rem 40rem at 105% -10%, hsl(205 60% 76% / 0.8), transparent 60%),
+      radial-gradient(50rem 36rem at -10% 110%, hsl(150 35% 72% / 0.75), transparent 60%),
+      radial-gradient(40rem 30rem at 45% 45%, hsl(45 45% 90% / 0.6), transparent 70%);
+  }
+  .dark[data-theme='registro'] .fm-shell {
+    background-image:
+      radial-gradient(60rem 40rem at 105% -10%, hsl(205 55% 26% / 0.55), transparent 60%),
+      radial-gradient(50rem 36rem at -10% 110%, hsl(150 30% 20% / 0.6), transparent 60%),
+      radial-gradient(40rem 30rem at 45% 45%, hsl(160 12% 14% / 0.6), transparent 70%);
+  }
+
+  /* Card di vetro. Più opaca del materiale di navigazione (0.6 vs 0.66 ma
+     blur minore): ci sono sopra gli importi, devono restare netti. Lo spigolo
+     chiaro in alto è la luce sul bordo; l'ombra è tinta dell'inchiostro, non
+     nera. Specificità (0,2,0): vince su `bg-card`/`shadow-sm` della Card. */
+  [data-theme='registro'] .fm-glass {
+    background-color: hsl(var(--card) / 0.6);
+    border-color: hsl(0 0% 100% / 0.55);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    backdrop-filter: blur(18px) saturate(160%);
+    box-shadow:
+      inset 0 1px 0 0 hsl(0 0% 100% / 0.7),
+      0 1px 2px 0 hsl(var(--foreground) / 0.05),
+      0 12px 32px -14px hsl(var(--foreground) / 0.18);
+  }
+  .dark[data-theme='registro'] .fm-glass {
+    background-color: hsl(var(--card) / 0.55);
+    border-color: hsl(0 0% 100% / 0.08);
+    box-shadow:
+      inset 0 1px 0 0 hsl(0 0% 100% / 0.07),
+      0 12px 32px -14px hsl(0 0% 0% / 0.6);
+  }
+  /* Campi e pulsanti contornati dentro le card: traslucidi anche loro, così
+     non sembrano mattonelle piene appoggiate sul vetro. */
+  [data-theme='registro'] .fm-glass-field {
+    background-color: hsl(var(--background) / 0.55);
+  }
+  .dark[data-theme='registro'] .fm-glass-field {
+    background-color: hsl(var(--background) / 0.45);
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    [data-theme='registro'] .fm-glass { background-color: hsl(var(--card) / 0.96); }
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    [data-theme='registro'] .fm-glass {
+      background-color: hsl(var(--card));
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+    [data-theme='registro'] .fm-glass-field { background-color: hsl(var(--background)); }
+  }
+
   /* ============ MATERIALI (vetro alla Apple) ============
      Il vetro sta SOLO sul livello di navigazione che galleggia sopra i
      contenuti (barre, tab bar, menu, popover, modali): le card con gli

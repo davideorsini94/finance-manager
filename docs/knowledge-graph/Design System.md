@@ -8,7 +8,7 @@ Riferimento: la **carta a righe verdi** dei moduli contabili (greenbar). Fondo v
 
 - `--background 100 14% 92%` (carta) · `--card 90 25% 98%` (foglio) · `--foreground 153 20% 11%` (inchiostro)
 - `--primary 205 62% 26%` (blu penna): l'**unico** accento. Verde e rosso sono riservati al DATO (`--pos`/`--neg`), mai alla decorazione — per questo l'accento non è né verde né rosso
-- `--radius 0.5rem`; superfici dei contenuti opache (il vetro c'è solo sulla navigazione, vedi *Materiali in vetro*), niente blob (le classi `fm-glass`/`fm-bg-decor`/`fm-hero-glow` sono scoped su `[data-theme='glass']` e restano inerti qui)
+- `--radius 0.5rem`; card di vetro tenue su sfondo ambientale fermo (vedi *Materiali in vetro*), niente blob (le classi `fm-glass`/`fm-bg-decor`/`fm-hero-glow` sono scoped su `[data-theme='glass']` e restano inerti qui)
 - I temi precedenti (`glass`, `fintech`, `linear`, `nordic`, `sunset`) sono ancora selezionabili: restano come rete di sicurezza per un rilascio, poi si tolgono. Migrazione store v3→v4: chi era sul vecchio default `glass` passa a `registro`, chi aveva scelto altro resta dov'è
 
 ## Tipografia
@@ -65,6 +65,17 @@ Effetto vetro alla Apple, **solo sul livello di navigazione** che galleggia sopr
 - **Tab bar mobile** (`BottomNav.tsx`): capsula flottante staccata dai bordi, voce attiva con `.fm-tab-lens` (lente tenue, non colore pieno), FAB `.fm-fab` con riflesso e ombra del suo colore. Il colore sta sempre su uno strato pieno, mai sul vetro. Il `<nav>` esterno resta fixed e trasparente, perché è lui che `ios-viewport.ts` sposta; il `::after` anti-banda ora ha il colore della pagina, non della barra
 - **TopBar dentro lo scroller** (`AppShell.tsx`): è `sticky` dentro `<main>`, così il contenuto le scorre sotto (fuori dallo scroller il vetro non avrebbe niente da sfocare). `<main>` ha `scroll-padding-top` per non nascondere sotto la barra le card portate in vista
 - Ripieghi: senza `backdrop-filter`, con `prefers-reduced-transparency` o con `prefers-contrast: more` la superficie torna piena
+
+### Vetro anche sulle card (2026-10-16, su richiesta)
+
+Esteso il vetro ai componenti dei contenuti, solo nel tema Registro:
+
+- **Sfondo ambientale** su `.fm-shell` (il contenitore di `AppShell`, che non scorre): tre radiali fermi nelle tinte del tema (blu penna in alto a destra, salvia in basso a sinistra, carta al centro), con variante scura. Senza qualcosa dietro, una card traslucida sembra solo sbiadita. Niente animazione: un'oscillazione lenta a tutto schermo costa batteria e dà fastidio
+- **`[data-theme='registro'] .fm-glass`** (la `Card` ce l'ha di default): fondo `card/0.6`, blur 18px, spigolo chiaro, ombra tinta d'inchiostro. Più opaca e meno sfocata del materiale di navigazione, perché sopra ci sono gli importi
+- **`.fm-glass-field`** su `Input`, `Textarea`, trigger del `Select` e `Button` outline: traslucidi, così non sembrano mattonelle piene sul vetro
+- **Sidebar desktop**: `fm-material-bar` invece di `bg-card`
+- **Selezione KPI** (`FLOW_UI` in `flow.tsx`): il fondo tenue ha `!` perché il vetro della card (specificità 0,2,0) lo coprirebbe
+- Ripieghi come sopra (niente `backdrop-filter`, `prefers-reduced-transparency`)
 
 ## Superfici con colore del conto
 
