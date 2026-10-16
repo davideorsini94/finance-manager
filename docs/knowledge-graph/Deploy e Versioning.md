@@ -16,6 +16,8 @@ Lo stack gira con `docker compose` ([[Infrastruttura Docker]]). Backend e fronte
 
 ## Note
 
+- **Dopo `up -d` ricaricare nginx**: `docker compose exec -T nginx nginx -s reload`. Gli `upstream` di `nginx/nginx.conf` risolvono i nomi `backend`/`frontend` una volta sola all'avvio; i container ricreati prendono IP nuovi e nginx resta sui vecchi → **502** su tutto con "Connection refused" verso `172.18.0.x` nei log (visto alla 0.18.0). Il reload rifà la risoluzione senza interrompere le connessioni
+- **Il punto di rollback va verificato**: `:latest` può non coincidere con il tag dell'ultima versione se si sono deployati fix senza bump. Alla 0.18.0 il `:latest` in esecuzione conteneva i fix dei report LLM successivi alla 0.17.1 ed è stato taggato `0.17.1-llmfix`
 - `docker compose up -d` può **non ricreare** un container la cui immagine è stata ricostruita (visto sul frontend alla 0.16.1: diceva `Running` e continuava a servire la 0.16.0): verificare sempre con `docker inspect fm-frontend --format '{{.Image}}'` e in caso forzare con `up -d --force-recreate <servizio>`
 - Il CMD di produzione del backend esegue `prisma db push --accept-data-loss` all'avvio
 - Eventuali errori `tsc` locali da client Prisma stantio si risolvono nella build Docker (`prisma generate`)
