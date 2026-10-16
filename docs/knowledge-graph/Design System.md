@@ -8,7 +8,7 @@ Riferimento: la **carta a righe verdi** dei moduli contabili (greenbar). Fondo v
 
 - `--background 100 14% 92%` (carta) · `--card 90 25% 98%` (foglio) · `--foreground 153 20% 11%` (inchiostro)
 - `--primary 205 62% 26%` (blu penna): l'**unico** accento. Verde e rosso sono riservati al DATO (`--pos`/`--neg`), mai alla decorazione — per questo l'accento non è né verde né rosso
-- `--radius 0.5rem`; niente vetri e niente blob (le classi `fm-glass`/`fm-bg-decor` sono scoped su `[data-theme='glass']` e restano inerti qui)
+- `--radius 0.5rem`; niente vetri e niente blob (le classi `fm-glass`/`fm-bg-decor`/`fm-hero-glow` sono scoped su `[data-theme='glass']` e restano inerti qui)
 - I temi precedenti (`glass`, `fintech`, `linear`, `nordic`, `sunset`) sono ancora selezionabili: restano come rete di sicurezza per un rilascio, poi si tolgono. Migrazione store v3→v4: chi era sul vecchio default `glass` passa a `registro`, chi aveva scelto altro resta dov'è
 
 ## Tipografia
@@ -41,7 +41,22 @@ Entrate/uscite si colorano con `hsl(var(--pos))` / `hsl(var(--neg))`, **mai** co
 
 ## Grafici
 
+Budget: barra di avanzamento sui token `--pos` / `--warn` (≥80%) / `--neg` (≥100%), mai `emerald-*`.
+
 Recharts con griglia **solo orizzontale** e tratto continuo tenue (la griglia a puntini su due assi è il tell più riconoscibile del grafico di default); serie dai token `--chart-1..5`, guidate dall'accento. I colori delle **categorie** restano scelti dall'utente a database, ma la palette proposta e il riallineamento li tengono in accordo col tema (sezione sopra).
+
+## Movimento e tocco (2026-10-16)
+
+- **Curve**: `--ease-out` (ingressi e risposte), `--ease-in-out` (spostamenti), `--ease-drawer` (pannelli), in `frontend/src/index.css`. Le easing native di CSS sono troppo deboli
+- **Pressione**: `Button` scala a 0.97 su `:active`; per card e righe cliccabili che non sono `Button` c'è `.fm-press` (0.98). Il feedback parte quando il dito si appoggia, non quando si alza. Con `prefers-reduced-motion` non scala
+- **Hover solo col mouse**: `future.hoverOnlyWhenSupported` in `tailwind.config.js`. Su iPhone il primo tap lasciava lo stato hover appiccicato
+- **Controlli**: niente velo al tap, `touch-action: manipulation`, niente selezione del testo/callout con la pressione lunga (solo su button/role=button/tab, i contenuti restano selezionabili)
+- **Ingressi**: `fm-card-in` 360ms, stagger 40ms. Le pagine si aprono decine di volte al giorno
+- **Non toccato**: il `maximum-scale=1` solo iOS di [[PWA e Mobile]] resta, anche se la skill mobile-native lo sconsiglia: senza, Safari zoomava sugli input e il pan restava incastrato
+
+## Superfici con colore del conto
+
+Card dei conti (pagina Conti e striscia della [[Pagina Movimenti]]): **foglio piatto** con la spina sinistra nel colore del conto e il tassello dell'icona tinto al 12%. Il fondo tinto pieno (fino a v0.17) faceva sembrare ogni conto uno stato e competeva con l'evidenziazione della card selezionata.
 
 ## Cosa non è stato fatto (e perché)
 

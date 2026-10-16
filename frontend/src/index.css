@@ -529,6 +529,36 @@
      invece del nero di sistema. */
   html {
     @apply bg-background;
+    /* Niente velo grigio/blu al tap su iOS/Android: è il segnale più forte di
+       "sito dentro un browser". Il feedback lo danno gli stati :active. */
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Controlli: tap immediato (niente attesa del doppio tap) e niente
+     selezione del testo/callout con la pressione lunga. Solo sui controlli:
+     il testo dei contenuti resta selezionabile (descrizioni, IBAN, errori). */
+  button,
+  [role='button'],
+  [role='tab'],
+  a {
+    touch-action: manipulation;
+  }
+  button,
+  [role='button'],
+  [role='tab'] {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  /* Curve di movimento condivise: le easing native di CSS sono troppo
+     deboli. ease-out per ciò che entra/risponde, ease-in-out per ciò che si
+     sposta sullo schermo, drawer per i pannelli che scorrono (curva iOS). */
+  :root {
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+    --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
   }
 
   /* iOS standalone: se il layout viewport termina sopra l'home indicator
@@ -694,7 +724,13 @@
   }
 
   /* Hero glow utility — radiale primario in alto a destra del card/area. */
+  /* Alone decorativo: solo nel tema glass. Nel Registro (superfici opache e
+     piatte) si leggeva come una macchia grigia dietro i filtri. */
   .fm-hero-glow {
+    display: none;
+  }
+  [data-theme='glass'] .fm-hero-glow {
+    display: block;
     position: absolute;
     top: 0; right: 0;
     width: 320px; height: 320px;
@@ -705,6 +741,24 @@
   @keyframes fm-pulse-glow {
     0%, 100% { opacity: 0.6; transform: scale(1); }
     50%      { opacity: 1;   transform: scale(1.1); }
+  }
+
+  /* Strisce a scorrimento orizzontale (card conti, chip filtri): la barra di
+     scorrimento è rumore, lo snap e il bordo tagliato bastano a dire "scorri". */
+  .fm-no-scrollbar {
+    scrollbar-width: none;
+  }
+  .fm-no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Feedback alla pressione per superfici cliccabili che non sono <Button>
+     (card conto, card KPI, righe): risponde al dito appena appoggiato. */
+  .fm-press {
+    transition: transform 140ms var(--ease-out);
+  }
+  .fm-press:active {
+    transform: scale(0.98);
   }
 
   /* Shimmer skeleton (sostituisce animate-pulse "grezzo"). */
@@ -731,27 +785,29 @@
      children e parent `.fm-stagger` per i delay incrementali. */
   .fm-card-in {
     opacity: 0;
-    transform: translateY(12px);
-    animation: fm-card-in 700ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    transform: translateY(8px);
+    /* Le pagine si aprono decine di volte al giorno: l'ingresso deve dare il
+       senso di ordine senza far aspettare i numeri. */
+    animation: fm-card-in 360ms var(--ease-out) forwards;
   }
   @keyframes fm-card-in {
     to { opacity: 1; transform: translateY(0); }
   }
-  .fm-stagger > *:nth-child(1) { animation-delay:  50ms; }
-  .fm-stagger > *:nth-child(2) { animation-delay: 120ms; }
-  .fm-stagger > *:nth-child(3) { animation-delay: 190ms; }
-  .fm-stagger > *:nth-child(4) { animation-delay: 260ms; }
-  .fm-stagger > *:nth-child(5) { animation-delay: 330ms; }
-  .fm-stagger > *:nth-child(6) { animation-delay: 400ms; }
-  .fm-stagger > *:nth-child(7) { animation-delay: 470ms; }
-  .fm-stagger > *:nth-child(8) { animation-delay: 540ms; }
+  .fm-stagger > *:nth-child(1) { animation-delay: 0ms; }
+  .fm-stagger > *:nth-child(2) { animation-delay: 40ms; }
+  .fm-stagger > *:nth-child(3) { animation-delay: 80ms; }
+  .fm-stagger > *:nth-child(4) { animation-delay: 120ms; }
+  .fm-stagger > *:nth-child(5) { animation-delay: 160ms; }
+  .fm-stagger > *:nth-child(6) { animation-delay: 200ms; }
+  .fm-stagger > *:nth-child(7) { animation-delay: 240ms; }
+  .fm-stagger > *:nth-child(8) { animation-delay: 280ms; }
 
   /* Reveal on scroll (toggled via IntersectionObserver: classe `is-visible`). */
   .fm-reveal {
     opacity: 0;
-    transform: translateY(16px);
-    transition: opacity 600ms cubic-bezier(0.16, 1, 0.3, 1),
-                transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
+    transform: translateY(10px);
+    transition: opacity 400ms var(--ease-out),
+                transform 400ms var(--ease-out);
   }
   .fm-reveal.is-visible {
     opacity: 1;
@@ -785,6 +841,9 @@
     .fm-shimmer::after,
     .fm-spark-path {
       animation: none !important;
+    }
+    .fm-press:active {
+      transform: none;
     }
     .fm-card-in,
     .fm-reveal {

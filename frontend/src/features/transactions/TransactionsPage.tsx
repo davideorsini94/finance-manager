@@ -16,6 +16,7 @@ import {
   Wallet,
   CreditCard,
   Banknote,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -31,6 +32,7 @@ import { Badge } from '@/components/ui/badge';
 import { MoneyAmount } from '@/components/shared/MoneyAmount';
 import { AttachmentPreviewDialog } from '@/components/shared/AttachmentPreviewDialog';
 import { formatDate } from '@/lib/utils/date';
+import { cn } from '@/lib/utils/cn';
 import { sortByName } from '@/lib/utils/sort';
 import { getIcon } from '@/components/shared/icon-pool';
 import type { Account, AccountType, Transaction, TransactionType } from '@/types/domain';
@@ -67,6 +69,9 @@ export function TransactionsPage() {
   const [filters, setFilters] = useState<ListTransactionsParams>({ page: 1, limit: 10 });
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | null>(null);
+  // Su mobile i filtri secondari (conto, categoria, date) stanno dietro un
+  // bottone: aperti occupavano tutta la prima schermata prima della lista.
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const accountsQuery = useQuery({ queryKey: ['accounts'], queryFn: () => accountsApi.list() });
   const categoriesQuery = useQuery({
@@ -123,6 +128,10 @@ export function TransactionsPage() {
     (accountsQuery.data ?? []).map((a) => [a.id, a.color ?? null] as const),
   );
 
+  const activeFilterCount = [filters.accountId, filters.categoryId, filters.from, filters.to].filter(
+    Boolean,
+  ).length;
+
   // Cambio filtro: torna a pagina 1 per coerenza con i risultati
   const updateFilter = (patch: Partial<ListTransactionsParams>) =>
     setFilters((prev) => ({ ...prev, ...patch, page: 1 }));
@@ -146,8 +155,8 @@ export function TransactionsPage() {
       </div>
 
       {accountsForSummary.length > 0 && (
-        <div className="-mx-1 overflow-x-auto pb-1">
-          <div className="flex snap-x snap-mandatory gap-2 px-1">
+        <div className="fm-no-scrollbar -mx-4 overflow-x-auto px-4 py-1 sm:-mx-1 sm:px-1">
+          <div className="flex snap-x snap-mandatory scroll-px-4 gap-2 sm:scroll-px-1">
             {accountsForSummary.map((account) => (
               <div
                 key={account.id}
@@ -171,61 +180,86 @@ export function TransactionsPage() {
       )}
 
       <Card>
-        <CardContent className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-5">
-          <Input
-            placeholder="Cerca descrizione…"
-            value={filters.search ?? ''}
-            onChange={(e) => updateFilter({ search: e.target.value || undefined })}
-          />
-          <Select
-            value={filters.accountId ?? 'all'}
-            onValueChange={(v) => updateFilter({ accountId: v === 'all' ? undefined : v })}
+        <CardContent className="grid gap-3 p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-5">
+          <div className="flex gap-2">
+            <Input
+              placeholder="Cerca descrizione…"
+              value={filters.search ?? ''}
+              onChange={(e) => updateFilter({ search: e.target.value || undefined })}
+            />
+            <Button
+              type="button"
+              variant={activeFilterCount > 0 ? 'secondary' : 'outline'}
+              size="icon"
+              className="relative shrink-0 sm:hidden"
+              aria-expanded={filtersOpen}
+              aria-label="Filtri"
+              onClick={() => setFiltersOpen((o) => !o)}
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              {activeFilterCount > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                  {activeFilterCount}
+                </span>
+              )}
+            </Button>
+          </div>
+          <div
+            className={cn(
+              'grid-cols-2 gap-3 sm:contents',
+              filtersOpen ? 'grid' : 'hidden',
+            )}
           >
-            <SelectTrigger>
-              {/* Label esplicita: la SelectValue di Radix non risolve il nome
-                  se il menu non è mai stato aperto (es. filtro impostato
-                  cliccando una card conto). */}
-              <SelectValue placeholder="Conto">
-                {filters.accountId
-                  ? (accountsQuery.data ?? []).find((a) => a.id === filters.accountId)?.name
-                  : 'Tutti i conti'}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tutti i conti</SelectItem>
-              {sortByName(accountsQuery.data ?? []).map((a) => (
-                <SelectItem key={a.id} value={a.id}>
-                  {a.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
-            value={filters.categoryId ?? 'all'}
-            onValueChange={(v) => updateFilter({ categoryId: v === 'all' ? undefined : v })}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Categoria" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tutte le categorie</SelectItem>
-              {sortByName(categoriesQuery.data ?? []).map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Input
-            type="date"
-            value={filters.from ?? ''}
-            onChange={(e) => updateFilter({ from: e.target.value || undefined })}
-          />
-          <Input
-            type="date"
-            value={filters.to ?? ''}
-            onChange={(e) => updateFilter({ to: e.target.value || undefined })}
-          />
+            <Select
+              value={filters.accountId ?? 'all'}
+              onValueChange={(v) => updateFilter({ accountId: v === 'all' ? undefined : v })}
+            >
+              <SelectTrigger className="[&>span]:truncate">
+                {/* Label esplicita: la SelectValue di Radix non risolve il nome
+                    se il menu non è mai stato aperto (es. filtro impostato
+                    cliccando una card conto). */}
+                <SelectValue placeholder="Conto">
+                  {filters.accountId
+                    ? (accountsQuery.data ?? []).find((a) => a.id === filters.accountId)?.name
+                    : 'Tutti i conti'}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tutti i conti</SelectItem>
+                {sortByName(accountsQuery.data ?? []).map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {a.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={filters.categoryId ?? 'all'}
+              onValueChange={(v) => updateFilter({ categoryId: v === 'all' ? undefined : v })}
+            >
+              <SelectTrigger className="[&>span]:truncate">
+                <SelectValue placeholder="Categoria" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tutte le categorie</SelectItem>
+                {sortByName(categoriesQuery.data ?? []).map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              type="date"
+              value={filters.from ?? ''}
+              onChange={(e) => updateFilter({ from: e.target.value || undefined })}
+            />
+            <Input
+              type="date"
+              value={filters.to ?? ''}
+              onChange={(e) => updateFilter({ to: e.target.value || undefined })}
+            />
+          </div>
         </CardContent>
       </Card>
 
@@ -375,58 +409,79 @@ function TransactionRow({ tx, spineColor, onEdit, onDelete }: RowProps) {
 
   return (
     <li
-      className="flex items-center gap-2 border-l-[3px] p-3 pl-3 transition-colors hover:bg-muted/40 sm:gap-3 sm:pl-4 sm:pr-4"
+      className="flex items-center gap-2 border-l-[3px] py-2.5 pl-3 pr-1.5 transition-colors hover:bg-muted/40 sm:gap-3 sm:py-3 sm:pl-4 sm:pr-4"
       // La spina colorata dice a colpo d'occhio di quale conto è il movimento:
       // su conti condivisi si riconosce il proprietario prima di leggere il testo.
       style={{ borderLeftColor: spineColor ?? 'transparent' }}
     >
-      <div className={`shrink-0 rounded-full p-2 bg-muted ${tone}`}>
+      {/* Su mobile l'icona di verso è ridondante (segno e colore dell'importo
+          dicono già entrata/uscita): via, e lo spazio va alla descrizione. */}
+      <div className={`hidden shrink-0 rounded-full bg-muted p-2 sm:block ${tone}`}>
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2 flex-wrap">
-          <p className="font-medium truncate">
+        {/* Riga 1: descrizione e importo sulla stessa linea di base, così
+            l'importo non urta più il badge categoria quando il titolo è lungo. */}
+        <div className="flex items-baseline gap-3">
+          <p className="min-w-0 flex-1 truncate font-medium">
             {tx.description || (isTransfer ? 'Giroconto' : TYPE_LABEL[tx.type])}
           </p>
+          <MoneyAmount
+            cents={cents}
+            size="row"
+            className={`shrink-0 text-right text-[15px] font-semibold sm:text-base ${tone}`}
+          />
+        </div>
+        {/* Riga 2: metadati. La categoria è un pallino col suo colore, non una
+            pillola contornata: in una lista lunga le pillole facevano rumore. */}
+        <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
           {tx.category && (
-            <Badge variant="outline" style={{ borderColor: tx.category.color ?? undefined }}>
-              {tx.category.name}
-            </Badge>
+            <span className="inline-flex min-w-0 shrink items-center gap-1.5 text-foreground/80">
+              <span
+                className="h-2 w-2 shrink-0 rounded-full"
+                style={{ backgroundColor: tx.category.color ?? 'hsl(var(--muted-foreground))' }}
+              />
+              <span className="truncate">{tx.category.name}</span>
+            </span>
           )}
+          {tx.category && <span aria-hidden>·</span>}
+          <span className="shrink-0">{formatDate(tx.transactionDate)}</span>
+          <span aria-hidden className="hidden sm:inline">·</span>
+          <span className="hidden truncate sm:inline">{tx.account.name}</span>
           {tx.attachments.length > 0 && (
-            <span className="inline-flex items-center text-xs text-muted-foreground">
-              <Paperclip className="h-3 w-3 mr-0.5" />
+            <span className="inline-flex shrink-0 items-center">
+              <Paperclip className="mr-0.5 h-3 w-3" />
               {tx.attachments.length}
             </span>
           )}
-          {tx.isPending && <Badge variant="secondary">Pending</Badge>}
+          {tx.isPending && (
+            <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+              Pending
+            </Badge>
+          )}
         </div>
-        <p className="truncate text-xs text-muted-foreground">
-          {formatDate(tx.transactionDate)} · {tx.account.name}
-        </p>
       </div>
-      <MoneyAmount
-        cents={cents}
-        size="row"
-        className={`shrink-0 text-right text-sm font-semibold sm:text-base ${tone}`}
-      />
       {/* Azioni sempre accessibili, anche su mobile (prima erano hidden sm:flex). */}
-      <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
-        {tx.attachments.length > 0 && (
+      <div className="-my-1 flex shrink-0 items-center text-muted-foreground sm:gap-1 sm:text-foreground">
+        {tx.attachments.length > 0 ? (
           <Button
             size="icon"
             variant="ghost"
-            className="h-9 w-9 sm:h-10 sm:w-10"
+            className="h-9 w-8 sm:h-10 sm:w-10"
             onClick={() => setPreviewOpen(true)}
             aria-label="Anteprima allegati"
           >
             <Eye className="h-4 w-4" />
           </Button>
+        ) : (
+          // Slot vuoto della stessa larghezza: gli importi restano incolonnati
+          // anche tra righe con e senza allegati.
+          <span aria-hidden className="w-8 sm:w-10" />
         )}
         <Button
           size="icon"
           variant="ghost"
-          className="h-9 w-9 sm:h-10 sm:w-10"
+          className="h-9 w-8 sm:h-10 sm:w-10"
           onClick={onEdit}
           aria-label="Modifica"
         >
@@ -435,7 +490,7 @@ function TransactionRow({ tx, spineColor, onEdit, onDelete }: RowProps) {
         <Button
           size="icon"
           variant="ghost"
-          className="h-9 w-9 sm:h-10 sm:w-10"
+          className="h-9 w-8 sm:h-10 sm:w-10"
           onClick={onDelete}
           aria-label="Elimina"
         >
@@ -467,22 +522,22 @@ function AccountSummaryCard({
 }) {
   const Icon = account.icon ? getIcon(account.icon) : ACCOUNT_TYPE_FALLBACK_ICON[account.type];
   const tint = account.color ?? undefined;
-  const cardStyle = tint
-    ? { backgroundColor: `${tint}24`, borderColor: `${tint}80` }
-    : undefined;
+  // Foglio piatto con la spina del conto (come le righe sotto): il fondo
+  // tinto pieno competeva con l'evidenziazione della card selezionata.
+  const cardStyle = tint ? { borderLeftColor: tint } : undefined;
   return (
     // Click sulla card = filtro per conto (toggle: un secondo click lo toglie).
     <button
       type="button"
       onClick={onClick}
       aria-pressed={selected}
-      className="block w-full rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="fm-press block w-full rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       {/* Evidenziazione con outline (non ring/box-shadow: nel tema glass
           fm-glass sovrascrive il box-shadow e l'anello sparirebbe).
           Con filtro attivo le altre card sono attenuate. */}
       <Card
-        className={`border-l-4 cursor-pointer transition-all hover:shadow-md ${
+        className={`border-l-4 cursor-pointer transition-[opacity,filter,box-shadow] duration-200 hover:shadow-md ${
           selected
             ? 'outline outline-2 outline-offset-2 outline-primary'
             : dimmed
@@ -495,7 +550,7 @@ function AccountSummaryCard({
           <div
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
             style={{
-              backgroundColor: tint ? `${tint}33` : 'hsl(var(--muted))',
+              backgroundColor: tint ? `${tint}1f` : 'hsl(var(--muted))',
               color: tint ?? 'hsl(var(--foreground))',
             }}
           >

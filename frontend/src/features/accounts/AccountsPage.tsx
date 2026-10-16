@@ -95,29 +95,27 @@ export function AccountsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="fm-stagger grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {accounts.map((account) => {
             const Icon = account.icon ? getIcon(account.icon) : TYPE_FALLBACK_ICON[account.type];
             const tint = account.color ?? undefined;
             const isOwner = account.ownerId === currentUser?.id;
             const shared = account.members.length > 0;
-            // Sfondo card: tinta del conto al ~14% di opacità per restare
-            // sempre leggibile (chiaro su light, scuro su dark). Il bordo
-            // sinistro pieno aggiunge identità senza disturbare il testo.
-            const cardStyle = tint
-              ? {
-                  backgroundColor: `${tint}24`,
-                  borderColor: `${tint}80`,
-                }
-              : undefined;
+            // Foglio piatto come il resto del Registro: la tinta del conto vive
+            // solo nella spina sinistra e nel tassello dell'icona. Il fondo
+            // tinto pieno faceva sembrare ogni conto uno stato (selezione/errore).
             return (
-              <Card key={account.id} className="border-l-4 transition-colors" style={cardStyle}>
+              <Card
+                key={account.id}
+                className="fm-card-in border-l-4"
+                style={tint ? { borderLeftColor: tint } : undefined}
+              >
                 <CardHeader className="flex flex-row items-start justify-between space-y-0">
                   <div className="flex items-start gap-3 min-w-0">
                     <div
                       className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
                       style={{
-                        backgroundColor: tint ? `${tint}33` : 'hsl(var(--muted))',
+                        backgroundColor: tint ? `${tint}1f` : 'hsl(var(--muted))',
                         color: tint ?? 'hsl(var(--foreground))',
                       }}
                     >
@@ -162,7 +160,7 @@ export function AccountsPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <p className="text-2xl font-semibold tabular-nums">
+                  <p className="text-[1.75rem] font-semibold leading-none tracking-tight tabular-nums">
                     <MoneyAmount cents={account.balanceCents} size="row" />
                   </p>
                   <div className="flex flex-wrap gap-2">

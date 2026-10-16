@@ -19,9 +19,13 @@ export const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
         className={cn('relative h-2 w-full overflow-hidden rounded-full bg-secondary', className)}
         {...props}
       >
+        {/* translateX invece di width: l'animazione resta sul compositor. */}
         <div
-          className={cn('h-full bg-primary transition-all', indicatorClassName)}
-          style={{ width: `${pct}%` }}
+          className={cn(
+            'h-full w-full rounded-full bg-primary transition-transform duration-500 ease-[var(--ease-out)] motion-reduce:transition-none',
+            indicatorClassName,
+          )}
+          style={{ transform: `translateX(-${100 - pct}%)` }}
         />
       </div>
     );

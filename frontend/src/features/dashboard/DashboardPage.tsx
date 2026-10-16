@@ -119,14 +119,19 @@ export function DashboardPage() {
     <div className="space-y-6 relative">
       {/* Hero glow decorativo dietro l'header */}
       <div className="fm-hero-glow" aria-hidden />
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 relative">
+      {/* Titolo sopra, filtri sotto: affiancati, i filtri andavano a capo a
+          metà (la seconda data da sola su una riga) anche su desktop. */}
+      <div className="relative flex flex-col gap-3">
         <div>
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Panoramica finanziaria del periodo selezionato
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Su mobile i filtri stanno su UNA riga scorrevole: andando a capo
+            occupavano tre righe prima del primo numero. Da sm in su tornano a
+            capo normalmente. I popover sono in portal, lo scroll non li taglia. */}
+        <div className="fm-no-scrollbar -mx-4 flex items-center gap-2 overflow-x-auto pb-1 pl-4 pr-8 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 [&>*]:shrink-0 [mask-image:linear-gradient(to_right,black_calc(100%-2rem),transparent)] sm:[mask-image:none]">
           <AccountMultiSelect
             accounts={accounts}
             value={accountIds}
@@ -148,19 +153,21 @@ export function DashboardPage() {
             type="date"
             value={from}
             onChange={(e) => setFrom(e.target.value)}
-            className="min-w-[8.5rem] flex-1 sm:w-36 sm:flex-none"
+            className="w-[8.75rem] sm:w-36"
           />
           <Input
             type="date"
             value={to}
             onChange={(e) => setTo(e.target.value)}
-            className="min-w-[8.5rem] flex-1 sm:w-36 sm:flex-none"
+            className="w-[8.75rem] sm:w-36"
           />
         </div>
       </div>
 
       {/* KPI cards — Entrate/Uscite selezionano il flusso della card "per categoria" */}
-      <StaggerList className="grid gap-4 md:grid-cols-3">
+      {/* Mobile: Entrate e Uscite affiancate, Netto a tutta larghezza sotto —
+          i tre numeri stanno nella prima schermata invece di tre card alte. */}
+      <StaggerList className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
         <KpiCard
           label="Entrate"
           value={data ? Number(data.totals.incomeCents) / 100 : null}
@@ -209,6 +216,7 @@ export function DashboardPage() {
               : undefined
           }
           sparkColor="hsl(var(--primary))"
+          className="col-span-2 md:col-span-1"
         />
       </StaggerList>
 
@@ -338,6 +346,7 @@ interface KpiCardProps {
   /** null finché i dati non sono arrivati (mostra "—"). */
   value: number | null;
   valueClassName: string;
+  className?: string;
   spark?: number[];
   sparkColor: string;
   /** Se presente la card fa da selettore per la vista "per categoria" sotto. */
@@ -354,22 +363,23 @@ interface KpiCardProps {
  * Card KPI del periodo. Con `select` diventa cliccabile (e raggiungibile da
  * tastiera): Entrate/Uscite scelgono il flusso mostrato dalla torta per categoria.
  */
-function KpiCard({ label, value, valueClassName, spark, sparkColor, select }: KpiCardProps) {
+function KpiCard({ label, value, valueClassName, className, spark, sparkColor, select }: KpiCardProps) {
   return (
     <Card
       className={cn(
         'fm-glass fm-card-in relative overflow-hidden',
-        select && 'cursor-pointer transition-shadow hover:shadow-md',
+        select && 'fm-press cursor-pointer transition-shadow hover:shadow-md',
         select?.active && select.selectedClassName,
+        className,
       )}
       {...(select ? flowSelectProps(select) : {})}
     >
-      <CardHeader className="pb-2">
-        <CardDescription className="flex items-center gap-1.5 uppercase tracking-wider text-[11px] font-semibold">
+      <CardHeader className="space-y-1 p-4 pb-3 sm:space-y-1.5 sm:p-6 sm:pb-2">
+        <CardDescription className="flex flex-wrap items-center gap-x-1.5 uppercase tracking-wider text-[11px] font-semibold">
           {label}
           {select && <FlowHint active={select.active} />}
         </CardDescription>
-        <CardTitle className={cn('text-3xl', valueClassName)}>
+        <CardTitle className={cn('text-2xl sm:text-3xl', valueClassName)}>
           {value !== null ? (
             <AnimatedNumber
               value={value}
@@ -381,8 +391,10 @@ function KpiCard({ label, value, valueClassName, spark, sparkColor, select }: Kp
         </CardTitle>
       </CardHeader>
       {spark && spark.length > 1 && (
-        <div className="absolute bottom-3 right-3 opacity-60">
-          <SparkLine data={spark} color={sparkColor} width={110} height={32} />
+        // Mobile: sparkline nel flusso sotto la cifra (nelle card affiancate
+        // non c'è posto a destra); da sm torna nell'angolo.
+        <div className="px-4 pb-3 opacity-60 sm:absolute sm:bottom-3 sm:right-3 sm:p-0">
+          <SparkLine data={spark} color={sparkColor} width={110} height={28} />
         </div>
       )}
     </Card>
