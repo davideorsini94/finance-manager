@@ -75,6 +75,7 @@
       "fontMono": "Mono",
       "fontSerif": "Serif",
       "registro": "Registro",
+      "mode": "Aspetto",
       "glassBlur": "Sfocatura vetro",
       "glassBlurHint": "Barre, menu e card traslucidi e sfocati"
     },

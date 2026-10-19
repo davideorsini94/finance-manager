@@ -403,7 +403,7 @@ export function BankReviewPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
+          <h1 className="flex items-center gap-2 fm-large-title">
             <ClipboardCheck className="h-6 w-6" />
             Da confermare
           </h1>
@@ -473,7 +473,7 @@ export function BankReviewPage() {
         </TabsList>
 
         <TabsContent value="pending_review" className="mt-4">
-          <Card>
+          <Card className="overflow-hidden">
             <CardContent className="p-0">
               {loading ? (
                 <p className="p-6 text-sm text-muted-foreground">Caricamento…</p>
@@ -539,7 +539,7 @@ export function BankReviewPage() {
         </TabsContent>
 
         <TabsContent value="duplicate" className="mt-4">
-          <Card>
+          <Card className="overflow-hidden">
             <CardContent className="p-0">
               <p className="border-b px-3 py-2 text-xs text-muted-foreground sm:px-4">
                 Movimenti che sembrano già registrati in app. Non possono essere confermati: se non
@@ -573,7 +573,7 @@ export function BankReviewPage() {
         </TabsContent>
 
         <TabsContent value="ignored" className="mt-4">
-          <Card>
+          <Card className="overflow-hidden">
             <CardContent className="p-0">
               <p className="border-b px-3 py-2 text-xs text-muted-foreground sm:px-4">
                 Movimenti che hai scelto di non registrare. Puoi sempre rimetterli in coda: quelli

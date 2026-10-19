@@ -1,4 +1,6 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
+import { useRouterState } from '@tanstack/react-router';
+import { useScrollStore } from '@/store/scrollStore';
 import { Sidebar } from './Sidebar';
 import { BottomNav } from './BottomNav';
 import { TopBar } from './TopBar';
@@ -19,6 +21,34 @@ function GlobalQuickAdd() {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const mainRef = useRef<HTMLElement>(null);
+  const updateScroll = useScrollStore((s) => s.update);
+  const resetScroll = useScrollStore((s) => s.reset);
+  const { location } = useRouterState();
+
+  // Lo scroll vive dentro <main>: le barre di vetro leggono da qui se il
+  // contenuto è passato sotto di loro e in che verso si sta scorrendo.
+  useEffect(() => {
+    const el = mainRef.current;
+    if (!el) return;
+    let raf = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => updateScroll(el.scrollTop));
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      cancelAnimationFrame(raf);
+    };
+  }, [updateScroll]);
+
+  // Cambio pagina: barre di nuovo intere e senza scroll edge.
+  useEffect(() => {
+    resetScroll();
+    mainRef.current?.scrollTo({ top: 0 });
+  }, [location.pathname, resetScroll]);
+
   return (
     <NotificationsProvider>
       <ConfirmProvider>
@@ -39,6 +69,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 scorre sotto e il vetro ha qualcosa da sfocare. Fuori, sarebbe
                 stata una striscia opaca qualunque. */}
             <main
+              ref={mainRef}
               className="flex-1 scroll-pt-[calc(var(--safe-top)+4rem)] overflow-y-auto overscroll-contain pb-[calc(env(safe-area-inset-bottom)+6rem)] lg:pb-0"
             >
               <TopBar />

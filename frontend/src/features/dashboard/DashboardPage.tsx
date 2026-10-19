@@ -123,7 +123,7 @@ export function DashboardPage() {
           metà (la seconda data da sola su una riga) anche su desktop. */}
       <div className="relative flex flex-col gap-3">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Dashboard</h1>
+          <h1 className="fm-large-title">Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Panoramica finanziaria del periodo selezionato
           </p>
@@ -300,7 +300,7 @@ export function DashboardPage() {
         </Card>
       </StaggerList>
 
-      <Card className="fm-glass fm-card-in">
+      <Card className="overflow-hidden fm-glass fm-card-in">
         <CardHeader>
           <CardTitle className="text-base">Ultime operazioni</CardTitle>
         </CardHeader>
@@ -375,7 +375,7 @@ function KpiCard({ label, value, valueClassName, className, spark, sparkColor, s
       {...(select ? flowSelectProps(select) : {})}
     >
       <CardHeader className="space-y-1 p-4 pb-3 sm:space-y-1.5 sm:p-6 sm:pb-2">
-        <CardDescription className="flex flex-wrap items-center gap-x-1.5 uppercase tracking-wider text-[11px] font-semibold">
+        <CardDescription className="flex flex-wrap items-center gap-x-1.5 text-[13px] font-medium">
           {label}
           {select && <FlowHint active={select.active} />}
         </CardDescription>

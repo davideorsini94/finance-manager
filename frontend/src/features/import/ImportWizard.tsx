@@ -201,7 +201,7 @@ export function ImportWizard() {
     <div className="mx-auto max-w-5xl space-y-6">
       {/* Titolo come le altre pagine; il padding lo dà già il contenitore
           dell'AppShell (qui c'era un p-6 in più che stringeva tutto su mobile). */}
-      <h1 className="text-2xl font-semibold tracking-tight">Importa CSV</h1>
+      <h1 className="fm-large-title">Importa CSV</h1>
       <Stepper step={step} />
 
       {step === 'upload' && (

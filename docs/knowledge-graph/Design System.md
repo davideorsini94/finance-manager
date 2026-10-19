@@ -8,7 +8,7 @@ Riferimento: la **carta a righe verdi** dei moduli contabili (greenbar). Fondo v
 
 - `--background 100 14% 92%` (carta) · `--card 90 25% 98%` (foglio) · `--foreground 153 20% 11%` (inchiostro)
 - `--primary 205 62% 26%` (blu penna): l'**unico** accento. Verde e rosso sono riservati al DATO (`--pos`/`--neg`), mai alla decorazione — per questo l'accento non è né verde né rosso
-- `--radius 0.5rem`; card di vetro tenue su sfondo ambientale fermo (vedi *Materiali in vetro*), niente blob (le classi `fm-glass`/`fm-bg-decor`/`fm-hero-glow` sono scoped su `[data-theme='glass']` e restano inerti qui)
+- `--radius 0.5rem`; card in materiale standard (non vetro) su sfondo ambientale fermo, vetro solo sulla navigazione (vedi *Liquid Glass secondo le linee guida Apple*), niente blob (le classi `fm-glass`/`fm-bg-decor`/`fm-hero-glow` sono scoped su `[data-theme='glass']` e restano inerti qui)
 - I temi precedenti (`glass`, `fintech`, `linear`, `nordic`, `sunset`) sono ancora selezionabili: restano come rete di sicurezza per un rilascio, poi si tolgono. Migrazione store v3→v4: chi era sul vecchio default `glass` passa a `registro`, chi aveva scelto altro resta dov'è
 
 ## Tipografia
@@ -56,30 +56,24 @@ Recharts con griglia **solo orizzontale** e tratto continuo tenue (la griglia a 
 - **Ingressi**: `fm-card-in` 360ms, stagger 40ms. Le pagine si aprono decine di volte al giorno
 - **Non toccato**: il `maximum-scale=1` solo iOS di [[PWA e Mobile]] resta, anche se la skill mobile-native lo sconsiglia: senza, Safari zoomava sugli input e il pan restava incastrato
 
-## Materiali in vetro (2026-10-16)
+## Liquid Glass secondo le linee guida Apple (v0.19.0, 2026-10-19)
 
-Effetto vetro alla Apple, **solo sul livello di navigazione** che galleggia sopra i contenuti. Le card con gli importi restano fogli pieni: un numero su un fondo che cambia si legge peggio. Utility in `frontend/src/index.css`, colori dai token del tema (funzionano in tutti i temi):
+Regole prese da tre pagine Apple (Adopting Liquid Glass, HIG Materials, Applying Liquid Glass to custom views) e applicate dopo un'anteprima approvata dall'utente. Utility in `frontend/src/index.css`.
 
-- `.fm-material`: pannelli piccoli (select, popover, tab bar, banner). Blur 24px + saturazione, spigolo chiaro in alto, ombra tinta
-- `.fm-material-bar`: barre agganciate a un bordo (TopBar, barra azioni di [[Sync Bancario]]), senza ombra
-- `.fm-material-thick`: superfici grandi e modali (Dialog, drawer del menu mobile), più opache e più sfocate. Lo scrim del Dialog passa da `black/60` a `black/40` + blur 2px
-- `.fm-material-nested`: **pieno**, per pannelli dentro una superficie che ha già `backdrop-filter` (pannello notifiche nella TopBar). Il genitore diventa la "backdrop root": il figlio non può sfocare la pagina e resterebbe trasparente, col testo di sotto leggibile attraverso. I popover Radix sono in portal e non hanno il problema
-- **Tab bar mobile** (`BottomNav.tsx`): capsula flottante staccata dai bordi, voce attiva con `.fm-tab-lens` (lente tenue, non colore pieno), FAB `.fm-fab` con riflesso e ombra del suo colore. Il colore sta sempre su uno strato pieno, mai sul vetro. Il `<nav>` esterno resta fixed e trasparente, perché è lui che `ios-viewport.ts` sposta; il `::after` anti-banda ora ha il colore della pagina, non della barra
-- **TopBar dentro lo scroller** (`AppShell.tsx`): è `sticky` dentro `<main>`, così il contenuto le scorre sotto (fuori dallo scroller il vetro non avrebbe niente da sfocare). `<main>` ha `scroll-padding-top` per non nascondere sotto la barra le card portate in vista
-- Ripieghi: senza `backdrop-filter`, con `prefers-reduced-transparency` o con `prefers-contrast: more` la superficie torna piena
-
-- **Interruttore "Sfocatura vetro"** nel menu temi (`PaletteToggle.tsx`, switch `role=switch`), default **attivo**. Preferenza `glassBlur` in `uiStore` (persist v5, la migrazione da v4 la mette a `true`), pubblicata come `data-glass='on'|'off'` su `<html>` da `applyUIChrome`. Con `off` spariscono tutti i `backdrop-filter` e le superfici tornano piene (un vetro trasparente senza blur farebbe leggere il contenuto di sotto); lo sfondo ambientale resta. Il "Reset" del menu riporta a Registro + sfocatura attiva (prima riportava al vecchio default `glass`)
-
-### Vetro anche sulle card (2026-10-16, su richiesta)
-
-Esteso il vetro ai componenti dei contenuti, solo nel tema Registro:
-
-- **Sfondo ambientale** su `.fm-shell` (il contenitore di `AppShell`, che non scorre): tre radiali fermi nelle tinte del tema (blu penna in alto a destra, salvia in basso a sinistra, carta al centro), con variante scura. Senza qualcosa dietro, una card traslucida sembra solo sbiadita. Niente animazione: un'oscillazione lenta a tutto schermo costa batteria e dà fastidio
-- **`[data-theme='registro'] .fm-glass`** (la `Card` ce l'ha di default): fondo `card/0.6`, blur 18px, spigolo chiaro, ombra tinta d'inchiostro. Più opaca e meno sfocata del materiale di navigazione, perché sopra ci sono gli importi
-- **`.fm-glass-field`** su `Input`, `Textarea`, trigger del `Select` e `Button` outline: traslucidi, così non sembrano mattonelle piene sul vetro
-- **Sidebar desktop**: `fm-material-bar` invece di `bg-card`
-- **Selezione KPI** (`FLOW_UI` in `flow.tsx`): il fondo tenue ha `!` perché il vetro della card (specificità 0,2,0) lo coprirebbe
-- Ripieghi come sopra (niente `backdrop-filter`, `prefers-reduced-transparency`)
+- **Il Liquid Glass sta solo sul livello funzionale** (barre, tab bar, pulsanti flottanti, menu, popover, sheet). **Le card sono livello contenuti → materiale standard**: `[data-theme='registro'] .fm-glass` è `card/0.9`, senza blur, senza riflesso sul bordo, ombra leggera. La v0.18 aveva il vetro anche sulle card: Apple lo esclude esplicitamente ("Don't use Liquid Glass in the content layer")
+- **Materiali**: `.fm-material` (regular, pannelli e controlli), `.fm-material-bar` (sidebar desktop, barra azioni della revisione), `.fm-material-thick` (Dialog/sheet, drawer), `.fm-material-nested` (pieno, per un pannello dentro una superficie con `backdrop-filter`). Sempre variante *regular*: l'app non ha foto o video di sfondo che giustifichino la *clear*
+- **TopBar** (`TopBar.tsx`): niente striscia piena. A sinistra il cerchio di vetro del menu (`MobileMenu.tsx`), a destra un gruppo di tre azioni su una capsula comune (importi nascosti, notifiche, profilo). Su desktop la ricerca è una capsula di vetro. Il vetro del gruppo sta su uno `<span aria-hidden>` fratello e non sul contenitore: un `backdrop-filter` sull'antenato diventerebbe il containing block del pannello notifiche `fixed` e gli impedirebbe di sfocare la pagina
+- **Scroll edge effect** al posto dei fili divisori: `.fm-scroll-edge-top` (compare quando si scorre) e `.fm-scroll-edge-bottom` (dietro la tab bar)
+- **Titolo grande**: classe `.fm-large-title` (30px, 700) su tutte le pagine; scorrendo, il nome della sezione compare in piccolo al centro della TopBar (solo mobile/tablet)
+- **Tab bar** (`BottomNav.tsx`): capsula con le 4 sezioni + cerchio separato per "Nuovo movimento" (`.fm-fab` = glassProminent, l'unico elemento tinto). Scorrendo in giù si riduce alla sola voce attiva, scorrendo in su torna intera (`tabBarMinimizeBehavior(.onScrollDown)`). Stato da `store/scrollStore.ts`, alimentato dallo scroll di `<main>` in `AppShell.tsx` (si azzera a ogni cambio pagina, che riporta anche in cima)
+- **Sheet**: sotto `sm` il `DialogContent` è uno sheet staccato di 8px dai bordi, raggio 2rem, entra dal basso; da `sm` torna modale centrata. Una classe dopo `className` (`max-sm:w-auto max-sm:max-w-none`) neutralizza i `w-full`/`max-w-*` dei call-site pensati per la modale
+- **Concentricità**: `--radius` del Registro 0.75rem (controlli più rotondi), `--radius-card` 1.375rem; capsula tab bar 32px con voce attiva a 28px (32 − 4 di padding). Le card con righe a filo (Movimenti, Ultime operazioni, revisione, import, chat) hanno `overflow-hidden` per il nuovo raggio
+- **Vetro interattivo**: `.fm-glass-press` (compressione 0.94 + schiarita al tocco)
+- **Niente maiuscolo nelle intestazioni**: sezioni della sidebar e del menu mobile, etichette KPI, titoli del ColorPicker
+- **Menu profilo** (`UserMenu.tsx` + `AppearanceSettings.tsx`): tema (chiaro/scuro/sistema), lingua, palette (pallini), font dei numeri, sfocatura vetro, dati demo. Sostituisce le icone di tema, lingua e palette nella TopBar: rimossi `PaletteToggle.tsx`, `ThemeToggle.tsx`, `LanguageSwitcher.tsx`
+- **Interruttore "Sfocatura vetro"**: preferenza `glassBlur` in `uiStore` (persist v5), `data-glass='on'|'off'` su `<html>`; spento toglie tutti i `backdrop-filter` e rende piene le superfici
+- **Sfondo ambientale** fermo su `.fm-shell` (radiali blu penna/salvia/carta del Registro): è livello contenuti, non vetro
+- Ripieghi: senza `backdrop-filter`, `prefers-reduced-transparency`, `prefers-contrast: more` → superfici piene; `prefers-reduced-motion` → niente compressione e niente animazioni di ingresso
 
 ## Superfici con colore del conto
 

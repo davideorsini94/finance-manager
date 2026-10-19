@@ -154,7 +154,7 @@ export function ReportsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">Report</h1>
+        <h1 className="fm-large-title">Report</h1>
         <div className="flex flex-wrap items-center gap-2">
           <AccountMultiSelect
             accounts={accounts}
@@ -506,7 +506,7 @@ function KpiCard({
       {...(select ? flowSelectProps(select) : {})}
     >
       <CardHeader className="pb-2">
-        <CardDescription className="flex items-center gap-1.5 uppercase tracking-wider text-[11px] font-semibold">
+        <CardDescription className="flex items-center gap-1.5 text-[13px] font-medium">
           {label}
           {select && <FlowHint active={select.active} />}
         </CardDescription>

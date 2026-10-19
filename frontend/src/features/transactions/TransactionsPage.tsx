@@ -143,7 +143,7 @@ export function TransactionsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">Movimenti</h1>
+        <h1 className="fm-large-title">Movimenti</h1>
         <Button
           onClick={() => {
             setEditing(null);
@@ -263,7 +263,7 @@ export function TransactionsPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="overflow-hidden">
         <CardContent className="p-0">
           {txQuery.isLoading ? (
             <p className="p-6 text-sm text-muted-foreground">Caricamento…</p>
@@ -409,7 +409,7 @@ function TransactionRow({ tx, spineColor, onEdit, onDelete }: RowProps) {
 
   return (
     <li
-      className="flex items-center gap-2 border-l-[3px] py-2.5 pl-3 pr-1.5 transition-colors hover:bg-muted/40 sm:gap-3 sm:py-3 sm:pl-4 sm:pr-4"
+      className="flex items-center gap-2 border-l-[3px] py-3 pl-3 pr-1.5 transition-colors hover:bg-muted/40 sm:gap-3 sm:py-3 sm:pl-4 sm:pr-4"
       // La spina colorata dice a colpo d'occhio di quale conto è il movimento:
       // su conti condivisi si riconosce il proprietario prima di leggere il testo.
       style={{ borderLeftColor: spineColor ?? 'transparent' }}

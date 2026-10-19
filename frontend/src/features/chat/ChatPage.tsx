@@ -184,7 +184,7 @@ export function ChatPage() {
           </Button>
         </div>
 
-        <Card className="flex-1 min-h-0">
+        <Card className="overflow-hidden flex-1 min-h-0">
           <CardContent className="p-0 flex flex-col h-full min-h-0">
             <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
               {!activeId ? (
