@@ -74,7 +74,7 @@ export function ColorPicker({ value, onChange, label, inline = false }: Props) {
               sulla carta senza vibrare. Sotto restano tutte le altre, perché
               nessuno deve essere costretto. */}
           <div className="space-y-1.5">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <p className="text-xs font-medium text-muted-foreground">
               Palette del tema
             </p>
             <div className="grid grid-cols-6 gap-1.5">
@@ -108,7 +108,7 @@ export function ColorPicker({ value, onChange, label, inline = false }: Props) {
             </div>
           </div>
           <div className="space-y-1.5">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <p className="text-xs font-medium text-muted-foreground">
               Tutti i colori
             </p>
         <div className="grid max-h-40 grid-cols-9 gap-1.5 overflow-y-auto pr-1">

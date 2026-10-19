@@ -15,7 +15,7 @@ export const Card = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      'rounded-lg border bg-card text-card-foreground shadow-sm',
+      'rounded-[var(--radius-card,var(--radius))] border bg-card text-card-foreground shadow-sm',
       !plain && 'fm-glass',
       className,
     )}

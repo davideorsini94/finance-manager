@@ -87,14 +87,14 @@ export function BudgetPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">Budget</h1>
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="fm-large-title">Budget</h1>
+        <div className="flex min-w-0 items-center gap-2">
           <Input
             type="month"
             value={month}
             onChange={(e) => setMonth(e.target.value || currentMonth())}
-            className="w-40"
+            className="w-36 sm:w-40"
           />
           <Button
             onClick={() => {

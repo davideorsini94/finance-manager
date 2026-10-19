@@ -45,14 +45,17 @@ export function MobileMenu() {
 
   return (
     <>
-      <Button
-        variant="ghost"
-        size="icon"
+      {/* Cerchio di vetro flottante: il drawer è in portal, quindi qui il
+          backdrop-filter sul pulsante stesso non intrappola niente. */}
+      <button
+        type="button"
         aria-label="Menu"
+        aria-expanded={open}
         onClick={() => setOpen(true)}
+        className="fm-material fm-glass-press grid h-11 w-11 place-items-center rounded-full border text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <Menu className="h-5 w-5" />
-      </Button>
+      </button>
 
       {/* Portal su body: la TopBar (sticky z-20) crea uno stacking context,
           quindi senza portal il drawer — pur con z-50 — finirebbe DIETRO la
@@ -108,7 +111,7 @@ export function MobileMenu() {
         <nav className="flex-1 overflow-y-auto pt-3 pb-4">
           {NAV_SECTIONS.map((section) => (
             <div key={section.labelKey} className="mb-4 px-2">
-              <div className="px-3 pb-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              <div className="px-3 pb-1.5 text-xs font-medium text-muted-foreground">
                 {t(section.labelKey)}
               </div>
               <ul className="space-y-0.5">

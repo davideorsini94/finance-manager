@@ -83,14 +83,14 @@ export function NotificationBell() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          'relative inline-flex h-9 w-9 items-center justify-center rounded-md',
-          'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+          'fm-glass-press relative inline-flex h-9 w-9 items-center justify-center rounded-full text-foreground',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         )}
         aria-label="Notifiche"
       >
-        <Bell className="h-4 w-4" />
+        <Bell className="h-[18px] w-[18px]" />
         {unread > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold text-white">
+          <span className="absolute -top-0.5 -right-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[hsl(var(--neg))] px-1 text-[10px] font-semibold text-white">
             {unread > 99 ? '99+' : unread}
           </span>
         )}
@@ -104,9 +104,9 @@ export function NotificationBell() {
             // a filo schermo, dopo c'è l'aiuto) mentre `max-w` misura il
             // viewport — su 390px il pannello finiva a left:-28px, fuori a
             // sinistra. Da `sm` in su lo spazio abbonda e resta ancorato.
-            'fixed inset-x-2 top-14 z-40 w-auto',
+            'fixed inset-x-2 top-[calc(var(--safe-top)+3.75rem)] z-40 w-auto',
             'sm:absolute sm:inset-x-auto sm:right-0 sm:top-11 sm:w-[380px] sm:max-w-[calc(100vw-2rem)]',
-            'fm-material fm-material-nested rounded-2xl border text-popover-foreground',
+            'fm-material rounded-2xl border text-popover-foreground',
           )}
           role="dialog"
         >

@@ -3,11 +3,11 @@ import { useNavigate } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { LogOut, Settings as SettingsIcon, User as UserIcon } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Button } from '@/components/ui/button';
+import { AppearanceSettings } from './AppearanceSettings';
 import { useAuth } from '@/features/auth/useAuth';
 
 const itemCls =
-  'flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground';
+  'flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground';
 
 function initials(name?: string | null, email?: string) {
   const src = (name && name.trim()) || email || '?';
@@ -36,19 +36,31 @@ export function UserMenu() {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="User menu" className="rounded-full">
-          <span className="grid h-8 w-8 place-items-center rounded-full bg-secondary text-xs font-semibold">
+        <button
+          type="button"
+          aria-label="Profilo, aspetto e lingua"
+          className="fm-glass-press grid h-9 w-9 place-items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <span className="grid h-7 w-7 place-items-center rounded-full bg-foreground/[0.08] text-[11px] font-semibold">
             {initials(user?.fullName, user?.email)}
           </span>
-        </Button>
+        </button>
       </PopoverTrigger>
-      <PopoverContent align="end" sideOffset={8} className="z-50 w-56 p-1.5">
+      {/* Menu più largo e scorrevole: oltre al profilo ospita tema, lingua,
+          palette e sfocatura (prima erano icone nella TopBar). */}
+      <PopoverContent
+        align="end"
+        sideOffset={10}
+        className="z-50 max-h-[min(36rem,calc(100dvh-6rem))] w-72 overflow-y-auto overscroll-contain rounded-2xl p-1.5"
+      >
         <div className="px-2 py-1.5">
           <div className="truncate text-sm font-medium">{user?.fullName ?? user?.email}</div>
           {user?.fullName && (
             <div className="truncate text-xs text-muted-foreground">{user.email}</div>
           )}
         </div>
+        <div className="my-1 h-px bg-border" />
+        <AppearanceSettings />
         <div className="my-1 h-px bg-border" />
         <button type="button" className={itemCls} onClick={() => go('/settings')}>
           <UserIcon className="h-4 w-4" />

@@ -351,7 +351,10 @@
     --border: 100 10% 84%;
     --input: 100 10% 84%;
     --ring: 205 62% 26%;
-    --radius: 0.5rem;
+    --radius: 0.75rem;
+    /* Card: raggio concentrico allo schermo del telefono (≈ 44px − 16px di margine ≈ 28px),
+       un filo meno per non sembrare bolle. */
+    --radius-card: 1.375rem;
 
     --pos: 150 59% 30%;
     --pos-foreground: 90 25% 98%;
@@ -392,7 +395,8 @@
     --border: 147 8% 20%;
     --input: 147 8% 20%;
     --ring: 205 65% 62%;
-    --radius: 0.5rem;
+    --radius: 0.75rem;
+    --radius-card: 1.375rem;
 
     --pos: 150 50% 52%;
     --pos-foreground: 150 10% 8%;
@@ -766,26 +770,23 @@
       radial-gradient(40rem 30rem at 45% 45%, hsl(160 12% 14% / 0.6), transparent 70%);
   }
 
-  /* Card di vetro. Più opaca del materiale di navigazione (0.6 vs 0.66 ma
-     blur minore): ci sono sopra gli importi, devono restare netti. Lo spigolo
-     chiaro in alto è la luce sul bordo; l'ombra è tinta dell'inchiostro, non
-     nera. Specificità (0,2,0): vince su `bg-card`/`shadow-sm` della Card. */
+  /* Card del livello CONTENUTI: materiale standard, non Liquid Glass. Le
+     linee guida Apple (HIG Materials) escludono il Liquid Glass dal livello dei
+     contenuti: quindi niente riflesso sul bordo, niente saturazione e niente
+     blur (anche per restare entro pochi effetti di vetro a schermo). Resta
+     un velo di trasparenza sullo sfondo ambientale, quanto basta a non
+     sembrare un foglio incollato. Specificità (0,2,0): vince su `bg-card`. */
   [data-theme='registro'] .fm-glass {
-    background-color: hsl(var(--card) / 0.6);
-    border-color: hsl(0 0% 100% / 0.55);
-    -webkit-backdrop-filter: blur(18px) saturate(160%);
-    backdrop-filter: blur(18px) saturate(160%);
+    background-color: hsl(var(--card) / 0.9);
+    border-color: hsl(var(--border) / 0.55);
     box-shadow:
-      inset 0 1px 0 0 hsl(0 0% 100% / 0.7),
-      0 1px 2px 0 hsl(var(--foreground) / 0.05),
-      0 12px 32px -14px hsl(var(--foreground) / 0.18);
+      0 1px 2px 0 hsl(var(--foreground) / 0.04),
+      0 8px 24px -16px hsl(var(--foreground) / 0.16);
   }
   .dark[data-theme='registro'] .fm-glass {
-    background-color: hsl(var(--card) / 0.55);
-    border-color: hsl(0 0% 100% / 0.08);
-    box-shadow:
-      inset 0 1px 0 0 hsl(0 0% 100% / 0.07),
-      0 12px 32px -14px hsl(0 0% 0% / 0.6);
+    background-color: hsl(var(--card) / 0.88);
+    border-color: hsl(0 0% 100% / 0.06);
+    box-shadow: 0 8px 24px -16px hsl(0 0% 0% / 0.6);
   }
   /* Campi e pulsanti contornati dentro le card: traslucidi anche loro, così
      non sembrano mattonelle piene appoggiate sul vetro. */
@@ -795,14 +796,9 @@
   .dark[data-theme='registro'] .fm-glass-field {
     background-color: hsl(var(--background) / 0.45);
   }
-  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    [data-theme='registro'] .fm-glass { background-color: hsl(var(--card) / 0.96); }
-  }
   @media (prefers-reduced-transparency: reduce) {
     [data-theme='registro'] .fm-glass {
       background-color: hsl(var(--card));
-      -webkit-backdrop-filter: none;
-      backdrop-filter: none;
     }
     [data-theme='registro'] .fm-glass-field { background-color: hsl(var(--background)); }
   }
@@ -918,23 +914,95 @@
     background: hsl(var(--card));
   }
 
-  /* Pillola dell'elemento attivo nella tab bar: vetro più chiaro sopra il
-     vetro della barra (lente), non un colore pieno. */
-  .fm-tab-lens {
-    background: hsl(var(--primary) / 0.1);
-    box-shadow: inset 0 1px 0 0 hsl(var(--fm-mat-edge, 0 0% 100% / 0.5)),
-      inset 0 0 0 0.5px hsl(var(--primary) / 0.14);
-  }
-
-  /* FAB: colore su strato pieno (mai sul vetro), con riflesso in alto e
-     ombra tinta del suo colore. */
+  /* + della tab bar = glassProminent: vetro tinto col colore primario
+     (la tinta suggerisce l'azione principale; le voci della tab bar restano
+     neutre). Dichiarato dopo `.fm-material`, quindi ne sovrascrive fondo,
+     bordo e ombra a parità di specificità. */
   .fm-fab {
-    background-image: linear-gradient(180deg, hsl(0 0% 100% / 0.22), hsl(0 0% 100% / 0) 55%);
+    background-color: hsl(var(--primary) / 0.9);
+    border-color: hsl(var(--primary) / 0.35);
+    background-image: linear-gradient(180deg, hsl(0 0% 100% / 0.2), hsl(0 0% 100% / 0) 55%);
     box-shadow:
       inset 0 1px 0 0 hsl(0 0% 100% / 0.35),
-      inset 0 -1px 0 0 hsl(0 0% 0% / 0.12),
-      0 8px 20px -6px hsl(var(--primary) / 0.55);
+      0 10px 24px -8px hsl(var(--primary) / 0.6);
   }
+
+  /* Titolo grande della pagina (large title di iOS): uno solo per pagina,
+     scorre sotto la barra e lì ricompare in piccolo. */
+  .fm-large-title {
+    font-size: 1.875rem;
+    line-height: 1.1;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+  }
+
+  /* Vetro interattivo (`.interactive()` di SwiftUI): al tocco il controllo si
+     comprime e si schiarisce, al rilascio torna con una curva morbida. */
+  .fm-glass-press {
+    transition: transform 280ms var(--ease-out), filter 200ms ease, background-color 150ms ease;
+  }
+  .fm-glass-press:active {
+    transform: scale(0.94);
+    filter: brightness(1.06);
+    transition-duration: 120ms;
+  }
+
+  /* Scroll edge effect: dove il contenuto passa sotto i controlli flottanti
+     sfuma e si sfoca, al posto di un filo divisorio. */
+  .fm-scroll-edge-top {
+    background: linear-gradient(hsl(var(--background) / 0.92) 35%, hsl(var(--background) / 0));
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    -webkit-mask-image: linear-gradient(#000 55%, transparent);
+    mask-image: linear-gradient(#000 55%, transparent);
+  }
+  .fm-scroll-edge-bottom {
+    background: linear-gradient(hsl(var(--background) / 0), hsl(var(--background) / 0.75));
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    -webkit-mask-image: linear-gradient(transparent, #000 65%);
+    mask-image: linear-gradient(transparent, #000 65%);
+    pointer-events: none;
+  }
+
+  /* Tab bar ridotta (scorrendo in giù): resta solo la voce attiva. */
+  .fm-tabcap {
+    transition: max-width 380ms var(--ease-drawer), height 380ms var(--ease-drawer),
+      flex-basis 380ms var(--ease-drawer), padding 380ms var(--ease-drawer);
+  }
+  .fm-tab {
+    transition: flex-basis 380ms var(--ease-drawer), opacity 180ms ease;
+  }
+  .fm-tab-label {
+    transition: opacity 160ms ease;
+  }
+  .fm-bottomnav .fm-fab {
+    transition: width 380ms var(--ease-drawer), height 380ms var(--ease-drawer), transform 280ms var(--ease-out);
+  }
+  .fm-bottomnav[data-compact] .fm-tabcap {
+    max-width: 3.5rem;
+    height: 3.5rem;
+    flex: 0 0 3.5rem;
+    padding: 0;
+  }
+  .fm-bottomnav[data-compact] .fm-tab:not([data-active]) {
+    flex: 0 0 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .fm-bottomnav[data-compact] .fm-tab a {
+    height: 3.5rem;
+    background-color: transparent;
+  }
+  .fm-bottomnav[data-compact] .fm-tab-label {
+    display: none;
+  }
+  .fm-bottomnav[data-compact] .fm-fab {
+    width: 3.5rem;
+    height: 3.5rem;
+  }
+
 
   /* Strisce a scorrimento orizzontale (card conti, chip filtri): la barra di
      scorrimento è rumore, lo snap e il bordo tagliato bastano a dire "scorri". */
@@ -1035,7 +1103,8 @@
     .fm-spark-path {
       animation: none !important;
     }
-    .fm-press:active {
+    .fm-press:active,
+    .fm-glass-press:active {
       transform: none;
     }
     .fm-card-in,
