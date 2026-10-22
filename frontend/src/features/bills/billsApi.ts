@@ -5,6 +5,8 @@ import type { Bill, BillLine, UtilityKind } from './analytics';
 export interface UtilityBill extends Bill {
   /** Abitazione della bolletta, `null` se non ancora assegnata. */
   householdId: string | null;
+  /** Chi l'ha caricata (nelle abitazioni condivise può essere un altro account). */
+  addedById: string;
   /** Indirizzo di fornitura letto dal PDF. */
   supplyAddress: string | null;
   notes: string | null;
@@ -45,13 +47,26 @@ export interface SaveBillInput {
   newHouseholdAddress?: string | null;
 }
 
+export interface HouseholdPerson {
+  userId: string;
+  email: string;
+  name: string | null;
+}
+
 export interface Household {
   id: string;
   name: string;
   address: string | null;
   billCount: number;
   createdAt: string;
+  /** `owner` = mia; `member` = condivisa con me. */
+  role: 'owner' | 'member';
+  owner: HouseholdPerson;
+  /** Account con cui è condivisa, proprietario escluso. */
+  members: HouseholdPerson[];
 }
+
+export const personLabel = (p: HouseholdPerson) => p.name?.trim() || p.email;
 
 export type { Bill, BillLine, UtilityKind };
 
@@ -74,4 +89,6 @@ export const householdsApi = {
   rename: (id: string, name: string) => api.patch(`households/${id}`, { json: { name } }).json<Household>(),
   merge: (id: string, intoId: string) => api.post(`households/${id}/merge`, { json: { intoId } }).json<Household>(),
   remove: (id: string) => api.delete(`households/${id}`),
+  addMember: (id: string, email: string) => api.post(`households/${id}/members`, { json: { email } }).json<Household>(),
+  removeMember: (id: string, userId: string) => api.delete(`households/${id}/members/${userId}`),
 };

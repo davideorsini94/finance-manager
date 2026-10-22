@@ -24,10 +24,10 @@ const lastDay = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).getUTCDate
 const GAS_SEASON = [1.0, 0.95, 0.75, 0.45, 0.2, 0.1, 0.08, 0.08, 0.12, 0.35, 0.7, 0.95];
 const ELEC_SEASON = [1.05, 1.0, 0.92, 0.85, 0.88, 1.05, 1.2, 1.15, 0.95, 0.9, 0.98, 1.08];
 
-function build(): UtilityBill[] {
+function build(): Omit<UtilityBill, 'addedById'>[] {
   const rand = rng(20260422);
   const now = new Date();
-  const out: UtilityBill[] = [];
+  const out: Omit<UtilityBill, 'addedById'>[] = [];
   const created = now.toISOString();
 
   // Ultimo bimestre (gen-feb, mar-apr, …) concluso prima del mese corrente.
@@ -193,9 +193,24 @@ function build(): UtilityBill[] {
   return out.sort((a, b) => (b.periodEnd ?? '9999').localeCompare(a.periodEnd ?? '9999'));
 }
 
-export const DEMO_UTILITY_BILLS: UtilityBill[] = build();
+const DEMO_ME = '00000000-0000-0000-0000-000000000001';
+const DEMO_PARTNER = '00000000-0000-0000-0000-000000000002';
+
+// Nella casa di Roma alcune bollette le ha caricate l'altra persona della
+// famiglia: mostra la condivisione delle abitazioni.
+export const DEMO_UTILITY_BILLS: UtilityBill[] = build().map((b, i) => ({
+  ...b,
+  addedById: b.householdId === 'demo-home-roma' && i % 3 === 1 ? DEMO_PARTNER : DEMO_ME,
+}));
 
 export const DEMO_HOUSEHOLDS: Household[] = [
   { id: 'demo-home-roma', name: 'Casa · Via dei Ciliegi 14', address: 'Via dei Ciliegi 14, 00135 Roma (RM)', billCount: 0, createdAt: new Date().toISOString() },
   { id: 'demo-home-mare', name: 'Casa al mare · Riccione', address: 'Viale Gramsci 31, 47838 Riccione (RN)', billCount: 0, createdAt: new Date().toISOString() },
-].map((h) => ({ ...h, billCount: DEMO_UTILITY_BILLS.filter((b) => b.householdId === h.id).length }));
+].map((h) => ({
+  ...h,
+  billCount: DEMO_UTILITY_BILLS.filter((b) => b.householdId === h.id).length,
+  role: 'owner' as const,
+  owner: { userId: DEMO_ME, email: 'demo@example.com', name: 'Mario Rossi' },
+  members:
+    h.id === 'demo-home-roma' ? [{ userId: DEMO_PARTNER, email: 'giulia@example.com', name: 'Giulia Bianchi' }] : [],
+}));

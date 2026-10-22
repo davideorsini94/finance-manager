@@ -155,12 +155,16 @@ export function NotificationBell() {
                     onRead={() => !n.readAt && markRead([n.id])}
                     onActivate={() => {
                       if (!n.readAt) void markRead([n.id]);
-                      const to = TYPE_HREF[n.type];
+                      // Le notifiche di sistema possono portare a una pagina
+                      // interna (es. l'abitazione condivisa: `/bills/<id>`).
+                      const href = n.data?.kind === 'system' ? (n.data as { href?: unknown }).href : undefined;
+                      const own = typeof href === 'string' && href.startsWith('/') ? href : null;
+                      const to = own ?? TYPE_HREF[n.type];
                       if (!to) return;
                       // Chiudo il pannello prima di navigare: su mobile resterebbe
                       // aperto sopra la pagina di destinazione.
                       setOpen(false);
-                      void navigate({ to });
+                      void navigate({ to: to as '/settings' });
                     }}
                     onDelete={() => remove(n.id)}
                   />

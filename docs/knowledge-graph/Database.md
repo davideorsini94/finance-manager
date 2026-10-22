@@ -15,7 +15,8 @@ PostgreSQL 16, schema gestito con Prisma: `backend/prisma/schema.prisma`. Migraz
 - **RecurringRule** — frequenza daily→yearly, nextRunDate, isActive; anche per giroconti (`toAccountId`)
 - **Budget** — unico per (userId, categoryId, month), limitCents
 - **Goal** — accountId, targetCents, currentCents, deadline
-- **UtilityBill / UtilityBillLine** — bollette per utente, una riga per servizio (`UtilityKind`), stato `UtilityBillStatus` → [[Bollette]]. (I modelli dell'import CSV/OFX sono stati rimossi in v0.20.0 → [[Import CSV-OFX]])
+- **Household / HouseholdMember** — abitazioni delle bollette (proprietario `userId`) e account con cui sono condivise (v0.22.0) → [[Bollette]]
+- **UtilityBill / UtilityBillLine** — bollette per utente (visibili anche ai membri dell'abitazione), una riga per servizio (`UtilityKind`), stato `UtilityBillStatus` → [[Bollette]]. (I modelli dell'import CSV/OFX sono stati rimossi in v0.20.0 → [[Import CSV-OFX]])
 - **ChatSession / ChatMessage** → [[Chat LLM]]
 - **RefreshToken** (rotation + family detection), **InviteToken**, **PasswordResetToken** → [[Autenticazione e Sicurezza]]
 - **SmtpConfig** — singleton, password cifrata AES-256-GCM

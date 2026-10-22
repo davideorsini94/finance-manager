@@ -71,6 +71,8 @@ export interface UtilityBillLineView {
 export interface UtilityBillView {
   id: string;
   householdId: string | null;
+  /** Chi l'ha caricata o inserita (nelle abitazioni condivise può non essere l'utente). */
+  addedById: string;
   /** Indirizzo di fornitura letto dal PDF, `null` se non trovato. */
   supplyAddress: string | null;
   provider: string | null;
@@ -96,8 +98,9 @@ const toDate = (s: string | null | undefined): Date | null => (s ? new Date(`${s
 
 /**
  * Bollette di luce, gas e acqua. Sezione indipendente dai movimenti: nessuna
- * lettura né scrittura di Transaction/Account. Ogni bolletta appartiene a un
- * solo utente e ogni accesso passa dal filtro `userId`.
+ * lettura né scrittura di Transaction/Account. Ogni bolletta ha chi l'ha
+ * caricata (`userId`); la vedono e la modificano anche gli account con cui la
+ * sua abitazione è condivisa (`HouseholdsService.billAccessWhere`).
  */
 @Injectable()
 export class UtilityBillsService {
@@ -113,7 +116,7 @@ export class UtilityBillsService {
 
   async list(userId: string): Promise<UtilityBillView[]> {
     const bills = await this.prisma.utilityBill.findMany({
-      where: { userId },
+      where: await this.households.billAccessWhere(userId),
       include: { lines: true },
       orderBy: [{ periodEnd: { sort: 'desc', nulls: 'first' } }, { createdAt: 'desc' }],
     });
@@ -447,12 +450,15 @@ export class UtilityBillsService {
     }
     if (dto.householdId === undefined) return undefined;
     if (dto.householdId === null) return null;
-    await this.households.findOwned(userId, dto.householdId);
+    await this.households.findAccessible(userId, dto.householdId);
     return dto.householdId;
   }
 
   private async findOwned(userId: string, id: string): Promise<BillWithLines> {
-    const bill = await this.prisma.utilityBill.findFirst({ where: { id, userId }, include: { lines: true } });
+    const bill = await this.prisma.utilityBill.findFirst({
+      where: { id, ...(await this.households.billAccessWhere(userId)) },
+      include: { lines: true },
+    });
     // 404 anche per le bollette di altri utenti: non si rivela che esistono.
     if (!bill) throw new NotFoundException('Bolletta non trovata');
     return bill;
@@ -536,6 +542,7 @@ export class UtilityBillsService {
     return {
       id: b.id,
       householdId: b.householdId,
+      addedById: b.userId,
       supplyAddress: b.supplyAddress || null,
       provider: b.provider,
       billNumber: b.billNumber,

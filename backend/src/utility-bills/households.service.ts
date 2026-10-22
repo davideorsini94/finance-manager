@@ -3,12 +3,15 @@ import {
   ConflictException,
   Injectable,
   Logger,
+  ForbiddenException,
   NotFoundException,
   OnApplicationBootstrap,
 } from '@nestjs/common';
+import { NotificationType, Prisma } from '@prisma/client';
 import type { Readable } from 'stream';
 import { PrismaService } from '../prisma/prisma.service';
 import { MinioService } from '../minio/minio.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   addressesMatch,
   cleanAddress,
@@ -20,13 +23,30 @@ import {
 import { correctedPeriod, findBilledPeriod, findEnergyPrices } from './bill-extraction';
 import { extractPdfText } from './pdf-text';
 
+export interface HouseholdPerson {
+  userId: string;
+  email: string;
+  name: string | null;
+}
+
 export interface HouseholdView {
   id: string;
   name: string;
   address: string | null;
   billCount: number;
   createdAt: string;
+  /** `owner` = abitazione mia; `member` = condivisa con me da `owner`. */
+  role: 'owner' | 'member';
+  owner: HouseholdPerson;
+  /** Account con cui è condivisa (proprietario escluso). */
+  members: HouseholdPerson[];
 }
+
+const person = (u: { id: string; email: string; fullName: string | null }): HouseholdPerson => ({
+  userId: u.id,
+  email: u.email,
+  name: u.fullName,
+});
 
 /**
  * Abitazioni appena create e ancora vuote non si eliminano: un salvataggio
@@ -49,6 +69,13 @@ const EMPTY_HOUSEHOLD_GRACE_MS = 5 * 60_000;
  * 3. altrimenti un'abitazione nuova, se l'indirizzo ha un civico.
  * Le bollette con l'abitazione scelta dall'utente (`householdLocked`, anche
  * "nessuna") non vengono mai riassegnate.
+ *
+ * Condivisione (v0.22.0): il proprietario aggiunge altri account per email
+ * (`HouseholdMember`). I membri vedono tutte le bollette dell'abitazione e
+ * possono caricarne e modificarne; il riconoscimento delle bollette nuove
+ * considera tutte le abitazioni accessibili, così una bolletta caricata dal
+ * membro finisce nella casa condivisa. Le bollette senza abitazione restano
+ * visibili solo a chi le ha caricate.
  */
 @Injectable()
 export class HouseholdsService implements OnApplicationBootstrap {
@@ -63,12 +90,37 @@ export class HouseholdsService implements OnApplicationBootstrap {
   constructor(
     private readonly prisma: PrismaService,
     private readonly minio: MinioService,
+    private readonly notifications: NotificationsService,
   ) {}
 
+  /** Abitazioni mie o condivise con me. */
+  private accessibleWhere(userId: string): Prisma.HouseholdWhereInput {
+    return { OR: [{ userId }, { members: { some: { userId } } }] };
+  }
+
+  async accessibleIds(userId: string): Promise<string[]> {
+    const rows = await this.prisma.household.findMany({ where: this.accessibleWhere(userId), select: { id: true } });
+    return rows.map((r) => r.id);
+  }
+
+  /**
+   * Bollette visibili e modificabili da `userId`: quelle delle abitazioni
+   * accessibili, più le sue senza abitazione. Una bolletta caricata in una
+   * casa poi non più condivisa resta al proprietario della casa.
+   */
+  async billAccessWhere(userId: string): Promise<Prisma.UtilityBillWhereInput> {
+    return { OR: [{ householdId: { in: await this.accessibleIds(userId) } }, { userId, householdId: null }] };
+  }
+
   async list(userId: string): Promise<HouseholdView[]> {
+    const userSelect = { select: { id: true, email: true, fullName: true } } as const;
     const rows = await this.prisma.household.findMany({
-      where: { userId },
-      include: { _count: { select: { bills: true } } },
+      where: this.accessibleWhere(userId),
+      include: {
+        _count: { select: { bills: true } },
+        user: userSelect,
+        members: { include: { user: userSelect }, orderBy: { createdAt: 'asc' } },
+      },
       orderBy: { createdAt: 'asc' },
     });
     return rows.map((h) => ({
@@ -77,7 +129,53 @@ export class HouseholdsService implements OnApplicationBootstrap {
       address: h.address,
       billCount: h._count.bills,
       createdAt: h.createdAt.toISOString(),
+      role: h.userId === userId ? 'owner' : 'member',
+      owner: person(h.user),
+      members: h.members.map((m) => person(m.user)),
     }));
+  }
+
+  /**
+   * Condivide l'abitazione con un altro account dell'app, per email. Solo il
+   * proprietario. L'account deve esistere ed essere attivo: niente inviti a
+   * indirizzi esterni.
+   */
+  async addMember(userId: string, id: string, email: string): Promise<HouseholdView> {
+    const household = await this.findOwned(userId, id);
+    const target = await this.prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+    if (!target || !target.isActive) {
+      throw new NotFoundException('Nessun account del Finance Manager con questa email');
+    }
+    if (target.id === userId) throw new BadRequestException('L’abitazione è già tua');
+    const created = await this.prisma.householdMember.createMany({
+      data: [{ householdId: id, userId: target.id }],
+      skipDuplicates: true,
+    });
+    if (created.count > 0) {
+      const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true, fullName: true } });
+      void this.notifications
+        .create({
+          userId: target.id,
+          type: NotificationType.system,
+          title: `Bollette condivise: ${household.name}`,
+          body: `${me?.fullName ?? me?.email ?? 'Un utente'} ha condiviso con te le bollette di questa abitazione. Puoi vederle e caricarne di nuove.`,
+          data: { kind: 'system', level: 'info', href: `/bills/${id}` },
+        })
+        .catch((e: Error) => this.logger.warn(`Notifica di condivisione non inviata: ${e.message}`));
+    }
+    return (await this.list(userId)).find((h) => h.id === id)!;
+  }
+
+  /**
+   * Toglie un account dall'abitazione. Il proprietario può togliere chiunque;
+   * un membro solo se stesso ("smetti di vedere").
+   */
+  async removeMember(userId: string, id: string, memberId: string): Promise<void> {
+    const household = await this.findAccessible(userId, id);
+    if (household.userId !== userId && memberId !== userId) {
+      throw new ForbiddenException('Solo il proprietario può togliere altri account');
+    }
+    await this.prisma.householdMember.deleteMany({ where: { householdId: id, userId: memberId } });
   }
 
   async rename(userId: string, id: string, name: string): Promise<HouseholdView> {
@@ -98,8 +196,15 @@ export class HouseholdsService implements OnApplicationBootstrap {
     await this.withLock(userId, async () => {
       await this.findOwned(userId, id);
       await this.findOwned(userId, intoId);
+      const members = await this.prisma.householdMember.findMany({ where: { householdId: id }, select: { userId: true } });
       await this.prisma.$transaction([
-        this.prisma.utilityBill.updateMany({ where: { userId, householdId: id }, data: { householdId: intoId } }),
+        // Tutte le bollette, anche quelle caricate dai membri.
+        this.prisma.utilityBill.updateMany({ where: { householdId: id }, data: { householdId: intoId } }),
+        // Chi vedeva l'abitazione unita continua a vedere quelle bollette.
+        this.prisma.householdMember.createMany({
+          data: members.map((m) => ({ householdId: intoId, userId: m.userId })),
+          skipDuplicates: true,
+        }),
         this.prisma.household.delete({ where: { id } }),
       ]);
     });
@@ -121,6 +226,19 @@ export class HouseholdsService implements OnApplicationBootstrap {
   /** Verifica che l'abitazione esista e sia dell'utente (404 altrimenti). */
   async findOwned(userId: string, id: string) {
     const h = await this.prisma.household.findFirst({ where: { id, userId } });
+    if (!h) {
+      // Condivisa con me ma non mia: l'azione è del proprietario.
+      if (await this.prisma.household.count({ where: { id, members: { some: { userId } } } })) {
+        throw new ForbiddenException('Solo il proprietario dell’abitazione può farlo');
+      }
+      throw new NotFoundException('Abitazione non trovata');
+    }
+    return h;
+  }
+
+  /** Abitazione mia o condivisa con me (404 altrimenti). */
+  async findAccessible(userId: string, id: string) {
+    const h = await this.prisma.household.findFirst({ where: { id, ...this.accessibleWhere(userId) } });
     if (!h) throw new NotFoundException('Abitazione non trovata');
     return h;
   }
@@ -322,7 +440,10 @@ export class HouseholdsService implements OnApplicationBootstrap {
     const line = await this.prisma.utilityBillLine.findFirst({
       where: {
         supplyCode: { in: meters },
-        bill: { userId, householdId: { not: null }, ...(excludeBillId ? { id: { not: excludeBillId } } : {}) },
+        bill: {
+          household: this.accessibleWhere(userId),
+          ...(excludeBillId ? { id: { not: excludeBillId } } : {}),
+        },
       },
       select: { bill: { select: { householdId: true } } },
       orderBy: { bill: { createdAt: 'desc' } },
@@ -333,7 +454,10 @@ export class HouseholdsService implements OnApplicationBootstrap {
   private async matchByAddress(userId: string, address: string): Promise<string | null> {
     const parsed = parseAddress(address);
     if (!parsed?.number) return null;
-    const households = await this.prisma.household.findMany({ where: { userId }, select: { id: true, address: true } });
+    const households = await this.prisma.household.findMany({
+      where: this.accessibleWhere(userId),
+      select: { id: true, address: true },
+    });
     const strict = households.filter((h) => addressesMatch(parsed, parseAddress(h.address)));
     if (strict.length === 1) return strict[0].id;
     if (strict.length > 1) return null; // ambiguo: meglio "senza abitazione" che quella sbagliata
