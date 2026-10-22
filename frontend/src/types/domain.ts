@@ -80,7 +80,6 @@ export interface Transaction {
   transferPairId: string | null;
   ccChargeId: string | null;
   recurringRuleId: string | null;
-  importBatchId: string | null;
   isPending: boolean;
   category: Pick<Category, 'id' | 'name' | 'color' | 'icon' | 'isIncome'> | null;
   account: { id: string; name: string; type: AccountType };

@@ -12,9 +12,6 @@
     "budget": "Budget",
     "recurring": "Recurring",
     "goals": "Goals",
-    "import": "Import",
-    "importWizard": "Import CSV (wizard)",
-    "importTemplates": "CSV templates",
     "reportsAdvanced": "Advanced reports",
     "projections": "Projections",
     "bankReview": "To confirm",
@@ -26,8 +23,10 @@
       "finance": "Finance",
       "planning": "Planning",
       "tools": "Tools",
-      "system": "System"
-    }
+      "system": "System",
+      "home": "Home"
+    },
+    "bills": "Utility bills"
   },
   "auth": {
     "login": {

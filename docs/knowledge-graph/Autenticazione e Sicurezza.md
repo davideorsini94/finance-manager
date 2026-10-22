@@ -27,7 +27,7 @@ Implementata nel [[Backend]] (`backend/src/auth/`, `backend/src/common/`).
 
 Causali bancarie e descrizioni dei file importati sono scritte da terzi: se arrivano intatte fino al prompt LLM o al Markdown della chat diventano prompt-injection ed esfiltrazione dati. Catena chiusa così:
 
-- **Sanificazione all'ingestione**: `sanitizeExternalText()` in `backend/src/common/utils/sanitize-text.ts` (control chars → spazio, backtick/`![`/`](` neutralizzati, spazi collassati, cap lunghezza), applicata alle descrizioni in [[Import CSV-OFX]]
+- **Sanificazione all'ingestione**: `sanitizeExternalText()` in `backend/src/common/utils/sanitize-text.ts` (control chars → spazio, backtick/`![`/`](` neutralizzati, spazi collassati, cap lunghezza), applicata alle descrizioni della coda di [[Sync Bancario]] (prima anche all'import CSV, rimosso in v0.20.0). Il testo dei PDF delle [[Bollette]] non arriva mai al Markdown: l'LLM ne ricava solo dati validati da `normalizeExtraction`
 - **Prompt**: `CategoryAiService` ripulisce ed escapa ogni descrizione (control chars + `\` e `"`, cap 160 char) prima di interpolarla
 - **Chat**: `ReactMarkdown` in `frontend/src/features/chat/ChatPage.tsx` con `img` disabilitato e link resi testo inerte → [[Chat LLM]]
 - **CSP + header** in `nginx/nginx.conf` (unico server pubblico): `default-src 'self'`, `frame-ancestors 'none'`, `img-src` con `data:`/`blob:`, `frame-src blob:` (anteprima PDF allegati), `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` → [[Infrastruttura Docker]]. **Nota aperta**: `img-src` non include `https:`, quindi i loghi remoti degli istituti bancari ([[Sync Bancario]]) sono bloccati dal browser e ricadono sull'icona di fallback — nessun rischio di sicurezza, solo estetico.

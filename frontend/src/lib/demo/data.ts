@@ -217,7 +217,6 @@ function buildTx(
     transferPairId: null,
     ccChargeId: null,
     recurringRuleId: null,
-    importBatchId: null,
     isPending: false,
     category: { id: cat.id, name: cat.name, color: cat.color, icon: cat.icon, isIncome: cat.isIncome },
     account: { id: acc.id, name: acc.name, type: acc.type },

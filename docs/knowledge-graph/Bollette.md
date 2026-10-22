@@ -1,0 +1,39 @@
+# Bollette
+
+Sezione per luce, gas e acqua: consumi e costi nel tempo, lettura automatica del PDF con l'LLM, inserimento a mano. Route `/bills` (sezione "Casa" del menu). **Indipendente dai movimenti bancari**: nessuna relazione con conti, movimenti o categorie; una bolletta pagata dal conto non entra qui e una bolletta caricata qui non crea movimenti. Piano originale in [[Bollette (Piano)]].
+
+## Dati ([[Database]])
+
+- `UtilityBill`: per utente (`userId`), fornitore, numero, emissione, scadenza, periodo, totale in centesimi (può essere negativo: bolletta a credito), note, stato (`UtilityBillStatus`: `extracting` / `review` / `failed` / `confirmed`), PDF su MinIO (`fileKey` = `utility-bills/<userId>/<uuid>.pdf`), errore e modello della lettura
+- `UtilityBillLine`: una riga per servizio (`UtilityKind`: `electricity` / `gas` / `water`, `@@unique([billId, utility])`), consumo nell'unità fissa (kWh, Smc, m³), quota di costo, periodo proprio opzionale (sempre come coppia), POD/PDR/codice utenza, lettura stimata. Una bolletta luce+gas = una testata con due righe; gestiti 1, 2 o 3 servizi
+- Contano nelle analisi **solo le `confirmed`**: un dato letto male non va nei grafici finché l'utente non l'ha visto
+
+## Lettura del PDF (`backend/src/utility-bills/`)
+
+1. `POST /utility-bills/upload` (multipart, max 10 MB, firma `%PDF-` + `file-type`) salva il PDF e crea la bolletta in `extracting`; risponde subito
+2. La lettura gira in background in una **coda in-process con 2 lavori alla volta** (`JobQueue`); al massimo 10 bollette in lettura per utente, oltre → `429`
+3. Testo del PDF con `pdf-parse` 1.1.1 (pdf.js 1.10) **dentro un `worker_threads`** (`pdf-text.ts`): heap massimo 256 MB, `terminate()` dopo 30 s, `isEvalSupported = false` (CVE-2018-5158 / CVE-2024-4367). Nel thread principale un PDF costruito apposta bloccherebbe l'event loop dell'intero backend. Solo le prime 8 pagine. Un PDF senza testo (scansione) → `failed` con invito a compilare a mano: niente OCR
+4. **Prima OpenCode, poi Ollama** (`bill-extractor.service.ts`), su richiesta esplicita dell'utente: OpenCode con chiave e modello delle Impostazioni **anche se il provider attivo della chat è Ollama** (`LlmConfigService.getOpencodeConfig()`, `null` se manca qualcosa o se OpenCode è in cooldown per quota); Ollama per **qualunque** problema di OpenCode, compresi risposta vuota e JSON da cui non si ricava niente. Ollama riceve 12.000 caratteri e `num_ctx` 8192 (CPU), OpenCode 20.000. Sessione OpenCode `utility-bill-<id>`
+5. La risposta passa **sempre** da `normalizeExtraction` (`bill-extraction.ts`, puro, 50 test): numeri all'italiana, date in vari formati (rifiutate quelle inesistenti), unità convertite (MWh→kWh, litri→m³; gas in kWh scartato), servizi duplicati o sconosciuti scartati, importi oltre 100.000 € rifiutati, un solo servizio senza costo prende il totale. Il testo del PDF è di terzi: il prompt dice di ignorare istruzioni contenute nel documento, il modello non ha tool e l'output è solo dati validati
+6. Il risultato si scrive solo se la bolletta è ancora nella **stessa** lettura (`updateMany` su `status = extracting` e `extractionStartedAt` uguale): cancellata o riletta nel frattempo → risultato buttato. Una `extracting` più vecchia di 12 minuti è considerata morta (backend riavviato) e mostrata come `failed`
+7. `POST /:id/extract` (rilettura) è permessa solo da `review`/`failed`, con passaggio a `extracting` **condizionato** allo stato (niente sovrascrittura di una conferma fatta da un'altra scheda, niente doppia lettura pagata)
+
+Provato sul gateway reale con tre PDF (luce+gas, acqua, scansione) e con OpenCode simulato giù: esiti in [[Registro Modifiche]].
+
+## API ([[API]])
+
+`GET /utility-bills` · `GET /:id` · `POST /` (a mano, nasce `confirmed`) · `POST /upload` · `POST /:id/extract` · `PUT /:id` (salva e conferma) · `DELETE /:id` (cancella anche il PDF) · `GET /:id/file` (PDF in stream). Upload e rilettura: 10/min. Ogni accesso filtra per `userId` (404 per le bollette altrui). Validazione: periodo obbligatorio, 1..3 servizi distinti, per ognuno consumo o costo, date reali (`parseBillDate`), `estimated` booleano vero (niente conversione implicita della stringa "false").
+
+## Frontend (`frontend/src/features/bills/`)
+
+- `BillsPage.tsx`: bollette "Da verificare" in cima (in lettura con polling ogni 2,5 s, da verificare, non lette); selettore Panoramica / Luce / Gas / Acqua; panoramica con una card per servizio e la spesa mensile impilata; dettaglio per servizio con statistiche, consumi o spesa mese per mese o anno su anno, prezzo per unità con i cambi di fornitore, tabella anno per anno, storico fornitori, avviso di periodi sovrapposti; elenco per anno con "possibile doppione"
+- `BillForm.tsx` (React Hook Form + Zod, sheet su mobile): servizi come interruttori colorati, sezione per servizio con consumo, costo, POD/PDR, lettura stimata, periodo diverso. Numeri all'italiana con `numbers.ts` ("1.234" = milleduecentotrentaquattro, "1,5" e "1.5" decimali, centesimi senza errore binario); i numeri si validano **solo per i servizi attivi**; stessi limiti del backend
+- `analytics.ts`, puro: ogni bolletta è **ripartita sui mesi in proporzione ai giorni**; un mese senza bollette è vuoto, non zero. La finestra "12 mesi" finisce all'**ultimo mese completamente coperto** (un mese coperto a metà falserebbe il confronto); variazioni solo se entrambe le finestre sono coperte all'85%; prezzo unitario solo dalle righe con consumo **e** costo; totale della panoramica su una finestra **comune** a tutti i servizi (`combinedLast12`)
+- Test: `cd frontend && npm test` (`node --test`, Node 24 esegue TypeScript da solo), file `frontend/tests/bills-analytics.test.mts`, 19 test
+- Grafica ([[Design System]]): colori dei servizi come dati, token `--util-electricity` (ambra), `--util-gas` (blu indaco), `--util-water` (verde acqua) con variante scura; `UtilityGlyph` (tassello col colore del servizio, luce dall'alto), card con alone e icona in filigrana del servizio, grafici Recharts nel colore del servizio. Contenuti in materiale standard, vetro solo sulla navigazione. Prezzi unitari con `money-blur-target` per la modalità privacy
+- PDF: `AttachmentPreviewDialog` con la nuova prop `contentUrl` (→ `GET /utility-bills/:id/file`, in demo `/demo/bolletta-demo.pdf`)
+- Demo: `frontend/src/lib/demo/bills.ts`, due anni di luce+gas bimestrali con cambio fornitore (Edison → Enel), acqua trimestrale, ultima bolletta da verificare; sempre relativi a oggi
+
+## Backup
+
+Tabelle `utilityBill` e `utilityBillLine` nel backup, PDF in `blobs/utility-bills/...` ripristinati come `application/pdf` → [[Backend]].

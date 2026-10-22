@@ -27,6 +27,11 @@ interface Props {
   initialIndex?: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /**
+   * URL da cui scaricare il file, per i documenti che non sono allegati di un
+   * movimento (il PDF di una bolletta). Ha la precedenza sul file demo.
+   */
+  contentUrl?: (id: string) => string;
 }
 
 type LoadState = 'idle' | 'loading' | 'ok' | 'error';
@@ -56,6 +61,7 @@ export function AttachmentPreviewDialog({
   initialIndex = 0,
   open,
   onOpenChange,
+  contentUrl,
 }: Props) {
   const isDemo = useUIStore((s) => s.demoData);
   const [index, setIndex] = useState(initialIndex);
@@ -78,7 +84,9 @@ export function AttachmentPreviewDialog({
   const attachmentId = current?.id;
   const demoFile = isDemo && attachmentId ? demoAttachmentFile(attachmentId) : null;
   const remoteUrl = attachmentId
-    ? (demoFile ?? `${API_BASE}/attachments/${attachmentId}/content`)
+    ? contentUrl
+      ? contentUrl(attachmentId)
+      : (demoFile ?? `${API_BASE}/attachments/${attachmentId}/content`)
     : null;
 
   useEffect(() => {

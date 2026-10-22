@@ -7,6 +7,7 @@
  */
 
 import { demoDataset } from './data';
+import { DEMO_UTILITY_BILLS } from './bills';
 import type { Transaction } from '@/types/domain';
 
 interface Ctx {
@@ -164,12 +165,15 @@ export function demoHandle(ctx: Ctx): unknown | null {
     return { items: [], total: 0, unread: 0 };
   }
 
-  // Imports
-  if (matches(pathname, 'imports/templates') && method === 'GET') {
-    return [];
+  // Bollette: elenco e dettaglio. Upload, salvataggi e riletture cadono nel
+  // ramo generico delle mutation (risposta `{ ok, demo }`, nessuna modifica).
+  // Il dettaglio va prima dell'elenco: `matches` fa match anche sui prefissi.
+  if (matches(pathname, 'utility-bills/.*') && method === 'GET') {
+    const id = demoIdFromPath(pathname, -1);
+    return DEMO_UTILITY_BILLS.find((b) => b.id === id) ?? null;
   }
-  if (matches(pathname, 'imports/batches') && method === 'GET') {
-    return [];
+  if (matches(pathname, 'utility-bills') && method === 'GET') {
+    return DEMO_UTILITY_BILLS;
   }
 
   // Sharing / invites
@@ -342,7 +346,7 @@ export function demoHandle(ctx: Ctx): unknown | null {
 }
 
 function matches(pathname: string, pattern: string): boolean {
-  // pathname può iniziare con "/api/" o solo "imports/templates" (ky relative)
+  // pathname può iniziare con "/api/" o solo "utility-bills/…" (ky relative)
   // Supporta wildcard ".*" semplice
   const stripped = pathname.replace(/^.*?\/api\//, '').replace(/^\/+/, '');
   if (pattern.includes('.*')) {

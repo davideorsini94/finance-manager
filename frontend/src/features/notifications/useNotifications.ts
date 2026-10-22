@@ -8,7 +8,6 @@ export type NotificationType =
   | 'goal_reached'
   | 'large_transaction'
   | 'account_shared'
-  | 'import_ready'
   | 'bank_sync_review'
   | 'bank_sync_consent'
   | 'system';
