@@ -1,10 +1,30 @@
-import { keyIsAuthenticated } from './opencode.client';
+import { keyIsAuthenticated, tierAccessDisabled, tierProbeOrder } from './opencode.client';
 
 /**
  * La validità di una API key OpenCode non deve dipendere dalla salute di un
  * modello: il gateway elenca modelli che poi risponde 500/503/400/403, e
  * legarci la chiave la faceva dichiarare "non valida" quando era perfetta.
  */
+describe('tierProbeOrder', () => {
+  it('in automatico prova prima Go, che ha un controllo definitivo', () => {
+    expect(tierProbeOrder()).toEqual(['go', 'zen']);
+  });
+  it('rispetta la tier scelta a mano', () => {
+    expect(tierProbeOrder('zen')).toEqual(['zen', 'go']);
+    expect(tierProbeOrder('go')).toEqual(['go', 'zen']);
+  });
+});
+
+describe('tierAccessDisabled', () => {
+  it('riconosce la tier non attiva per l’account (chiave Go provata su Zen)', () => {
+    expect(tierAccessDisabled(403, 'Upstream request failed: Model access is disabled')).toBe(true);
+  });
+  it('non confonde il 403 di opt-in del modello né altri stati', () => {
+    expect(tierAccessDisabled(403, 'This model requires opt-in')).toBe(false);
+    expect(tierAccessDisabled(402, 'Model access is disabled')).toBe(false);
+  });
+});
+
 describe('keyIsAuthenticated', () => {
   it('considera non valida la chiave solo su 401 (entrambe le fonti)', () => {
     expect(keyIsAuthenticated('usage', 401)).toBe(false);

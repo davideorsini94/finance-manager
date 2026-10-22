@@ -313,7 +313,7 @@ export class LlmModelsService {
   }
 
   /**
-   * Salva la API key OpenCode: la si prova su entrambe le tier (Zen e Go) per
+   * Salva la API key OpenCode: la si prova sulle tier (prima Go, poi Zen) per
    * auto-rilevare quella che la accetta, così i modelli mostrati sono quelli
    * corrispondenti alla tipologia di chiave.
    */

@@ -36,7 +36,7 @@ export class SetOpencodeKeyDto {
   @MaxLength(400)
   apiKey!: string;
 
-  /** Facoltativo: forza la tier. In sua assenza viene auto-rilevata provando Zen e Go. */
+  /** Facoltativo: forza la tier. In sua assenza viene auto-rilevata provando Go e poi Zen. */
   @IsOptional()
   @IsIn(['zen', 'go'], { message: 'Tier OpenCode non valida.' })
   tier?: 'zen' | 'go';

@@ -71,6 +71,31 @@ export function keyIsAuthenticated(source: KeyCheckSource, status: number): bool
   return true;
 }
 
+/**
+ * Ordine in cui provare le tier per auto-rilevare quella della chiave.
+ *
+ * **Prima Go**: ha `/usage`, un controllo definitivo che risponde 200 solo a
+ * una chiave con l'abbonamento Go. Zen non ha niente di simile e si giudica
+ * con una chiamata di prova a un modello, dove una chiave Go riceve risposte
+ * (403 "Model access is disabled") che sembravano un "sì": provando Zen per
+ * prima una chiave Go veniva salvata come Zen e la chat smetteva di andare
+ * (successo il 2026-10-22).
+ */
+export function tierProbeOrder(preferred?: OpencodeTier): OpencodeTier[] {
+  const order: OpencodeTier[] = ['go', 'zen'];
+  return preferred ? [preferred, ...order.filter((t) => t !== preferred)] : order;
+}
+
+/**
+ * Il 403 di una chiamata di prova dice che la tier non è attiva per questo
+ * account (e non che il modello richiede un'adesione)? Il gateway lo scrive
+ * come "Model access is disabled": la chiave è autentica, ma su questa tier
+ * non può usare nessun modello, quindi la tier non è la sua.
+ */
+export function tierAccessDisabled(status: number, detail: string): boolean {
+  return status === 403 && /model access is disabled/i.test(detail);
+}
+
 /** Esito del controllo di una API key su una singola tier. */
 export interface TierKeyCheck {
   tier: OpencodeTier;
@@ -214,9 +239,7 @@ export class OpencodeClient {
     apiKey: string,
     preferred?: OpencodeTier,
   ): Promise<{ tier: OpencodeTier | null; checks: TierKeyCheck[] }> {
-    const candidates: OpencodeTier[] = preferred
-      ? [preferred, ...(['zen', 'go'] as OpencodeTier[]).filter((t) => t !== preferred)]
-      : ['zen', 'go'];
+    const candidates = tierProbeOrder(preferred);
 
     const checks: TierKeyCheck[] = [];
     for (const tier of candidates) {
@@ -256,7 +279,7 @@ export class OpencodeClient {
     if (probe.ok) return { tier, ok: true, status: 200, detail: 'ok' };
     return {
       tier,
-      ok: keyIsAuthenticated('chat', probe.status) === true,
+      ok: keyIsAuthenticated('chat', probe.status) === true && !tierAccessDisabled(probe.status, probe.detail),
       status: probe.status,
       detail: probe.detail,
     };
