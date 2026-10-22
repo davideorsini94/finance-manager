@@ -1,4 +1,6 @@
 import {
+  correctedPeriod,
+  findBilledPeriod,
   cleanPdfText,
   findEnergyPrices,
   plausibleEnergyPrice,
@@ -282,5 +284,53 @@ describe('materia prima', () => {
 
   it('niente materia prima se la voce non c’è', () => {
     expect(findEnergyPrices('Totale da pagare € 63,73\nConsumo 28 mc')).toEqual({});
+  });
+});
+
+describe('findBilledPeriod / correctedPeriod', () => {
+  // Righe reali di una fattura NeN del 01/10/2026 (testo estratto dal PDF).
+  const nenSettembre = [
+    'Costi di generazione F1 (R)01/08/2026 - 31/08/2026€/kWh0,096364-2-0,1910',
+    'Prezzo energia F301/09/2026 - 30/09/2026€/kWh0,10600020,2110',
+    'Quota fissa di vendita Luce01/09/2026 - 30/09/2026€/cliente/mese0,312329309,3710',
+    'Trasporto quote fisse01/09/2026 - 30/09/2026€/cliente/mese1,92000011,9210',
+    'Trasporto quote variabili (R)01/08/2026 - 31/08/2026€/kWh0,01473020,0310',
+  ].join('\n');
+  // Fattura del 01/09: storno e riaddebito delle quote di luglio, quote di agosto.
+  const nenAgosto = [
+    '01/07/2026 - 31/07/2026€/cliente/mese0,312329319,6810',
+    '01/07/2026 - 31/07/2026€/cliente/mese0,312329-31-9,6810',
+    'Quota fissa di vendita Luce01/08/2026 - 31/08/2026€/cliente/mese0,312329319,6810',
+    'Trasporto quote potenza01/08/2026 - 31/08/2026€/kW/mese2,0144736,0012,0910',
+  ].join('\n');
+  // Conguaglio Accendi: quote fisse di quattro mesi già fatturati in parte.
+  const conguaglio = ['04', '05', '06', '07']
+    .map((m) => `Costi distribuzione01/${m}/2026 - ${m === '04' || m === '06' ? 30 : 31}/${m}/2026Effettivo€/cliente/mese5,7699991,00€5,7722%`)
+    .join('\n');
+
+  it('legge il mese delle quote fisse, ignorando rettifiche (R) e storni', () => {
+    expect(findBilledPeriod(nenSettembre)).toEqual({ start: '2026-09-01', end: '2026-09-30' });
+    expect(findBilledPeriod(nenAgosto)).toEqual({ start: '2026-08-01', end: '2026-08-31' });
+    expect(findBilledPeriod(conguaglio)).toEqual({ start: '2026-04-01', end: '2026-07-31' });
+  });
+
+  it('null senza quote fisse mensili intere e consecutive', () => {
+    expect(findBilledPeriod('Acquedotto Quota Fissa01/06/2026 - 30/06/2026€/unità/anno22,4678311,001,8710%')).toBeNull();
+    expect(findBilledPeriod('Quota fissa01/08/2026 - 01/08/2026€/cliente/mese0,31232910,3110')).toBeNull();
+    expect(
+      findBilledPeriod(
+        ['01/06/2026 - 30/06/2026€/cliente/mese1,00000011,0010', '01/08/2026 - 31/08/2026€/cliente/mese1,00000011,0010'].join('\n'),
+      ),
+    ).toBeNull();
+  });
+
+  it('corregge periodi allargati o sfasati, non allarga quelli più corti', () => {
+    const sep = findBilledPeriod(nenSettembre);
+    expect(correctedPeriod('2026-08-01', '2026-09-30', sep)).toEqual(sep);
+    expect(correctedPeriod('2026-08-01', '2026-08-31', sep)).toEqual(sep);
+    expect(correctedPeriod(null, null, sep)).toEqual(sep);
+    expect(correctedPeriod('2026-09-01', '2026-09-30', sep)).toBeNull();
+    expect(correctedPeriod('2026-07-01', '2026-07-31', findBilledPeriod(conguaglio))).toBeNull();
+    expect(correctedPeriod('2026-07-01', '2026-07-31', null)).toBeNull();
   });
 });

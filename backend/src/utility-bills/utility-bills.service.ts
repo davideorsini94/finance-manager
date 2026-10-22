@@ -14,7 +14,7 @@ import type { Readable } from 'stream';
 import { PrismaService } from '../prisma/prisma.service';
 import { MinioService } from '../minio/minio.service';
 import { BillExtractorService } from './bill-extractor.service';
-import { UTILITY_KINDS, findEnergyPrices, parseBillDate, type ExtractedBill, type UtilityKind } from './bill-extraction';
+import { UTILITY_KINDS, correctedPeriod, findBilledPeriod, findEnergyPrices, parseBillDate, type ExtractedBill, type UtilityKind } from './bill-extraction';
 import type { SaveUtilityBillDto } from './dto/utility-bill.dto';
 import { extractPdfText } from './pdf-text';
 import { HouseholdsService } from './households.service';
@@ -343,6 +343,20 @@ export class UtilityBillsService {
         l.energyCostCents ??= f.energyCostCents;
       }
     }
+    // Periodo: le quote fisse mensili correggono quello letto dal modello
+    // (rettifiche di mesi passati che lo allargavano, mesi sfasati).
+    if (data && text) {
+      const fixed = correctedPeriod(data.periodStart, data.periodEnd, findBilledPeriod(text));
+      if (fixed) {
+        data.periodStart = fixed.start;
+        data.periodEnd = fixed.end;
+        // Con un solo servizio il periodo della riga è quello della bolletta.
+        if (data.lines.length === 1) {
+          data.lines[0].periodStart = null;
+          data.lines[0].periodEnd = null;
+        }
+      }
+    }
     // Abitazione calcolata PRIMA della transazione (serve il lock per utente)
     // e scritta DENTRO, insieme al passaggio a "da verificare": così la
     // bolletta non è mai visibile come da verificare senza abitazione (aprendo
@@ -378,8 +392,16 @@ export class UtilityBillsService {
                 extractionError: null,
                 supplyAddress,
                 energyParsedAt: new Date(),
+                periodCheckedAt: new Date(),
               }
-            : { status: UtilityBillStatus.failed, extractionError: error, extractionModel: null, supplyAddress },
+            : {
+                status: UtilityBillStatus.failed,
+                extractionError: error,
+                extractionModel: null,
+                supplyAddress,
+                // I dati li inserirà l'utente: il periodo non va più ricontrollato.
+                periodCheckedAt: new Date(),
+              },
         });
         if (claimed.count === 0) return;
         if (householdId) {
