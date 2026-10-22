@@ -430,16 +430,29 @@ export function utilitySummary(bills: Bill[], utility: UtilityKind): UtilitySumm
  * servizi (che finisce all'ultimo mese completo tra tutti): sommare finestre
  * diverse per servizio mescolerebbe anni diversi.
  */
-export function combinedLast12(bills: Bill[]): { from: string; to: string; costCents: number } | null {
+export function combinedLast12(
+  bills: Bill[],
+): { from: string; to: string; months: number; costCents: number } | null {
   const all = UTILITIES.map((u) => monthlySeries(bills, u)).filter((s) => s.length > 0);
   if (all.length === 0) return null;
   const ends = all.map((s) => s[lastCompleteIndex(s)].month).sort();
   const to = ends[ends.length - 1];
   let from = to;
   for (let i = 0; i < 11; i++) from = prevMonth(from);
+  // Con meno di un anno di storico la finestra parte dal primo mese coperto:
+  // "ott 25 – set 26" con dati solo da marzo faceva credere a un anno intero.
+  const firstCovered = all.map((s) => s[0].month).sort()[0];
+  if (firstCovered > from) from = firstCovered;
   let cost = 0;
   for (const s of all) for (const p of s) if (p.month >= from && p.month <= to && p.costCents !== null) cost += p.costCents;
-  return { from, to, costCents: Math.round(cost) };
+  return { from, to, months: monthsBetween(from, to), costCents: Math.round(cost) };
+}
+
+/** Mesi da `from` a `to` compresi ("2026-03" → "2026-09" = 7). */
+function monthsBetween(from: string, to: string): number {
+  const [fy, fm] = from.split('-').map(Number);
+  const [ty, tm] = to.split('-').map(Number);
+  return (ty - fy) * 12 + (tm - fm) + 1;
 }
 
 function prevMonth(month: string): string {
@@ -479,4 +492,65 @@ export function yearOverYear(
     });
   }
   return { year, points };
+}
+
+export interface YearSummary {
+  year: number;
+  /** Spesa per servizio nell'anno (centesimi), `null` se il servizio non ha bollette quell'anno. */
+  costCents: Record<UtilityKind, number | null>;
+  totalCents: number;
+  /** Anno coperto per intero da tutti i servizi che compaiono nello storico. */
+  complete: boolean;
+  /** Variazione del totale sull'anno prima, solo se entrambi gli anni sono completi. */
+  deltaPct: number | null;
+}
+
+/**
+ * Anno per anno, tutti i servizi insieme. La variazione si calcola solo tra
+ * anni completi: un anno con tre mesi di bollette sembrerebbe sempre un
+ * crollo della spesa.
+ */
+export function yearlySummary(bills: Bill[]): YearSummary[] {
+  const perUtility = new Map<UtilityKind, YearTotal[]>();
+  for (const u of UTILITIES) perUtility.set(u, yearlyTotals(bills, u));
+  const present = UTILITIES.filter((u) => (perUtility.get(u) ?? []).length > 0);
+  const years = [...new Set(present.flatMap((u) => perUtility.get(u)!.map((t) => t.year)))].sort((a, b) => a - b);
+
+  const out: YearSummary[] = years.map((year) => {
+    const costCents = { electricity: null, gas: null, water: null } as Record<UtilityKind, number | null>;
+    let complete = true;
+    for (const u of present) {
+      const t = perUtility.get(u)!.find((x) => x.year === year);
+      costCents[u] = t?.costCents == null ? null : Math.round(t.costCents);
+      if (!t || t.monthsCovered < 12) complete = false;
+    }
+    const totalCents = UTILITIES.reduce((s, u) => s + (costCents[u] ?? 0), 0);
+    return { year, costCents, totalCents, complete, deltaPct: null };
+  });
+  for (let i = 1; i < out.length; i++) {
+    const prev = out[i - 1];
+    const cur = out[i];
+    if (prev.year === cur.year - 1 && prev.complete && cur.complete && prev.totalCents > 0) {
+      cur.deltaPct = ((cur.totalCents - prev.totalCents) / prev.totalCents) * 100;
+    }
+  }
+  return out;
+}
+
+/** Spesa di un anno mese per mese (centesimi), tutti i servizi: 12 valori, `null` dove non c'è niente. */
+export function monthlyTotalsOfYear(bills: Bill[], year: number): Array<number | null> {
+  const out: Array<number | null> = Array(12).fill(null);
+  for (const u of UTILITIES) {
+    for (const p of monthlySeries(bills, u)) {
+      if (Number(p.month.slice(0, 4)) !== year || p.costCents === null) continue;
+      const i = Number(p.month.slice(5, 7)) - 1;
+      out[i] = (out[i] ?? 0) + p.costCents;
+    }
+  }
+  return out;
+}
+
+/** Anni con almeno un mese coperto, dal più recente. */
+export function billYears(bills: Bill[]): number[] {
+  return yearlySummary(bills).map((y) => y.year).reverse();
 }

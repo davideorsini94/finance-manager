@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
+  ChevronLeft,
   ChevronRight,
   FileUp,
   Loader2,
@@ -20,7 +21,10 @@ import { useUIStore } from '@/store/uiStore';
 import { cn } from '@/lib/utils/cn';
 import {
   UTILITIES,
+  billYears,
   combinedLast12,
+  monthlyTotalsOfYear,
+  yearlySummary,
   monthlySeries,
   overlappingBills,
   possibleDuplicates,
@@ -34,7 +38,7 @@ import {
 } from './analytics';
 import { billsApi, type UtilityBill } from './billsApi';
 import { BillForm, modelLabel } from './BillForm';
-import { CostStackChart, MonthlyChart, UnitPriceChart, YearOverYearChart } from './BillsCharts';
+import { CostStackChart, MonthlyChart, UnitPriceChart, YearCompareChart, YearOverYearChart } from './BillsCharts';
 import {
   UTILITY_META,
   UtilityGlyph,
@@ -51,6 +55,9 @@ import {
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '/api';
 
 type View = 'overview' | UtilityKind;
+
+/** Bollette per pagina nell'elenco. */
+const BILLS_PAGE_SIZE = 10;
 
 /**
  * Bollette di luce, gas e acqua: consumi e costi nel tempo. Sezione a sé,
@@ -156,6 +163,8 @@ export function BillsPage() {
             <UtilityDetail bills={bills} utility={view} summary={summaries[view]} />
           )}
           <BillList
+            // Cambiando servizio l'elenco riparte dalla prima pagina.
+            key={view}
             bills={view === 'overview' ? confirmed : confirmed.filter((b) => b.lines.some((l) => l.utility === view))}
             duplicates={duplicates}
             onOpen={openForm}
@@ -242,6 +251,20 @@ function Overview({
     [bills],
   );
   const total12 = useMemo(() => combinedLast12(bills), [bills]);
+  const years = useMemo(() => yearlySummary(bills), [bills]);
+  const yearOptions = useMemo(() => billYears(bills), [bills]);
+  // `recent` = ultimi 24 mesi; un numero = quell'anno, confrontato col precedente.
+  const [period, setPeriod] = useState<'recent' | number>('recent');
+  useEffect(() => {
+    if (period !== 'recent' && !yearOptions.includes(period)) setPeriod('recent');
+  }, [period, yearOptions]);
+  const selected = period === 'recent' ? null : (years.find((y) => y.year === period) ?? null);
+  const previous = useMemo(
+    () => (period === 'recent' ? undefined : monthlyTotalsOfYear(bills, period - 1)),
+    [bills, period],
+  );
+  const hasPrevious = !!previous?.some((v) => v !== null);
+
   return (
     <>
       <div className={cn('grid gap-3', present.length === 3 ? 'md:grid-cols-3' : present.length === 2 ? 'sm:grid-cols-2' : '')}>
@@ -251,31 +274,125 @@ function Overview({
       </div>
       <Card className="fm-card-in">
         <CardContent className="space-y-4 p-5">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-[17px] font-semibold tracking-tight">Spesa mensile</h2>
               <p className="text-sm text-muted-foreground">Ogni bolletta ripartita sui mesi che copre</p>
             </div>
-            {total12 && (
+            {selected ? (
               <div className="text-right">
                 <div className="text-xs text-muted-foreground">
-                  {monthTick(total12.from)} – {monthTick(total12.to)}
+                  Totale {selected.year}
+                  {!selected.complete && ' · anno parziale'}
                 </div>
-                <div className="text-xl font-semibold tracking-tight">
-                  <MoneyAmount cents={total12.costCents} size="row" />
+                <div className="flex items-center justify-end gap-2">
+                  <Delta value={selected.deltaPct} label="Spesa" compareLabel={`rispetto al ${selected.year - 1}`} />
+                  <span className="text-xl font-semibold tracking-tight">
+                    <MoneyAmount cents={selected.totalCents} size="row" />
+                  </span>
                 </div>
               </div>
+            ) : (
+              total12 && (
+                <div className="text-right">
+                  <div className="text-xs text-muted-foreground">
+                    {monthTick(total12.from)} – {monthTick(total12.to)}
+                    {total12.months < 12 && ` · ${total12.months} ${total12.months === 1 ? 'mese' : 'mesi'}`}
+                  </div>
+                  <div className="text-xl font-semibold tracking-tight">
+                    <MoneyAmount cents={total12.costCents} size="row" />
+                  </div>
+                </div>
+              )
             )}
           </div>
-          <CostStackChart series={series} />
-          <Legend utilities={present} />
+          {yearOptions.length > 0 && (
+            <Segmented
+              label="Periodo"
+              value={String(period)}
+              onChange={(v) => setPeriod(v === 'recent' ? 'recent' : Number(v))}
+              options={[
+                { key: 'recent', label: 'Ultimi 24 mesi' },
+                ...yearOptions.map((y) => ({ key: String(y), label: String(y) })),
+              ]}
+            />
+          )}
+          <CostStackChart series={series} year={period === 'recent' ? undefined : period} previous={previous} />
+          <Legend utilities={present} previousYear={period !== 'recent' && hasPrevious ? period - 1 : undefined} />
         </CardContent>
       </Card>
+      {years.length > 0 && <YearComparison years={years} present={present} />}
     </>
   );
 }
 
-function Legend({ utilities }: { utilities: UtilityKind[] }) {
+/** Confronto tra anni: spesa per servizio, totale e variazione sull'anno prima. */
+function YearComparison({ years, present }: { years: ReturnType<typeof yearlySummary>; present: UtilityKind[] }) {
+  return (
+    <Card className="fm-card-in overflow-hidden">
+      <CardContent className="space-y-4 p-0">
+        <div className="px-5 pt-5">
+          <h2 className="text-[17px] font-semibold tracking-tight">Anno per anno</h2>
+          <p className="text-sm text-muted-foreground">
+            La variazione si calcola solo tra anni coperti per intero da tutte le bollette.
+          </p>
+        </div>
+        {years.length > 1 && (
+          <div className="px-5">
+            <YearCompareChart years={years} />
+          </div>
+        )}
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs text-muted-foreground">
+                <th className="px-5 py-2 font-medium">Anno</th>
+                {present.map((u) => (
+                  <th key={u} className="px-2 py-2 text-right font-medium">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: utilColor(u) }} />
+                      {UTILITY_META[u].label}
+                    </span>
+                  </th>
+                ))}
+                <th className="px-2 py-2 text-right font-medium">Totale</th>
+                <th className="px-5 py-2 text-right font-medium">Variazione</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...years].reverse().map((y) => (
+                <tr key={y.year} className="border-t border-border/60">
+                  <td className="px-5 py-2.5 font-medium">
+                    {y.year}
+                    {!y.complete && <span className="ml-1.5 text-xs font-normal text-muted-foreground">parziale</span>}
+                  </td>
+                  {present.map((u) => (
+                    <td key={u} className="px-2 py-2.5 text-right">
+                      {y.costCents[u] === null ? '—' : <MoneyAmount cents={y.costCents[u]!} size="row" />}
+                    </td>
+                  ))}
+                  <td className="px-2 py-2.5 text-right font-semibold">
+                    <MoneyAmount cents={y.totalCents} size="row" />
+                  </td>
+                  <td className="px-5 py-2.5 text-right">
+                    {y.deltaPct === null ? (
+                      <span className="text-xs text-muted-foreground">n.d.</span>
+                    ) : (
+                      <Delta value={y.deltaPct} label="Spesa" compareLabel={`rispetto al ${y.year - 1}`} />
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="pb-1" />
+      </CardContent>
+    </Card>
+  );
+}
+
+function Legend({ utilities, previousYear }: { utilities: UtilityKind[]; previousYear?: number }) {
   return (
     <div className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-muted-foreground">
       {utilities.map((u) => (
@@ -284,12 +401,26 @@ function Legend({ utilities }: { utilities: UtilityKind[] }) {
           {UTILITY_META[u].label}
         </span>
       ))}
+      {previousYear && (
+        <span className="inline-flex items-center gap-1.5">
+          <span className="w-4 border-t-2 border-dashed border-foreground/55" />
+          Totale {previousYear}
+        </span>
+      )}
     </div>
   );
 }
 
 /** Variazione colorata: per una spesa salire è il dato negativo. */
-function Delta({ value, label }: { value: number | null; label: string }) {
+function Delta({
+  value,
+  label,
+  compareLabel = 'rispetto ai 12 mesi precedenti',
+}: {
+  value: number | null;
+  label: string;
+  compareLabel?: string;
+}) {
   if (value === null) return null;
   const up = value > 0;
   const Icon = up ? TrendingUp : TrendingDown;
@@ -299,7 +430,7 @@ function Delta({ value, label }: { value: number | null; label: string }) {
         'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
         up ? 'bg-[hsl(var(--neg-soft))] text-[hsl(var(--neg))]' : 'bg-[hsl(var(--pos-soft))] text-[hsl(var(--pos))]',
       )}
-      title={`${label} rispetto ai 12 mesi precedenti`}
+      title={`${label} ${compareLabel}`}
     >
       <Icon className="h-3 w-3" />
       {formatPct(value)}
@@ -679,15 +810,39 @@ function BillList({
   duplicates: Set<string>;
   onOpen: (b: UtilityBill) => void;
 }) {
+  const [page, setPage] = useState(1);
+  const sorted = useMemo(
+    () =>
+      [...bills].sort(
+        (a, b) =>
+          (b.periodEnd ?? b.createdAt).localeCompare(a.periodEnd ?? a.createdAt) ||
+          b.createdAt.localeCompare(a.createdAt),
+      ),
+    [bills],
+  );
+  const pages = Math.max(1, Math.ceil(sorted.length / BILLS_PAGE_SIZE));
+  // Dopo un'eliminazione l'ultima pagina può sparire: si resta sull'ultima valida.
+  const current = Math.min(page, pages);
+  const pageItems = sorted.slice((current - 1) * BILLS_PAGE_SIZE, current * BILLS_PAGE_SIZE);
+
   const byYear = new Map<string, UtilityBill[]>();
-  for (const b of bills) {
+  for (const b of pageItems) {
     const y = (b.periodEnd ?? b.createdAt).slice(0, 4);
     byYear.set(y, [...(byYear.get(y) ?? []), b]);
   }
   const years = [...byYear.keys()].sort().reverse();
+  const first = (current - 1) * BILLS_PAGE_SIZE + 1;
+  const last = Math.min(current * BILLS_PAGE_SIZE, sorted.length);
   return (
     <section className="space-y-3" aria-label="Elenco bollette">
-      <h2 className="text-[17px] font-semibold tracking-tight">Bollette</h2>
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="text-[17px] font-semibold tracking-tight">Bollette</h2>
+        {sorted.length > 0 && (
+          <span className="text-xs text-muted-foreground">
+            {pages > 1 ? `${first}–${last} di ${sorted.length}` : `${sorted.length} ${sorted.length === 1 ? 'bolletta' : 'bollette'}`}
+          </span>
+        )}
+      </div>
       {years.map((y) => (
         <Card key={y} className="fm-card-in overflow-hidden">
           <CardContent className="p-0">
@@ -732,6 +887,33 @@ function BillList({
           </CardContent>
         </Card>
       ))}
+      {pages > 1 && (
+        <nav aria-label="Pagine delle bollette" className="flex items-center justify-center gap-2 pt-1">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 rounded-full"
+            onClick={() => setPage(current - 1)}
+            disabled={current <= 1}
+            aria-label="Pagina precedente"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="min-w-[7.5rem] text-center text-sm tabular-nums text-muted-foreground" aria-live="polite">
+            Pagina {current} di {pages}
+          </span>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 rounded-full"
+            onClick={() => setPage(current + 1)}
+            disabled={current >= pages}
+            aria-label="Pagina successiva"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </nav>
+      )}
     </section>
   );
 }

@@ -284,3 +284,48 @@ test('parseDecimal legge i numeri come li scrive un italiano', async () => {
   assert.equal(toCents(0.1 + 0.2), 30);
   assert.equal(toCents(-12.345), -1234);
 });
+
+test('yearlySummary: totali per anno, variazione solo tra anni completi', async () => {
+  const { yearlySummary, monthlyTotalsOfYear, billYears } = await import('../src/features/bills/analytics.ts');
+  const water = (y: number, q: number, cents: number) => {
+    const sm = (q - 1) * 3 + 1;
+    const em = sm + 2;
+    const last = new Date(Date.UTC(y, em, 0)).getUTCDate();
+    return bill({
+      periodStart: `${y}-${String(sm).padStart(2, '0')}-01`,
+      periodEnd: `${y}-${String(em).padStart(2, '0')}-${last}`,
+      lines: [{ utility: 'water', consumption: 20, costCents: cents }],
+    });
+  };
+  const bills = [
+    ...monthlyBills(2024, 12, 100, 1000),
+    ...monthlyBills(2025, 12, 100, 1200),
+    ...monthlyBills(2026, 3, 100, 1300),
+    ...[1, 2, 3, 4].map((q) => water(2024, q, 3000)),
+    ...[1, 2, 3, 4].map((q) => water(2025, q, 3000)),
+    water(2026, 1, 3300),
+  ];
+  const y = yearlySummary(bills);
+  assert.deepEqual(y.map((x) => x.year), [2024, 2025, 2026]);
+  assert.equal(y[0].totalCents, 12000 + 12000);
+  assert.equal(y[1].costCents.electricity, 14400);
+  assert.ok(Math.abs(y[1].totalCents - 26400) <= 2);
+  assert.equal(y[1].costCents.gas, null);
+  // Il centesimo arrotondato mese per mese sposta la variazione di qualche millesimo.
+  assert.ok(Math.abs(y[1].deltaPct! - 10) < 0.01, `delta ${y[1].deltaPct}`);
+  assert.equal(y[2].complete, false);
+  assert.equal(y[2].deltaPct, null);
+  const m = monthlyTotalsOfYear(bills, 2026);
+  // Gennaio: luce del mese + 31/90 della bolletta trimestrale dell’acqua.
+  assert.equal(m[0], 1300 + Math.round((3300 * 31) / 90));
+  assert.equal(m[5], null);
+  assert.deepEqual(billYears(bills), [2026, 2025, 2024]);
+});
+
+test('combinedLast12 con meno di un anno di storico parte dal primo mese coperto', async () => {
+  const { combinedLast12 } = await import('../src/features/bills/analytics.ts');
+  const bills = monthlyBills(2026, 9, 100, 1000).slice(2); // marzo → settembre 2026
+  const r = combinedLast12(bills)!;
+  assert.deepEqual([r.from, r.to, r.months], ['2026-03', '2026-09', 7]);
+  assert.equal(r.costCents, 7000);
+});
