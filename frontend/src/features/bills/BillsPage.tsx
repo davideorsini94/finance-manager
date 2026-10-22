@@ -941,7 +941,7 @@ function UtilityDetail({
         <p className="flex gap-2 rounded-xl bg-[hsl(var(--warn-soft))] px-4 py-3 text-sm">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[hsl(var(--warn))]" />
           {overlaps.length === 1 ? 'Due bollette coprono' : `${overlaps.length} coppie di bollette coprono`} lo stesso periodo:
-          nei grafici i consumi si sommano. Se una è un conguaglio o un doppione, correggila o eliminala.
+          nei grafici i consumi si sommano. Se una è un doppione eliminala; se è un acconto ricalcolato da un conguaglio, togli il consumo dall'acconto (il costo resta).
         </p>
       )}
 

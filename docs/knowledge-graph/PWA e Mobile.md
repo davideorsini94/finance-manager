@@ -6,6 +6,7 @@ L'app è **mobile-first** e installabile come PWA (usata soprattutto da iPhone i
 
 - `vite-plugin-pwa` (`frontend/vite.config.ts`), `registerType: 'prompt'`: cache degli asset, **niente cache delle API** (ci pensa React Query); banner `SWUpdateBanner` per lo skipWaiting esplicito
 - `frontend/public/manifest.json` — icone 192/512 + maskable
+- Icona dell'app (v0.21.2): **pallottoliere** su blu, stile icone iOS (scelta dell'utente, proposta 18 su 40). Sorgente vettoriale `frontend/public/favicon.svg` (angoli arrotondati) e `AppLogo.tsx` (barra laterale e menu); PNG quadrati in `public/icons/` (`apple-touch-icon` 180, 192, 512, `maskable` 512 col glifo al 78% per la zona sicura) renderizzati con Chrome headless. iOS tiene in cache l'icona della Home: per vederla nuova si rimuove e si riaggiunge l'app
 - Registrazione SW gestita dal plugin (NON registrare manualmente: creava doppi eventi `sw-update-available`)
 - `frontend/src/lib/sw-cache-cleanup.ts` — pulizia cache API di vecchi SW
 
