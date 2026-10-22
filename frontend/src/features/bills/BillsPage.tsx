@@ -5,14 +5,27 @@ import {
   ChevronLeft,
   ChevronRight,
   FileUp,
+  Home,
   Loader2,
   PencilLine,
   RefreshCw,
+  Settings2,
   Sparkles,
   TrendingDown,
   TrendingUp,
 } from 'lucide-react';
+import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { useConfirm } from '@/components/shared/confirm';
 import { Card, CardContent } from '@/components/ui/card';
 import { MoneyAmount } from '@/components/shared/MoneyAmount';
 import { SparkLine } from '@/components/shared/animated/SparkLine';
@@ -21,7 +34,9 @@ import { useUIStore } from '@/store/uiStore';
 import { cn } from '@/lib/utils/cn';
 import {
   UTILITIES,
+  averageEnergyPrice,
   billYears,
+  energyPrices,
   combinedLast12,
   monthlyTotalsOfYear,
   yearlySummary,
@@ -36,7 +51,7 @@ import {
   type UtilityKind,
   type UtilitySummary,
 } from './analytics';
-import { billsApi, type UtilityBill } from './billsApi';
+import { billsApi, householdsApi, type Household, type UtilityBill } from './billsApi';
 import { BillForm, modelLabel } from './BillForm';
 import { CostStackChart, MonthlyChart, UnitPriceChart, YearCompareChart, YearOverYearChart } from './BillsCharts';
 import {
@@ -60,27 +75,73 @@ type View = 'overview' | UtilityKind;
 const BILLS_PAGE_SIZE = 10;
 
 /**
- * Bollette di luce, gas e acqua: consumi e costi nel tempo. Sezione a sé,
- * indipendente da conti e movimenti (una bolletta pagata dal conto non entra
- * qui, e una bolletta caricata qui non crea movimenti).
+ * Editor condiviso tra l'ingresso e la pagina di un'abitazione: form della
+ * bolletta e anteprima del PDF.
  */
-export function BillsPage() {
-  const qc = useQueryClient();
+function useBillEditor(households: Household[]) {
   const isDemo = useUIStore((s) => s.demoData);
-  const fileInput = useRef<HTMLInputElement>(null);
-  const [view, setView] = useState<View>('overview');
   const [editing, setEditing] = useState<UtilityBill | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [pdfBill, setPdfBill] = useState<UtilityBill | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  const openForm = (bill: UtilityBill | null) => {
+    setEditing(bill);
+    setFormOpen(true);
+  };
+  const editor = (
+    <>
+      <BillForm open={formOpen} onOpenChange={setFormOpen} bill={editing} households={households} onShowPdf={setPdfBill} />
+      {pdfBill && (
+        <AttachmentPreviewDialog
+          open={!!pdfBill}
+          onOpenChange={(o) => !o && setPdfBill(null)}
+          attachments={[
+            {
+              id: pdfBill.id,
+              filename: pdfBill.fileName ?? 'bolletta.pdf',
+              mimeType: 'application/pdf',
+              sizeBytes: 0,
+              createdAt: pdfBill.createdAt,
+            },
+          ]}
+          contentUrl={(id) => (isDemo ? '/demo/bolletta-demo.pdf' : `${API_BASE}/utility-bills/${id}/file`)}
+        />
+      )}
+    </>
+  );
+  return { openForm, editor };
+}
 
-  const query = useQuery({
+function useBillsData() {
+  const bills = useQuery({
     queryKey: ['utility-bills'],
     queryFn: billsApi.list,
     // Mentre un PDF è in lettura si ripolla: il risultato arriva dal background.
     refetchInterval: (q) => (q.state.data?.some((b) => b.status === 'extracting') ? 2500 : false),
   });
-  const bills = useMemo(() => query.data ?? [], [query.data]);
+  const households = useQuery({
+    queryKey: ['utility-bills', 'households'],
+    queryFn: householdsApi.list,
+    // Le abitazioni nascono dalle letture: si aggiornano insieme alle bollette.
+    refetchInterval: () => (bills.data?.some((b) => b.status === 'extracting') ? 2500 : false),
+  });
+  return {
+    bills: bills.data ?? [],
+    households: households.data ?? [],
+    isLoading: bills.isLoading || households.isLoading,
+  };
+}
+
+/**
+ * Bollette di luce, gas e acqua. Sezione indipendente da conti e movimenti.
+ * L'ingresso raccoglie il caricamento (PDF o a mano), le bollette da
+ * verificare e le abitazioni; le statistiche stanno dentro ogni abitazione.
+ */
+export function BillsPage() {
+  const qc = useQueryClient();
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const { bills, households, isLoading } = useBillsData();
+  const { openForm, editor } = useBillEditor(households);
 
   const upload = useMutation({
     mutationFn: (file: File) => billsApi.upload(file),
@@ -100,31 +161,17 @@ export function BillsPage() {
     upload.mutate(file);
   };
 
-  const openForm = (bill: UtilityBill | null) => {
-    setEditing(bill);
-    setFormOpen(true);
-  };
-
   const confirmed = bills.filter((b) => b.status === 'confirmed');
   const pending = bills.filter((b) => b.status !== 'confirmed');
-  const summaries = useMemo(
-    () => Object.fromEntries(UTILITIES.map((u) => [u, utilitySummary(bills, u)])) as Record<UtilityKind, UtilitySummary>,
-    [bills],
-  );
-  const duplicates = useMemo(() => possibleDuplicates(bills), [bills]);
-
-  // Se il servizio aperto non ha più bollette (l'ultima è stata eliminata) la
-  // sua scheda sparisce: si torna alla panoramica invece di un dettaglio vuoto.
-  useEffect(() => {
-    if (view !== 'overview' && summaries[view].billCount === 0) setView('overview');
-  }, [view, summaries]);
+  const unassigned = confirmed.filter((b) => !b.householdId);
+  const shown = households.filter((h) => confirmed.some((b) => b.householdId === h.id));
 
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
           <h1 className="fm-large-title">Bollette</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Luce, gas e acqua: quanto consumi e quanto spendi nel tempo.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Luce, gas e acqua delle tue abitazioni, nel tempo.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => openForm(null)}>
@@ -146,50 +193,347 @@ export function BillsPage() {
         </p>
       )}
 
-      {pending.length > 0 && <PendingBills bills={pending} onOpen={openForm} />}
+      {pending.length > 0 && <PendingBills bills={pending} households={households} onOpen={openForm} />}
 
-      {query.isLoading ? (
+      {isLoading ? (
         <Card>
           <CardContent className="p-6 text-sm text-muted-foreground">Caricamento…</CardContent>
         </Card>
       ) : confirmed.length === 0 ? (
         <EmptyState onUpload={() => fileInput.current?.click()} onManual={() => openForm(null)} hasPending={pending.length > 0} />
       ) : (
+        <section className="space-y-3" aria-label="Abitazioni">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+            <h2 className="text-[17px] font-semibold tracking-tight">Abitazioni</h2>
+            <span className="text-xs text-muted-foreground">Riconosciute dall’indirizzo di fornitura delle bollette</span>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {shown.map((h) => (
+              <HouseholdCard key={h.id} id={h.id} name={h.name} address={h.address} bills={confirmed.filter((b) => b.householdId === h.id)} />
+            ))}
+            {unassigned.length > 0 && (
+              <HouseholdCard id="none" name="Senza abitazione" address="Bollette senza indirizzo riconosciuto: aprile e scegli l’abitazione" bills={unassigned} muted />
+            )}
+          </div>
+        </section>
+      )}
+
+      {editor}
+    </div>
+  );
+}
+
+/** Card di un'abitazione nell'ingresso: servizi, spesa recente, ripartizione. */
+function HouseholdCard({
+  id,
+  name,
+  address,
+  bills,
+  muted,
+}: {
+  id: string;
+  name: string;
+  address: string | null;
+  bills: UtilityBill[];
+  muted?: boolean;
+}) {
+  const total = useMemo(() => combinedLast12(bills), [bills]);
+  const utilities = UTILITIES.filter((u) => bills.some((b) => b.lines.some((l) => l.utility === u)));
+  const shares = useMemo(() => {
+    if (!total) return [];
+    return UTILITIES.map((u) => {
+      let cents = 0;
+      for (const p of monthlySeries(bills, u)) {
+        if (p.month >= total.from && p.month <= total.to && p.costCents !== null) cents += p.costCents;
+      }
+      return { u, cents };
+    }).filter((x) => x.cents > 0);
+  }, [bills, total]);
+  const sum = shares.reduce((s, x) => s + x.cents, 0);
+  return (
+    <Link
+      to="/bills/$householdId"
+      params={{ householdId: id }}
+      className="fm-press group block rounded-[var(--radius-card)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <Card className="fm-card-in relative h-full overflow-hidden">
+        <CardContent className="space-y-4 p-5">
+          <div className="flex items-start gap-3">
+            <span
+              aria-hidden
+              className={cn(
+                'grid h-11 w-11 shrink-0 place-items-center rounded-2xl',
+                muted ? 'bg-muted text-muted-foreground' : 'bg-primary text-primary-foreground',
+              )}
+              style={
+                muted
+                  ? undefined
+                  : {
+                      backgroundImage: 'linear-gradient(160deg, hsl(0 0% 100% / 0.28), hsl(0 0% 100% / 0) 60%)',
+                      boxShadow: 'inset 0 1px 0 hsl(0 0% 100% / 0.3), 0 4px 12px -4px hsl(var(--primary) / 0.5)',
+                    }
+              }
+            >
+              <Home className="h-5 w-5" strokeWidth={2.1} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[16px] font-semibold tracking-tight">{name}</div>
+              {address && <div className="line-clamp-2 text-xs text-muted-foreground">{address}</div>}
+            </div>
+            <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+          </div>
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <div className="text-xs text-muted-foreground">
+                {total ? `Spesa ${monthTick(total.from)} – ${monthTick(total.to)}` : 'Spesa'}
+              </div>
+              <div className="text-[1.5rem] font-semibold leading-tight tracking-tight">
+                {total ? <MoneyAmount cents={total.costCents} size="row" /> : '—'}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {utilities.length > 0 && <UtilityStack utilities={utilities} />}
+            </div>
+          </div>
+          {sum > 0 && (
+            <div>
+              {/* Ripartizione della spesa tra i servizi, nella finestra mostrata sopra. */}
+              <div className="flex h-2 overflow-hidden rounded-full bg-muted" aria-hidden>
+                {shares.map((x) => (
+                  <span key={x.u} style={{ width: `${(x.cents / sum) * 100}%`, backgroundColor: utilColor(x.u) }} />
+                ))}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                {shares.map((x) => (
+                  <span key={x.u} className="inline-flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: utilColor(x.u) }} />
+                    {UTILITY_META[x.u].label} {Math.round((x.cents / sum) * 100)}%
+                  </span>
+                ))}
+                <span className="ml-auto">
+                  {bills.length} {bills.length === 1 ? 'bolletta' : 'bollette'}
+                </span>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </Link>
+  );
+}
+
+/**
+ * Pagina di un'abitazione: statistiche delle sue forniture e le sue bollette.
+ * Il caricamento resta nell'ingresso; qui si consulta e si correggono le
+ * bollette già confermate. `none` = bollette senza abitazione.
+ */
+export function HouseholdPage() {
+  const { householdId } = useParams({ strict: false }) as { householdId?: string };
+  const { bills, households, isLoading } = useBillsData();
+  const { openForm, editor } = useBillEditor(households);
+  const [view, setView] = useState<View>('overview');
+  const [manageOpen, setManageOpen] = useState(false);
+  const isNone = householdId === 'none';
+  const household = households.find((h) => h.id === householdId) ?? null;
+
+  const scoped = useMemo(
+    () => bills.filter((b) => b.status === 'confirmed' && (isNone ? !b.householdId : b.householdId === householdId)),
+    [bills, householdId, isNone],
+  );
+  const summaries = useMemo(
+    () => Object.fromEntries(UTILITIES.map((u) => [u, utilitySummary(scoped, u)])) as Record<UtilityKind, UtilitySummary>,
+    [scoped],
+  );
+  const duplicates = useMemo(() => possibleDuplicates(scoped), [scoped]);
+  useEffect(() => {
+    if (view !== 'overview' && summaries[view].billCount === 0) setView('overview');
+  }, [view, summaries]);
+
+  const back = (
+    <Link to="/bills" className="inline-flex items-center gap-1 text-sm font-medium text-primary">
+      <ChevronLeft className="h-4 w-4" /> Bollette
+    </Link>
+  );
+
+  if (!isLoading && !isNone && !household) {
+    return (
+      <div className="space-y-4">
+        {back}
+        <Card>
+          <CardContent className="p-6 text-sm text-muted-foreground">
+            Questa abitazione non esiste più (forse è stata unita a un’altra).
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <header className="space-y-2">
+        {back}
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="fm-large-title">{isNone ? 'Senza abitazione' : (household?.name ?? '…')}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {isNone ? 'Apri una bolletta e scegli a quale abitazione appartiene.' : (household?.address ?? '')}
+            </p>
+          </div>
+          {household && (
+            <Button variant="outline" onClick={() => setManageOpen(true)}>
+              <Settings2 className="h-4 w-4" /> Gestisci
+            </Button>
+          )}
+        </div>
+      </header>
+
+      {isLoading ? (
+        <Card>
+          <CardContent className="p-6 text-sm text-muted-foreground">Caricamento…</CardContent>
+        </Card>
+      ) : scoped.length === 0 ? (
+        <Card>
+          <CardContent className="p-6 text-sm text-muted-foreground">Nessuna bolletta confermata per questa abitazione.</CardContent>
+        </Card>
+      ) : (
         <>
           <ViewPicker value={view} onChange={setView} summaries={summaries} />
           {view === 'overview' ? (
-            <Overview bills={bills} summaries={summaries} onPick={setView} />
+            <Overview bills={scoped} summaries={summaries} onPick={setView} />
           ) : (
-            <UtilityDetail bills={bills} utility={view} summary={summaries[view]} />
+            <UtilityDetail bills={scoped} utility={view} summary={summaries[view]} />
           )}
           <BillList
             // Cambiando servizio l'elenco riparte dalla prima pagina.
             key={view}
-            bills={view === 'overview' ? confirmed : confirmed.filter((b) => b.lines.some((l) => l.utility === view))}
+            bills={view === 'overview' ? scoped : scoped.filter((b) => b.lines.some((l) => l.utility === view))}
             duplicates={duplicates}
             onOpen={openForm}
           />
         </>
       )}
 
-      <BillForm open={formOpen} onOpenChange={setFormOpen} bill={editing} onShowPdf={setPdfBill} />
-      {pdfBill && (
-        <AttachmentPreviewDialog
-          open={!!pdfBill}
-          onOpenChange={(o) => !o && setPdfBill(null)}
-          attachments={[
-            {
-              id: pdfBill.id,
-              filename: pdfBill.fileName ?? 'bolletta.pdf',
-              mimeType: 'application/pdf',
-              sizeBytes: 0,
-              createdAt: pdfBill.createdAt,
-            },
-          ]}
-          contentUrl={(id) => (isDemo ? '/demo/bolletta-demo.pdf' : `${API_BASE}/utility-bills/${id}/file`)}
+      {household && (
+        <HouseholdManageDialog
+          open={manageOpen}
+          onOpenChange={setManageOpen}
+          household={household}
+          others={households.filter((h) => h.id !== household.id)}
         />
       )}
+      {editor}
     </div>
+  );
+}
+
+/** Rinomina, unisci a un'altra abitazione (stesso indirizzo scritto diverso), elimina se vuota. */
+function HouseholdManageDialog({
+  open,
+  onOpenChange,
+  household,
+  others,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  household: Household;
+  others: Household[];
+}) {
+  const qc = useQueryClient();
+  const confirm = useConfirm();
+  const navigate = useNavigate();
+  const [name, setName] = useState(household.name);
+  const [into, setInto] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (open) {
+      setName(household.name);
+      setInto('');
+      setError(null);
+    }
+  }, [open, household.name]);
+  const refresh = () => qc.invalidateQueries({ queryKey: ['utility-bills'], refetchType: 'all' });
+
+  const rename = useMutation({
+    mutationFn: () => householdsApi.rename(household.id, name),
+    onSuccess: async () => {
+      await refresh();
+      onOpenChange(false);
+    },
+    onError: (e: Error) => setError(e.message),
+  });
+  const merge = useMutation({
+    mutationFn: (target: string) => householdsApi.merge(household.id, target),
+    onSuccess: async (_r, target) => {
+      await refresh();
+      onOpenChange(false);
+      void navigate({ to: '/bills/$householdId', params: { householdId: target } });
+    },
+    onError: (e: Error) => setError(e.message),
+  });
+
+  const onMerge = async () => {
+    const target = others.find((o) => o.id === into);
+    if (!target) return;
+    const ok = await confirm({
+      title: `Unire “${household.name}” a “${target.name}”?`,
+      description: `Le ${household.billCount} bollette passano a “${target.name}” e “${household.name}” sparisce. Non si può annullare dall’app.`,
+      confirmLabel: 'Unisci',
+      destructive: true,
+    });
+    if (ok) merge.mutate(target.id);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Gestisci abitazione</DialogTitle>
+          <DialogDescription>{household.address ?? 'Indirizzo non indicato'}</DialogDescription>
+        </DialogHeader>
+        <form
+          className="space-y-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            rename.mutate();
+          }}
+        >
+          <Label htmlFor="household-name">Nome</Label>
+          <div className="flex gap-2">
+            <Input id="household-name" value={name} maxLength={120} onChange={(e) => setName(e.target.value)} />
+            <Button type="submit" disabled={!name.trim() || name.trim() === household.name || rename.isPending}>
+              Salva
+            </Button>
+          </div>
+        </form>
+        {others.length > 0 && (
+          <div className="space-y-2">
+            <Label htmlFor="household-merge">Unisci a un’altra abitazione</Label>
+            <p className="text-xs text-muted-foreground">
+              Se è la stessa casa riconosciuta due volte (indirizzo scritto in modo diverso).
+            </p>
+            <div className="flex gap-2">
+              <select
+                id="household-merge"
+                value={into}
+                onChange={(e) => setInto(e.target.value)}
+                className="fm-glass-field h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="">Scegli…</option>
+                {others.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.name}
+                  </option>
+                ))}
+              </select>
+              <Button type="button" variant="outline" disabled={!into || merge.isPending} onClick={onMerge}>
+                Unisci
+              </Button>
+            </div>
+          </div>
+        )}
+        {error && <p className="text-sm text-destructive">{error}</p>}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -549,6 +893,12 @@ function UtilityDetail({
   const series = useMemo(() => monthlySeries(bills, utility), [bills, utility]);
   const yoy = useMemo(() => yearOverYear(bills, utility, metric), [bills, utility, metric]);
   const prices = useMemo(() => unitPrices(bills, utility), [bills, utility]);
+  const energy = useMemo(() => energyPrices(bills, utility), [bills, utility]);
+  // Media della materia prima nelle bollette degli ultimi 12 mesi della finestra.
+  const energyAvg = useMemo(
+    () => averageEnergyPrice(energy.filter((p) => !summary.windowFrom || p.date.slice(0, 7) >= summary.windowFrom)),
+    [energy, summary.windowFrom],
+  );
   const years = useMemo(() => yearlyTotals(bills, utility).reverse(), [bills, utility]);
   const providers = useMemo(() => providerHistory(bills, utility).reverse(), [bills, utility]);
   const overlaps = useMemo(() => overlappingBills(bills, utility), [bills, utility]);
@@ -561,7 +911,15 @@ function UtilityDetail({
           <CardContent className="grid grid-cols-2 gap-4 p-5 sm:grid-cols-4 lg:grid-cols-2">
             <Stat label="Costo al giorno" value={summary.dailyCostCents === null ? '—' : <MoneyAmount cents={Math.round(summary.dailyCostCents)} size="row" />} />
             <Stat label="Consumo al giorno" value={formatConsumption(utility, summary.dailyConsumption)} />
-            <Stat label="Bollette" value={String(summary.billCount)} />
+            {utility === 'water' ? (
+              <Stat label="Bollette" value={String(summary.billCount)} />
+            ) : (
+              <Stat
+                label="Materia prima media"
+                value={<span className="money-blur-target">{formatUnitPrice(utility, energyAvg)}</span>}
+                hint="Prezzo della sola materia prima, pesato sui consumi, nella finestra dei 12 mesi"
+              />
+            )}
             <Stat label="Variazione consumo" value={summary.consumptionDeltaPct === null ? 'n.d.' : formatPct(summary.consumptionDeltaPct)} hint="12 mesi contro i 12 precedenti" />
           </CardContent>
         </Card>
@@ -616,10 +974,28 @@ function UtilityDetail({
           <CardContent className="space-y-3 p-5">
             <div>
               <h2 className="text-[17px] font-semibold tracking-tight">Prezzo per {meta.unit}</h2>
-              <p className="text-sm text-muted-foreground">Bolletta per bolletta, tutto compreso. La linea tratteggiata segna un cambio di fornitore.</p>
+              <p className="text-sm text-muted-foreground">
+                {utility === 'water'
+                  ? 'Bolletta per bolletta, tutto compreso.'
+                  : 'Il prezzo totale (tutto compreso) e quello della sola materia prima, bolletta per bolletta.'}{' '}
+                Le linee verticali segnano un cambio di fornitore.
+              </p>
             </div>
-            {prices.length > 1 ? (
-              <UnitPriceChart points={prices} utility={utility} />
+            {prices.length + energy.length > 1 ? (
+              <>
+                <UnitPriceChart points={prices} energy={energy} utility={utility} />
+                {utility !== 'water' && (
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-muted-foreground">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="w-4 border-t-[2.5px]" style={{ borderColor: utilColor(utility) }} /> Prezzo totale
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="w-4 border-t-2 border-dashed" style={{ borderColor: utilColor(utility, 0.6) }} /> Materia prima
+                      {energy.length === 0 && ' (non presente nelle bollette)'}
+                    </span>
+                  </div>
+                )}
+              </>
             ) : (
               <p className="py-8 text-center text-sm text-muted-foreground">Servono almeno due bollette con consumo e costo.</p>
             )}
@@ -697,7 +1073,16 @@ function Stat({ label, value, hint }: { label: string; value: React.ReactNode; h
   );
 }
 
-function PendingBills({ bills, onOpen }: { bills: UtilityBill[]; onOpen: (b: UtilityBill) => void }) {
+function PendingBills({
+  bills,
+  households,
+  onOpen,
+}: {
+  bills: UtilityBill[];
+  households: Household[];
+  onOpen: (b: UtilityBill) => void;
+}) {
+  const houseName = (id: string | null) => households.find((h) => h.id === id)?.name ?? null;
   const qc = useQueryClient();
   const [retryError, setRetryError] = useState<{ id: string; message: string } | null>(null);
   // Rilettura del PDF senza aprire il form: la bolletta torna "in lettura" e
@@ -752,7 +1137,9 @@ function PendingBills({ bills, onOpen }: { bills: UtilityBill[]; onOpen: (b: Uti
                           ? `${b.fileName ?? 'PDF'} · di solito meno di un minuto`
                           : failed
                             ? `${b.fileName ? `${b.fileName} · ` : ''}${b.extractionError ?? 'Riprova o compila a mano'}`
-                            : `${periodLabel(b.periodStart, b.periodEnd)}${b.extractionModel ? ` · ${modelLabel(b.extractionModel)}` : ''}`}
+                            : [periodLabel(b.periodStart, b.periodEnd), houseName(b.householdId), b.extractionModel ? modelLabel(b.extractionModel) : null]
+                                .filter(Boolean)
+                                .join(' · ')}
                       </span>
                     </span>
                     {!failed && b.status !== 'extracting' && (

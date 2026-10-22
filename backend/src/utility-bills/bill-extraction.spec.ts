@@ -1,5 +1,7 @@
 import {
   cleanPdfText,
+  findEnergyPrices,
+  plausibleEnergyPrice,
   extractJsonObject,
   isUsefulExtraction,
   normalizeExtraction,
@@ -107,6 +109,7 @@ describe('normalizeExtraction', () => {
       ],
     });
     expect(r.provider).toBe('Edison Energia');
+    expect(r.supplyAddress).toBeNull();
     expect(r.issueDate).toBe('2026-03-10');
     expect(r.totalCents).toBe(18740);
     expect(r.lines.map((l) => l.utility)).toEqual(['electricity', 'gas']);
@@ -200,6 +203,12 @@ describe('normalizeExtraction', () => {
     }
   });
 
+  it('legge l’indirizzo di fornitura', () => {
+    expect(normalizeExtraction({ supplyAddress: ' Via Nilde Iotti 11,\n42015 Correggio ' }).supplyAddress).toBe(
+      'Via Nilde Iotti 11, 42015 Correggio',
+    );
+  });
+
   it('pulisce testi con caratteri di controllo e segnaposto', () => {
     const r = normalizeExtraction({ provider: 'Enel\u0000\nEnergia', billNumber: 'N/A' });
     expect(r.provider).toBe('Enel Energia');
@@ -219,5 +228,52 @@ describe('cleanPdfText', () => {
   it('toglie i caratteri di controllo, comprime gli spazi e tronca', () => {
     expect(cleanPdfText('a\u0000b\t\tc\n\n\n d', 100)).toBe('a b c\n d');
     expect(cleanPdfText('x'.repeat(50), 10)).toHaveLength(10);
+  });
+});
+
+describe('materia prima', () => {
+  it('normalizza prezzo e spesa della materia prima solo per luce e gas', () => {
+    const r = normalizeExtraction({
+      services: [
+        { type: 'electricity', consumption: 175.62, energyUnitPrice: '0,177488', energyCost: '31,17' },
+        { type: 'gas', consumption: 19.84, energyUnitPrice: 0.661144, energyCost: 13.12 },
+        { type: 'water', consumption: 20, energyUnitPrice: 1.2, energyCost: 10 },
+      ],
+    });
+    expect(r.lines[0]).toMatchObject({ energyUnitPrice: 0.177488, energyCostCents: 3117 });
+    expect(r.lines[1]).toMatchObject({ energyUnitPrice: 0.661144, energyCostCents: 1312 });
+    expect(r.lines[2]).toMatchObject({ energyUnitPrice: null, energyCostCents: null });
+  });
+
+  it('scarta prezzi implausibili', () => {
+    expect(plausibleEnergyPrice('electricity', 31.17)).toBeNull();
+    expect(plausibleEnergyPrice('gas', 0.001)).toBeNull();
+    expect(plausibleEnergyPrice('water', 0.5)).toBeNull();
+  });
+
+  it('legge le righe vere senza LLM (testo con etichette attaccate ai numeri)', () => {
+    const text = [
+      '175,62 kWh x0,222528 €/kWh + 39,08 €',
+      'di cui spesa per la vendita energia elettrica0,177488 €/kWh+ 31,17 €',
+      'di cui spesa per la rete e gli oneri generali di sistema0,045041 €/kWh+ 7,91 €',
+      '19,84 Smc x0,867248 €/Smc + 17,21 €',
+      'di cui spesa per la vendita gas naturale0,661144 €/Smc+ 13,12 €',
+      'PSBIL * PCS/0,03852 01/05/2026 - 31/05/2026: 0,524950 €/Smc',
+    ].join('\n');
+    expect(findEnergyPrices(text)).toEqual({
+      electricity: { energyUnitPrice: 0.177488, energyCostCents: 3117 },
+      gas: { energyUnitPrice: 0.661144, energyCostCents: 1312 },
+    });
+  });
+
+  it('legge il formato meno recente (solo la spesa)', () => {
+    expect(findEnergyPrices('Spesa per la materia energia € 61,22\nSpesa per la materia gas naturale € 38,21')).toEqual({
+      electricity: { energyUnitPrice: null, energyCostCents: 6122 },
+      gas: { energyUnitPrice: null, energyCostCents: 3821 },
+    });
+  });
+
+  it('niente materia prima se la voce non c’è', () => {
+    expect(findEnergyPrices('Totale da pagare € 63,73\nConsumo 28 mc')).toEqual({});
   });
 });

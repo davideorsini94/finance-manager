@@ -6,6 +6,7 @@ import {
   IsBoolean,
   IsIn,
   IsInt,
+  IsUUID,
   IsNumber,
   IsOptional,
   IsString,
@@ -51,6 +52,20 @@ export class UtilityBillLineDto {
   @IsString()
   @MaxLength(40)
   supplyCode?: string | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'Spesa della materia prima non valida' })
+  @Min(-10_000_000)
+  @Max(10_000_000)
+  energyCostCents?: number | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 6 }, { message: 'Prezzo della materia prima non valido' })
+  @Min(0)
+  @Max(10, { message: 'Prezzo della materia prima troppo alto' })
+  energyUnitPrice?: number | null;
 
   // Valore grezzo: con `enableImplicitConversion` la stringa "false"
   // diventerebbe `true`; così invece una stringa viene rifiutata.
@@ -100,6 +115,17 @@ export class SaveUtilityBillDto {
   @IsString()
   @MaxLength(1000)
   notes?: string | null;
+
+  /** Abitazione: un id dell'utente, `null` per nessuna; assente = invariata. */
+  @IsOptional()
+  @IsUUID('4', { message: 'Abitazione non valida' })
+  householdId?: string | null;
+
+  /** Indirizzo di una nuova abitazione (o di una esistente, se corrisponde). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  newHouseholdAddress?: string | null;
 
   @IsArray()
   @ArrayMinSize(1, { message: 'Indica almeno un servizio (luce, gas o acqua)' })

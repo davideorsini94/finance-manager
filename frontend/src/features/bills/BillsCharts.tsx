@@ -12,7 +12,7 @@ import {
   YAxis,
 } from 'recharts';
 import { formatCents } from '@/lib/utils/currency';
-import type { MonthPoint, UnitPricePoint, UtilityKind, YearSummary, YoYPoint } from './analytics';
+import type { EnergyPricePoint, MonthPoint, UnitPricePoint, UtilityKind, YearSummary, YoYPoint } from './analytics';
 import { UTILITIES } from './analytics';
 import {
   UTILITY_META,
@@ -219,26 +219,42 @@ export function YearCompareChart({ years }: { years: YearSummary[] }) {
  * Prezzo per unità bolletta per bolletta, con una linea verticale dove cambia
  * il fornitore: è lì che di solito il prezzo salta.
  */
-export function UnitPriceChart({ points, utility }: { points: UnitPricePoint[]; utility: UtilityKind }) {
-  const data = points.map((p) => ({ ...p, value: p.unitPriceCents / 100 }));
+export function UnitPriceChart({
+  points,
+  energy = [],
+  utility,
+}: {
+  points: UnitPricePoint[];
+  /** Prezzo della sola materia prima, per la seconda linea (luce e gas). */
+  energy?: EnergyPricePoint[];
+  utility: UtilityKind;
+}) {
+  const byDate = new Map<string, { date: string; provider: string | null; total: number | null; energy: number | null; billId: string }>();
+  for (const p of points) byDate.set(p.date, { date: p.date, provider: p.provider, total: p.unitPriceCents / 100, energy: null, billId: p.billId });
+  for (const e of energy) {
+    const row = byDate.get(e.date) ?? { date: e.date, provider: e.provider, total: null, energy: null, billId: e.billId };
+    row.energy = e.unitPriceCents / 100;
+    byDate.set(e.date, row);
+  }
+  const data = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
   const changes = data.filter((p, i) => i > 0 && (p.provider ?? '') !== (data[i - 1].provider ?? ''));
   return (
-    <ResponsiveContainer width="100%" height={200}>
+    <ResponsiveContainer width="100%" height={220}>
       <LineChart data={data} margin={{ top: 18, right: 8, left: -8, bottom: 0 }}>
         {GRID}
         <XAxis dataKey="date" tickFormatter={(d: string) => monthTick(d.slice(0, 7))} {...AXIS} minTickGap={16} />
         <YAxis
           {...AXIS}
           width={48}
-          domain={['auto', 'auto']}
+          domain={[0, 'auto']}
           tickFormatter={(v: number) => new Intl.NumberFormat('it-IT', { maximumFractionDigits: 2 }).format(v)}
         />
         <Tooltip
           {...TOOLTIP}
           labelFormatter={(d: string) => monthLabel(d.slice(0, 7))}
-          formatter={(v: number, _n: string, item: { payload?: UnitPricePoint }) => [
+          formatter={(v: number, key: string) => [
             formatUnitPrice(utility, v * 100),
-            item.payload?.provider ?? 'Prezzo',
+            key === 'energy' ? 'Materia prima' : 'Prezzo totale',
           ]}
         />
         {changes.map((c) => (
@@ -252,12 +268,25 @@ export function UnitPriceChart({ points, utility }: { points: UnitPricePoint[]; 
         ))}
         <Line
           type="monotone"
-          dataKey="value"
+          dataKey="total"
           stroke={utilColor(utility)}
           strokeWidth={2.5}
           dot={{ r: 3.5, fill: utilColor(utility), strokeWidth: 0 }}
           activeDot={{ r: 5 }}
+          connectNulls
         />
+        {energy.length > 0 && (
+          <Line
+            type="monotone"
+            dataKey="energy"
+            stroke={utilColor(utility, 0.6)}
+            strokeWidth={2}
+            strokeDasharray="5 4"
+            dot={{ r: 3, fill: utilColor(utility, 0.6), strokeWidth: 0 }}
+            activeDot={{ r: 4.5 }}
+            connectNulls
+          />
+        )}
       </LineChart>
     </ResponsiveContainer>
   );

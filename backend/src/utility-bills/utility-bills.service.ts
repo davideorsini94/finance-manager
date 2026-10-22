@@ -14,9 +14,11 @@ import type { Readable } from 'stream';
 import { PrismaService } from '../prisma/prisma.service';
 import { MinioService } from '../minio/minio.service';
 import { BillExtractorService } from './bill-extractor.service';
-import { UTILITY_KINDS, parseBillDate, type ExtractedBill, type UtilityKind } from './bill-extraction';
+import { UTILITY_KINDS, findEnergyPrices, parseBillDate, type ExtractedBill, type UtilityKind } from './bill-extraction';
 import type { SaveUtilityBillDto } from './dto/utility-bill.dto';
 import { extractPdfText } from './pdf-text';
+import { HouseholdsService } from './households.service';
+import { findSupplyAddress } from './household-address';
 
 const MAX_SIZE_BYTES = 10 * 1024 * 1024;
 /**
@@ -62,10 +64,15 @@ export interface UtilityBillLineView {
   periodEnd: string | null;
   supplyCode: string | null;
   estimated: boolean;
+  energyCostCents: number | null;
+  energyUnitPrice: number | null;
 }
 
 export interface UtilityBillView {
   id: string;
+  householdId: string | null;
+  /** Indirizzo di fornitura letto dal PDF, `null` se non trovato. */
+  supplyAddress: string | null;
   provider: string | null;
   billNumber: string | null;
   issueDate: string | null;
@@ -101,6 +108,7 @@ export class UtilityBillsService {
     private readonly prisma: PrismaService,
     private readonly minio: MinioService,
     private readonly extractor: BillExtractorService,
+    private readonly households: HouseholdsService,
   ) {}
 
   async list(userId: string): Promise<UtilityBillView[]> {
@@ -119,9 +127,11 @@ export class UtilityBillsService {
   /** Bolletta inserita a mano: nasce già confermata. */
   async create(userId: string, dto: SaveUtilityBillDto): Promise<UtilityBillView> {
     const data = this.validated(dto);
+    const householdId = await this.resolveHousehold(userId, dto);
     const bill = await this.prisma.utilityBill.create({
       data: {
         userId,
+        householdId: householdId ?? null,
         ...data.header,
         status: UtilityBillStatus.confirmed,
         lines: { create: data.lines },
@@ -138,11 +148,14 @@ export class UtilityBillsService {
       throw new ConflictException('Sto ancora leggendo la bolletta: aspetta che finisca prima di salvarla');
     }
     const data = this.validated(dto);
+    const householdId = await this.resolveHousehold(userId, dto);
     const bill = await this.prisma.$transaction(async (tx) => {
       await tx.utilityBillLine.deleteMany({ where: { billId: id } });
       return tx.utilityBill.update({
         where: { id },
         data: {
+          // `undefined` = abitazione invariata.
+          ...(householdId !== undefined ? { householdId } : {}),
           ...data.header,
           status: UtilityBillStatus.confirmed,
           extractionError: null,
@@ -295,9 +308,10 @@ export class UtilityBillsService {
     let data: ExtractedBill | null = null;
     let model: string | null = null;
     let error: string | null = null;
+    let text = '';
     try {
       const buffer = await streamToBuffer(await this.minio.getObjectStream(fileKey));
-      const text = await extractPdfText(buffer);
+      text = await extractPdfText(buffer);
       if (text.replace(/\s/g, '').length < 80) {
         error = 'Il PDF non contiene testo leggibile (forse è una scansione): inserisci i dati a mano';
       } else {
@@ -309,6 +323,22 @@ export class UtilityBillsService {
       error = `Non sono riuscito a leggere la bolletta: ${(e as Error).message}`.slice(0, 500);
     }
 
+    // Indirizzo di fornitura: quello del modello, altrimenti cercato nel testo
+    // senza LLM (serve anche quando la lettura dei dati è fallita).
+    // Stringa vuota = cercato e non trovato.
+    const supplyAddress = data?.supplyAddress ?? (text ? (findSupplyAddress(text) ?? '') : null);
+    // Materia prima: dove il modello non l'ha data, la riga di riepilogo letta
+    // direttamente dal testo.
+    if (data && text) {
+      const found = findEnergyPrices(text);
+      for (const l of data.lines) {
+        const f = l.utility === 'water' ? undefined : found[l.utility];
+        if (!f) continue;
+        l.energyUnitPrice ??= f.energyUnitPrice;
+        l.energyCostCents ??= f.energyCostCents;
+      }
+    }
+    let applied = false;
     try {
       await this.prisma.$transaction(async (tx) => {
         const claimed = await tx.utilityBill.updateMany({
@@ -325,9 +355,12 @@ export class UtilityBillsService {
                 totalCents: data.totalCents,
                 extractionModel: model,
                 extractionError: null,
+                supplyAddress,
+                energyParsedAt: new Date(),
               }
-            : { status: UtilityBillStatus.failed, extractionError: error, extractionModel: null },
+            : { status: UtilityBillStatus.failed, extractionError: error, extractionModel: null, supplyAddress },
         });
+        applied = claimed.count > 0;
         if (claimed.count === 0 || !data) return;
         await tx.utilityBillLine.deleteMany({ where: { billId } });
         if (data.lines.length) {
@@ -341,6 +374,8 @@ export class UtilityBillsService {
               periodEnd: toDate(l.periodEnd),
               supplyCode: l.supplyCode,
               estimated: l.estimated,
+              energyCostCents: l.energyCostCents,
+              energyUnitPrice: l.energyUnitPrice,
             })),
           });
         }
@@ -348,6 +383,21 @@ export class UtilityBillsService {
     } catch (e) {
       this.logger.error(`Salvataggio della lettura della bolletta ${billId} fallito: ${(e as Error).message}`);
     }
+    if (applied) await this.households.assignAfterExtraction(billId);
+  }
+
+  /**
+   * Abitazione scelta nel form: `undefined` = non toccarla, `null` = nessuna,
+   * un id (dell'utente) oppure un indirizzo nuovo (riconosciuto o creato).
+   */
+  private async resolveHousehold(userId: string, dto: SaveUtilityBillDto): Promise<string | null | undefined> {
+    if (dto.newHouseholdAddress?.trim()) {
+      return this.households.findOrCreateByAddress(userId, dto.newHouseholdAddress);
+    }
+    if (dto.householdId === undefined) return undefined;
+    if (dto.householdId === null) return null;
+    await this.households.findOwned(userId, dto.householdId);
+    return dto.householdId;
   }
 
   private async findOwned(userId: string, id: string): Promise<BillWithLines> {
@@ -423,6 +473,9 @@ export class UtilityBillsService {
           periodEnd: toDate(l.periodEnd),
           supplyCode: text(l.supplyCode)?.toUpperCase().replace(/\s+/g, '') ?? null,
           estimated: l.estimated === true,
+          // La materia prima esiste solo per luce e gas.
+          energyCostCents: l.utility === 'water' ? null : (l.energyCostCents ?? null),
+          energyUnitPrice: l.utility === 'water' ? null : (l.energyUnitPrice ?? null),
         })),
     };
   }
@@ -431,6 +484,8 @@ export class UtilityBillsService {
     const status = this.effectiveStatus(b);
     return {
       id: b.id,
+      householdId: b.householdId,
+      supplyAddress: b.supplyAddress || null,
       provider: b.provider,
       billNumber: b.billNumber,
       issueDate: day(b.issueDate),
@@ -459,6 +514,8 @@ export class UtilityBillsService {
           periodEnd: day(l.periodEnd),
           supplyCode: l.supplyCode,
           estimated: l.estimated,
+          energyCostCents: l.energyCostCents,
+          energyUnitPrice: l.energyUnitPrice,
         })),
     };
   }

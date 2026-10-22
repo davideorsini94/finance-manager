@@ -37,6 +37,8 @@ function bill(p: Partial<Bill> & { lines: Partial<BillLine>[] }): Bill {
       periodEnd: l.periodEnd ?? null,
       supplyCode: null,
       estimated: l.estimated ?? false,
+      energyCostCents: l.energyCostCents ?? null,
+      energyUnitPrice: l.energyUnitPrice ?? null,
     })),
   };
 }
@@ -328,4 +330,21 @@ test('combinedLast12 con meno di un anno di storico parte dal primo mese coperto
   const r = combinedLast12(bills)!;
   assert.deepEqual([r.from, r.to, r.months], ['2026-03', '2026-09', 7]);
   assert.equal(r.costCents, 7000);
+});
+
+test('energyPrices: prezzo scritto in bolletta, altrimenti spesa / consumo; mai per l’acqua', async () => {
+  const { energyPrices, averageEnergyPrice } = await import('../src/features/bills/analytics.ts');
+  const bills = [
+    bill({ periodStart: '2026-05-01', periodEnd: '2026-05-31', lines: [{ consumption: 175.62, costCents: 3908, energyUnitPrice: 0.177488 }] }),
+    bill({ periodStart: '2026-06-01', periodEnd: '2026-06-30', lines: [{ consumption: 200, costCents: 5000, energyCostCents: 4000 }] }),
+    bill({ periodStart: '2026-07-01', periodEnd: '2026-07-31', lines: [{ consumption: 100, costCents: 3000 }] }),
+    bill({ periodStart: '2026-07-01', periodEnd: '2026-07-31', lines: [{ utility: 'water', consumption: 10, costCents: 3000, energyCostCents: 100 }] }),
+  ];
+  const p = energyPrices(bills, 'electricity');
+  assert.equal(p.length, 2);
+  assert.ok(Math.abs(p[0].unitPriceCents - 17.7488) < 1e-9);
+  assert.equal(p[1].unitPriceCents, 20);
+  assert.deepEqual(energyPrices(bills, 'water'), []);
+  const avg = averageEnergyPrice(p)!;
+  assert.ok(Math.abs(avg - (17.7488 * 175.62 + 20 * 200) / 375.62) < 1e-9);
 });

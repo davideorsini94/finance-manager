@@ -169,6 +169,7 @@ model User {
   goals               Goal[]
   chatSessions        ChatSession[]
   utilityBills        UtilityBill[]
+  households          Household[]
   notifications       Notification[]
   notificationPrefs   NotificationPreference[]
   sentAccountInvites  AccountInvite[]          @relation("AccountInviteInviter")
@@ -778,7 +779,30 @@ enum UtilityBillStatus {
   confirmed
 }
 
+/// Abitazione: raggruppa le bollette di un indirizzo di fornitura. Si crea da
+/// sola alla lettura di una bolletta con un indirizzo nuovo; l'utente può
+/// rinominarla o unirla a un'altra (stesso indirizzo scritto in modo diverso).
+model Household {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  name      String   @db.VarChar(120)
+  /// Indirizzo di fornitura come letto la prima volta (serve a riconoscere le bollette successive).
+  address   String?  @db.VarChar(300)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bills UtilityBill[]
+
+  @@index([userId])
+  @@map("households")
+}
+
 model UtilityBill {
+  /// Abitazione della bolletta; null = non ancora assegnata.
+  householdId         String?           @map("household_id") @db.Uuid
+  /// Indirizzo di fornitura letto dal PDF. Stringa vuota = cercato e non trovato.
+  supplyAddress       String?           @map("supply_address") @db.VarChar(300)
   id                  String            @id @default(uuid()) @db.Uuid
   userId              String            @map("user_id") @db.Uuid
   provider            String?           @db.VarChar(120)
@@ -799,32 +823,40 @@ model UtilityBill {
   /// Provider e modello che hanno letto il PDF (`opencode:deepseek-v4-pro`).
   extractionModel     String?           @map("extraction_model") @db.VarChar(120)
   extractionStartedAt DateTime?         @map("extraction_started_at") @db.Timestamptz()
+  /// Quando il PDF è stato riletto per la materia prima (bollette caricate prima di quella funzione).
+  energyParsedAt      DateTime?         @map("energy_parsed_at") @db.Timestamptz()
   createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt           DateTime          @updatedAt @map("updated_at") @db.Timestamptz()
 
-  user  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  lines UtilityBillLine[]
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  household Household?        @relation(fields: [householdId], references: [id], onDelete: SetNull)
+  lines     UtilityBillLine[]
 
   @@index([userId, periodEnd(sort: Desc)])
+  @@index([householdId])
   @@map("utility_bills")
 }
 
 /// Un servizio dentro una bolletta: una bolletta luce+gas ha due righe.
 model UtilityBillLine {
-  id          String      @id @default(uuid()) @db.Uuid
-  billId      String      @map("bill_id") @db.Uuid
-  utility     UtilityKind
+  id              String      @id @default(uuid()) @db.Uuid
+  billId          String      @map("bill_id") @db.Uuid
+  utility         UtilityKind
   /// Consumo nell'unità fissa del servizio: kWh (luce), Smc (gas), m³ (acqua).
-  consumption Float?
+  consumption     Float?
   /// Quota della bolletta attribuita a questo servizio, in centesimi.
-  costCents   Int?        @map("cost_cents")
+  costCents       Int?        @map("cost_cents")
   /// Periodo proprio del servizio, se diverso da quello della bolletta
   /// (capita nelle dual fuel con letture in date diverse).
-  periodStart DateTime?   @map("period_start") @db.Date
-  periodEnd   DateTime?   @map("period_end") @db.Date
+  periodStart     DateTime?   @map("period_start") @db.Date
+  periodEnd       DateTime?   @map("period_end") @db.Date
   /// POD (luce) o PDR (gas) o codice utenza (acqua).
-  supplyCode  String?     @map("supply_code") @db.VarChar(40)
-  estimated   Boolean     @default(false)
+  supplyCode      String?     @map("supply_code") @db.VarChar(40)
+  estimated       Boolean     @default(false)
+  /// Spesa per la materia prima (voce "spesa per la vendita" / "materia energia" o "materia gas"), in centesimi.
+  energyCostCents Int?        @map("energy_cost_cents")
+  /// Prezzo unitario della materia prima: €/kWh per la luce, €/Smc per il gas.
+  energyUnitPrice Float?      @map("energy_unit_price")
 
   bill UtilityBill @relation(fields: [billId], references: [id], onDelete: Cascade)
 

@@ -38,6 +38,7 @@ const TABLES = [
   'chatSession',
   'chatMessage',
   // Bollette (indipendenti dai movimenti): dipendono solo da user.
+  'household',
   'utilityBill',
   'utilityBillLine',
   'auditLog',
@@ -190,6 +191,7 @@ export class BackupService {
       this.prisma.chatSession.deleteMany({}),
       this.prisma.utilityBillLine.deleteMany({}),
       this.prisma.utilityBill.deleteMany({}),
+      this.prisma.household.deleteMany({}),
       this.prisma.auditLog.deleteMany({}),
       this.prisma.llmConfig.deleteMany({}),
       this.prisma.budget.deleteMany({}),
@@ -277,6 +279,7 @@ const DATE_FIELDS: Partial<Record<TableName, Set<string>>> = {
   chatMessage: new Set(['createdAt']),
   utilityBill: new Set(['issueDate', 'dueDate', 'periodStart', 'periodEnd', 'extractionStartedAt', 'createdAt', 'updatedAt']),
   utilityBillLine: new Set(['periodStart', 'periodEnd']),
+  household: new Set(['createdAt', 'updatedAt']),
   auditLog: new Set(['createdAt']),
   llmConfig: new Set(['updatedAt']),
   bankConnection: new Set(['consentExpiresAt', 'createdAt', 'updatedAt']),

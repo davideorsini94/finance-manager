@@ -23,6 +23,10 @@ export interface BillLine {
   periodEnd: string | null;
   supplyCode: string | null;
   estimated: boolean;
+  /** Spesa per la materia prima (solo luce e gas), centesimi. */
+  energyCostCents?: number | null;
+  /** Prezzo unitario della materia prima, €/kWh o €/Smc. */
+  energyUnitPrice?: number | null;
 }
 
 export interface Bill {
@@ -553,4 +557,49 @@ export function monthlyTotalsOfYear(bills: Bill[], year: number): Array<number |
 /** Anni con almeno un mese coperto, dal più recente. */
 export function billYears(bills: Bill[]): number[] {
   return yearlySummary(bills).map((y) => y.year).reverse();
+}
+
+export interface EnergyPricePoint {
+  billId: string;
+  date: string;
+  provider: string | null;
+  /** Prezzo della sola materia prima, centesimi per unità. */
+  unitPriceCents: number;
+  /** Consumo della bolletta: serve a pesare le medie. */
+  consumption: number | null;
+}
+
+/**
+ * Prezzo della materia prima bolletta per bolletta (solo luce e gas): quello
+ * scritto in bolletta, altrimenti spesa della materia prima / consumo.
+ */
+export function energyPrices(bills: Bill[], utility: UtilityKind): EnergyPricePoint[] {
+  if (utility === 'water') return [];
+  return confirmedLines(bills, utility)
+    .flatMap(({ bill, line }) => {
+      const period = linePeriod(bill, line);
+      if (!period) return [];
+      const unit =
+        line.energyUnitPrice != null
+          ? line.energyUnitPrice * 100
+          : line.energyCostCents != null && line.consumption && line.consumption > 0
+            ? line.energyCostCents / line.consumption
+            : null;
+      if (unit === null || unit <= 0) return [];
+      return [{ billId: bill.id, date: period.end, provider: bill.provider, unitPriceCents: unit, consumption: line.consumption }];
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/** Media della materia prima pesata sui consumi (le bollette senza consumo pesano 1). */
+export function averageEnergyPrice(points: EnergyPricePoint[]): number | null {
+  if (points.length === 0) return null;
+  let weight = 0;
+  let sum = 0;
+  for (const p of points) {
+    const w = p.consumption && p.consumption > 0 ? p.consumption : 1;
+    weight += w;
+    sum += p.unitPriceCents * w;
+  }
+  return sum / weight;
 }
