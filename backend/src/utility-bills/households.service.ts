@@ -17,7 +17,7 @@ import {
   isMeterCode,
   parseAddress,
 } from './household-address';
-import { findEnergyPrices } from './bill-extraction';
+import { correctedPeriod, findBilledPeriod, findEnergyPrices } from './bill-extraction';
 import { extractPdfText } from './pdf-text';
 
 export interface HouseholdView {
@@ -203,6 +203,7 @@ export class HouseholdsService implements OnApplicationBootstrap {
         OR: [
           { householdId: null, householdLocked: false },
           { energyParsedAt: null, fileKey: { not: null } },
+          { periodCheckedAt: null, fileKey: { not: null } },
         ],
       },
       select: {
@@ -213,7 +214,10 @@ export class HouseholdsService implements OnApplicationBootstrap {
         householdId: true,
         householdLocked: true,
         energyParsedAt: true,
-        lines: { select: { utility: true, supplyCode: true } },
+        periodCheckedAt: true,
+        periodStart: true,
+        periodEnd: true,
+        lines: { select: { id: true, utility: true, supplyCode: true } },
       },
       orderBy: { createdAt: 'asc' },
     });
@@ -239,11 +243,14 @@ export class HouseholdsService implements OnApplicationBootstrap {
     householdId: string | null;
     householdLocked: boolean;
     energyParsedAt: Date | null;
-    lines: Array<{ utility: string; supplyCode: string | null }>;
+    periodCheckedAt: Date | null;
+    periodStart: Date | null;
+    periodEnd: Date | null;
+    lines: Array<{ id: string; utility: string; supplyCode: string | null }>;
   }): Promise<number> {
     const wantsHousehold = !b.householdId && !b.householdLocked;
     let supplyAddress = b.supplyAddress;
-    const needsText = !!b.fileKey && ((wantsHousehold && supplyAddress === null) || !b.energyParsedAt);
+    const needsText = !!b.fileKey && ((wantsHousehold && supplyAddress === null) || !b.energyParsedAt || !b.periodCheckedAt);
     if (needsText) {
       let text = '';
       try {
@@ -269,6 +276,7 @@ export class HouseholdsService implements OnApplicationBootstrap {
         }
         await this.prisma.utilityBill.updateMany({ where: { id: b.id, energyParsedAt: null }, data: { energyParsedAt: new Date() } });
       }
+      if (!b.periodCheckedAt) await this.backfillPeriod(b, text);
     }
     if (!wantsHousehold) return 0;
     const codes = b.lines.map((l) => l.supplyCode).filter((c): c is string => !!c);
@@ -279,6 +287,33 @@ export class HouseholdsService implements OnApplicationBootstrap {
       data: { householdId },
     });
     return res.count;
+  }
+
+  /**
+   * Corregge il periodo sulle quote fisse mensili (vedi `correctedPeriod`).
+   * Scrittura condizionata al periodo ancora uguale a quello letto: una
+   * modifica salvata nel frattempo vince.
+   */
+  private async backfillPeriod(
+    b: { id: string; periodStart: Date | null; periodEnd: Date | null; lines: Array<{ id: string }> },
+    text: string,
+  ): Promise<void> {
+    const iso = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
+    const fixed = text ? correctedPeriod(iso(b.periodStart), iso(b.periodEnd), findBilledPeriod(text)) : null;
+    await this.prisma.$transaction(async (tx) => {
+      const res = await tx.utilityBill.updateMany({
+        where: { id: b.id, periodCheckedAt: null, periodStart: b.periodStart, periodEnd: b.periodEnd },
+        data: {
+          periodCheckedAt: new Date(),
+          ...(fixed ? { periodStart: new Date(fixed.start), periodEnd: new Date(fixed.end) } : {}),
+        },
+      });
+      if (!fixed || res.count === 0) return;
+      this.logger.log(`Periodo della bolletta ${b.id}: ${iso(b.periodStart)}…${iso(b.periodEnd)} → ${fixed.start}…${fixed.end}`);
+      if (b.lines.length === 1) {
+        await tx.utilityBillLine.updateMany({ where: { id: b.lines[0].id }, data: { periodStart: null, periodEnd: null } });
+      }
+    });
   }
 
   private async matchBySupplyCode(userId: string, codes: string[], excludeBillId?: string): Promise<string | null> {

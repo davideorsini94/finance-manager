@@ -18,6 +18,8 @@ Sezione per luce, gas e acqua: consumi e costi nel tempo, **divisi per abitazion
 6. Il risultato si scrive solo se la bolletta è ancora nella **stessa** lettura (`updateMany` su `status = extracting` e `extractionStartedAt` uguale): cancellata o riletta nel frattempo → risultato buttato. Una `extracting` più vecchia di 12 minuti è considerata morta (backend riavviato) e mostrata come `failed`
 7. `POST /:id/extract` (rilettura) è permessa solo da `review`/`failed`, con passaggio a `extracting` **condizionato** allo stato (niente sovrascrittura di una conferma fatta da un'altra scheda, niente doppia lettura pagata)
 
+8. **Periodo dalle quote fisse** (v0.21.1, `findBilledPeriod` / `correctedPeriod` in `bill-extraction.ts`): il mese fatturato si ricava dalle righe "€/cliente/mese" e "€/kW/mese" (escluse le rettifiche "(R)" e i mesi stornati con quantità negativa; solo mesi interi e consecutivi). Corregge il periodo letto dal modello quando manca, è sfasato o più lungo; non lo allarga mai (conguagli tipo Accendi che rifatturano mesi già pagati). Caso reale: la fattura NeN del 01/10 (rettifiche di agosto + quote di settembre) era letta 01/08–30/09 e metà importo finiva su agosto (Castel Maggiore, agosto 2026 a 105 € invece di 70). Le bollette già caricate si correggono una volta al ripasso d'avvio (`periodCheckedAt`, scrittura condizionata al periodo invariato); con un solo servizio la riga torna a usare il periodo della bolletta
+
 Provato sul gateway reale con tre PDF (luce+gas, acqua, scansione) e con OpenCode simulato giù: esiti in [[Registro Modifiche]].
 
 ## API ([[API]])

@@ -827,6 +827,8 @@ model UtilityBill {
   extractionStartedAt DateTime?         @map("extraction_started_at") @db.Timestamptz()
   /// Quando il PDF è stato riletto per la materia prima (bollette caricate prima di quella funzione).
   energyParsedAt      DateTime?         @map("energy_parsed_at") @db.Timestamptz()
+  /// Quando il periodo è stato controllato sulle quote fisse mensili (vedi `findBilledPeriod`).
+  periodCheckedAt     DateTime?         @map("period_checked_at") @db.Timestamptz()
   createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt           DateTime          @updatedAt @map("updated_at") @db.Timestamptz()
 

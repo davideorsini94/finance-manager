@@ -97,7 +97,7 @@ Regole:
 - Una voce in "services" per ogni servizio effettivamente fatturato: una bolletta può contenere solo luce, solo gas, solo acqua, oppure due o tre servizi insieme. Non inventare servizi che non ci sono.
 - "consumption" è il consumo FATTURATO nel periodo della bolletta, non il consumo annuo, non la stima annua e non la lettura del contatore. Se ci sono fasce (F1, F2, F3) usa il totale.
 - "cost" è la spesa per quel servizio (totale della sua sezione, IVA inclusa se indicato). Con un solo servizio coincide con il totale.
-- Periodo: le date di inizio e fine del periodo di fornitura fatturato. Se un servizio ha un periodo diverso dagli altri, indicalo nella sua voce.
+- Periodo: le date di inizio e fine del periodo di fornitura fatturato. Se un servizio ha un periodo diverso dagli altri, indicalo nella sua voce. Il periodo è quello delle quote fisse del mese fatturato: le rettifiche "(R)" e i conguagli di mesi precedenti non lo allargano.
 - Numeri come numeri JSON con il punto decimale (1234.56), senza simbolo di valuta né separatore delle migliaia.
 - Se un dato non è presente o non sei sicuro, usa null. Non stimare e non calcolare valori che non sono scritti.
 - "energyCost" ed "energyUnitPrice" sono la voce della materia prima: nelle bollette recenti "spesa per la vendita di energia elettrica / gas naturale" (es. "0,177488 €/kWh + 31,17 €": prezzo 0.177488, spesa 31.17), in quelle meno recenti "spesa per la materia energia / materia gas naturale". Non la spesa per la rete, gli oneri o le imposte, e non l'indice all'ingrosso (PUN, PSV, PSBIL). Per l'acqua null.
@@ -384,4 +384,62 @@ export function findEnergyPrices(
     }
   }
   return out;
+}
+
+/**
+ * Mese (o mesi) che la bolletta fattura davvero, letto dalle quote fisse
+ * mensili ("€/cliente/mese", "€/kW/mese"): si pagano una volta per ogni mese
+ * fatturato, quindi indicano il periodo meglio delle date dei consumi.
+ * Esempio NeN: la fattura del 01/10 contiene le rettifiche "(R)" dei consumi
+ * di agosto e le quote fisse di settembre; il modello leggeva 01/08–30/09 e
+ * la bolletta finiva divisa su due mesi, raddoppiando agosto.
+ * Si scartano le righe "(R)" e i mesi stornati (righe con quantità negativa:
+ * storno e riaddebito di un mese già fatturato). Solo mesi interi e
+ * consecutivi, altrimenti null.
+ */
+export function findBilledPeriod(text: string): { start: string; end: string } | null {
+  const months = new Map<string, { start: string; end: string; reversed: boolean }>();
+  for (const line of text.split('\n')) {
+    const unit = line.search(/\/\s*mese/i);
+    if (unit < 0 || /\(R\)/.test(line)) continue;
+    const m = line.match(/(\d{2})\/(\d{2})\/(\d{4})\s*-\s*(\d{2})\/(\d{2})\/(\d{4})/);
+    if (!m) continue;
+    const [, d1, m1, y1, d2, m2, y2] = m;
+    const lastDay = new Date(Date.UTC(Number(y2), Number(m2), 0)).getUTCDate();
+    if (d1 !== '01' || m1 !== m2 || y1 !== y2 || Number(d2) !== lastDay) continue;
+    const key = `${y1}-${m1}`;
+    // Dopo l'unità: prezzo unitario (6 decimali) e subito la quantità.
+    const reversed = /^\s*-?\d+,\d{4,6}\s*-/.test(line.slice(unit).replace(/^\/\s*mese/i, ''));
+    const prev = months.get(key);
+    months.set(key, { start: `${key}-01`, end: `${key}-${d2}`, reversed: reversed || !!prev?.reversed });
+  }
+  const valid = [...months.entries()].filter(([, v]) => !v.reversed).sort(([a], [b]) => a.localeCompare(b));
+  if (!valid.length) return null;
+  for (let i = 1; i < valid.length; i++) {
+    const [y, mo] = valid[i - 1][0].split('-').map(Number);
+    const next = mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, '0')}`;
+    if (valid[i][0] !== next) return null;
+  }
+  return { start: valid[0][1].start, end: valid[valid.length - 1][1].end };
+}
+
+const periodDays = (start: string, end: string) => (Date.parse(end) - Date.parse(start)) / 86_400_000 + 1;
+
+/**
+ * Periodo da usare al posto di quello letto, o null se va bene così.
+ * Le quote fisse vincono quando il periodo letto manca, è sfasato o più lungo
+ * (rettifiche di mesi passati). Se invece le quote fisse coprono PIÙ mesi del
+ * periodo letto (conguagli che rifatturano mesi già pagati) si tiene il
+ * periodo letto: allargarlo ricontenterebbe mesi già coperti da altre bollette.
+ */
+export function correctedPeriod(
+  readStart: string | null,
+  readEnd: string | null,
+  billed: { start: string; end: string } | null,
+): { start: string; end: string } | null {
+  if (!billed) return null;
+  if (!readStart || !readEnd) return billed;
+  if (readStart === billed.start && readEnd === billed.end) return null;
+  // +3 giorni: mesi di lunghezza diversa (maggio letto, giugno fatturato).
+  return periodDays(billed.start, billed.end) <= periodDays(readStart, readEnd) + 3 ? billed : null;
 }
