@@ -3,10 +3,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
   ChevronRight,
-  FilePlus2,
   FileUp,
   Loader2,
   PencilLine,
+  RefreshCw,
   Sparkles,
   TrendingDown,
   TrendingUp,
@@ -567,6 +567,17 @@ function Stat({ label, value, hint }: { label: string; value: React.ReactNode; h
 }
 
 function PendingBills({ bills, onOpen }: { bills: UtilityBill[]; onOpen: (b: UtilityBill) => void }) {
+  const qc = useQueryClient();
+  const [retryError, setRetryError] = useState<{ id: string; message: string } | null>(null);
+  // Rilettura del PDF senza aprire il form: la bolletta torna "in lettura" e
+  // il polling della pagina ne segue l'esito.
+  const retry = useMutation({
+    mutationFn: (id: string) => billsApi.reextract(id),
+    onMutate: () => setRetryError(null),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['utility-bills'], refetchType: 'all' }),
+    onError: (e: Error, id) => setRetryError({ id, message: e.message }),
+  });
+
   return (
     <Card className="fm-card-in overflow-hidden">
       <CardContent className="p-0">
@@ -574,50 +585,85 @@ function PendingBills({ bills, onOpen }: { bills: UtilityBill[]; onOpen: (b: Uti
           <Sparkles className="h-4 w-4 text-primary" /> Da verificare
         </h2>
         <ul>
-          {bills.map((b) => (
-            <li key={b.id} className="border-t border-border/60 first:border-t-0">
-              <button
-                type="button"
-                disabled={b.status === 'extracting'}
-                onClick={() => onOpen(b)}
-                className="flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-muted/40 disabled:cursor-default disabled:hover:bg-transparent"
-              >
-                {b.status === 'extracting' ? (
-                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[0.65rem] bg-muted">
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                  </span>
-                ) : b.lines.length > 0 ? (
-                  <UtilityStack utilities={b.lines.map((l) => l.utility)} />
-                ) : (
-                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[0.65rem] bg-muted">
-                    <FilePlus2 className="h-4 w-4 text-muted-foreground" />
-                  </span>
-                )}
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium">
-                    {b.status === 'extracting' ? 'Sto leggendo la bolletta…' : (b.provider ?? b.fileName ?? 'Bolletta')}
-                  </span>
-                  <span className="block truncate text-xs text-muted-foreground">
-                    {b.status === 'extracting'
-                      ? `${b.fileName ?? 'PDF'} · di solito meno di un minuto`
-                      : b.status === 'failed'
-                        ? (b.extractionError ?? 'Non letta: compila a mano')
-                        : `${periodLabel(b.periodStart, b.periodEnd)}${b.extractionModel ? ` · ${modelLabel(b.extractionModel)}` : ''}`}
-                  </span>
-                </span>
-                {b.status !== 'extracting' && (
-                  <span
-                    className={cn(
-                      'shrink-0 rounded-full px-2.5 py-1 text-xs font-medium',
-                      b.status === 'failed' ? 'bg-[hsl(var(--warn-soft))] text-[hsl(var(--warn))]' : 'bg-accent text-accent-foreground',
-                    )}
+          {bills.map((b) => {
+            const failed = b.status === 'failed';
+            const retrying = retry.isPending && retry.variables === b.id;
+            return (
+              <li key={b.id} className="border-t border-border/60 first:border-t-0">
+                <div className="flex flex-wrap items-center gap-x-2 pr-3 transition-colors hover:bg-muted/40 has-[button:disabled]:hover:bg-transparent sm:flex-nowrap">
+                  <button
+                    type="button"
+                    disabled={b.status === 'extracting'}
+                    onClick={() => onOpen(b)}
+                    className="flex min-w-0 flex-1 items-center gap-3 py-3 pl-5 text-left disabled:cursor-default"
                   >
-                    {b.status === 'failed' ? 'Compila' : 'Verifica'}
-                  </span>
+                    {b.status === 'extracting' ? (
+                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[0.65rem] bg-muted">
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      </span>
+                    ) : b.lines.length > 0 ? (
+                      <UtilityStack utilities={b.lines.map((l) => l.utility)} />
+                    ) : (
+                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[0.65rem] bg-[hsl(var(--warn-soft))]">
+                        <AlertTriangle className="h-4 w-4 text-[hsl(var(--warn))]" />
+                      </span>
+                    )}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">
+                        {b.status === 'extracting'
+                          ? 'Sto leggendo la bolletta…'
+                          : failed
+                            ? 'Lettura non riuscita'
+                            : (b.provider ?? b.fileName ?? 'Bolletta')}
+                      </span>
+                      <span className={cn('block text-xs text-muted-foreground', failed ? 'line-clamp-2' : 'truncate')}>
+                        {b.status === 'extracting'
+                          ? `${b.fileName ?? 'PDF'} · di solito meno di un minuto`
+                          : failed
+                            ? `${b.fileName ? `${b.fileName} · ` : ''}${b.extractionError ?? 'Riprova o compila a mano'}`
+                            : `${periodLabel(b.periodStart, b.periodEnd)}${b.extractionModel ? ` · ${modelLabel(b.extractionModel)}` : ''}`}
+                      </span>
+                    </span>
+                    {!failed && b.status !== 'extracting' && (
+                      <span className="shrink-0 rounded-full bg-accent px-2.5 py-1 text-xs font-medium text-accent-foreground">
+                        Verifica
+                      </span>
+                    )}
+                  </button>
+                  {failed && (
+                    // Su smartphone i pulsanti vanno su una riga propria, allineati al testo:
+                    // affiancati al titolo lo troncavano a "Lettura non …".
+                    <div className="flex w-full shrink-0 items-center gap-1.5 pb-3 pl-[3.75rem] sm:w-auto sm:pb-0 sm:pl-0">
+                      {b.hasFile && (
+                        <button
+                          type="button"
+                          onClick={() => retry.mutate(b.id)}
+                          disabled={retry.isPending}
+                          aria-label={`Riprova a leggere ${b.fileName ?? 'la bolletta'}`}
+                          className="fm-press inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-60"
+                        >
+                          <RefreshCw className={cn('h-3.5 w-3.5', retrying && 'animate-spin')} />
+                          Riprova
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => onOpen(b)}
+                        className="fm-press rounded-full bg-[hsl(var(--warn-soft))] px-3 py-1.5 text-xs font-medium text-[hsl(var(--warn))]"
+                      >
+                        Compila
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {retryError?.id === b.id && (
+                  <p role="alert" className="px-5 pb-3 text-xs text-[hsl(var(--neg))]">
+                    {retryError.message}
+                  </p>
                 )}
-              </button>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       </CardContent>
     </Card>
