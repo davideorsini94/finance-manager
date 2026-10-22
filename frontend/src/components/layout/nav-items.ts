@@ -8,13 +8,11 @@ import {
   LineChart,
   Target,
   Repeat,
-  FileUp,
-  FileText,
-  Sparkles,
   MessageSquare,
   ClipboardCheck,
   Settings,
   Trophy,
+  Gauge,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -46,9 +44,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/recurring', labelKey: 'nav.recurring', icon: Repeat, primary: false },
   { to: '/goals', labelKey: 'nav.goals', icon: Trophy, primary: false },
   { to: '/bank-review', labelKey: 'nav.bankReview', icon: ClipboardCheck, primary: false },
-  { to: '/import', labelKey: 'nav.import', icon: FileUp, primary: false },
-  { to: '/import/wizard', labelKey: 'nav.importWizard', icon: Sparkles, primary: false },
-  { to: '/import/templates', labelKey: 'nav.importTemplates', icon: FileText, primary: false },
+  { to: '/bills', labelKey: 'nav.bills', icon: Gauge, primary: false },
   { to: '/settings', labelKey: 'nav.settings', icon: Settings, primary: false },
 ];
 
@@ -72,6 +68,11 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    // Sezione a sé: le bollette non dipendono da conti e movimenti.
+    labelKey: 'nav.section.home',
+    items: [{ to: '/bills', labelKey: 'nav.bills', icon: Gauge, primary: false }],
+  },
+  {
     labelKey: 'nav.section.planning',
     items: [
       { to: '/budget', labelKey: 'nav.budget', icon: Target, primary: false },
@@ -84,9 +85,6 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { to: '/chat', labelKey: 'nav.chat', icon: MessageSquare, primary: true },
       { to: '/bank-review', labelKey: 'nav.bankReview', icon: ClipboardCheck, primary: false },
-      { to: '/import', labelKey: 'nav.import', icon: FileUp, primary: false },
-      { to: '/import/wizard', labelKey: 'nav.importWizard', icon: Sparkles, primary: false },
-      { to: '/import/templates', labelKey: 'nav.importTemplates', icon: FileText, primary: false },
     ],
   },
   {

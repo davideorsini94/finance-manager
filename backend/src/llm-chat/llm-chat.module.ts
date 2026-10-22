@@ -21,7 +21,7 @@ import { ToolRegistry } from './tools/tool-registry';
     OpencodeAvailabilityService,
     ToolRegistry,
   ],
-  // Esportato per ImportsModule (CategoryAiService deve risolvere il modello attivo).
+  // Esportato per il sync bancario (CategoryAiService) e le bollette (estrazione dal PDF).
   exports: [LlmConfigService, OpencodeClient],
 })
 export class LlmChatModule {}

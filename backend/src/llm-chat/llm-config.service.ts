@@ -138,6 +138,30 @@ export class LlmConfigService {
     return this.resolveOllama();
   }
 
+  /**
+   * Configurazione OpenCode **a prescindere dal provider attivo**: le bollette
+   * leggono il PDF sempre prima con OpenCode (scelta esplicita dell'utente) e
+   * solo dopo con Ollama. `null` se mancano chiave, tier o modello, o se
+   * OpenCode è in cooldown per quota esaurita (inutile pagare una chiamata
+   * destinata a fallire).
+   */
+  async getOpencodeConfig(): Promise<ActiveLlmConfig | null> {
+    if (this.isOpencodeOnCooldown()) return null;
+    let row: { opencodeTier: string | null; opencodeModel: string | null; opencodeApiKeyEncrypted: string | null } | null = null;
+    try {
+      row = await this.prisma.llmConfig.findUnique({
+        where: { id: SINGLETON_ID },
+        select: { opencodeTier: true, opencodeModel: true, opencodeApiKeyEncrypted: true },
+      });
+    } catch (e) {
+      this.logger.warn(`Lettura LlmConfig fallita: ${(e as Error).message}`);
+      return null;
+    }
+    if (!row) return null;
+    const resolved = this.resolveOpencode(row);
+    return resolved.apiKey && resolved.tier && resolved.model ? resolved : null;
+  }
+
   /** Apre la finestra di cooldown su OpenCode (limite raggiunto / credito esaurito). */
   noteOpencodeQuotaExhausted(): void {
     this.opencodeCooldownUntil = Date.now() + QUOTA_COOLDOWN_MS;

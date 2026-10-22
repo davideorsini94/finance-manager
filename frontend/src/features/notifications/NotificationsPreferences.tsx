@@ -11,7 +11,6 @@ type NotificationType =
   | 'goal_reached'
   | 'large_transaction'
   | 'account_shared'
-  | 'import_ready'
   | 'bank_sync_review'
   | 'bank_sync_consent'
   | 'system';
@@ -48,10 +47,6 @@ const TYPE_LABELS: Record<NotificationType, { title: string; desc: string }> = {
   account_shared: {
     title: 'Conto condiviso con te',
     desc: 'Quando qualcuno ti aggiunge come membro o viewer.',
-  },
-  import_ready: {
-    title: 'Import CSV pronto',
-    desc: "Quando l'analisi AI di un import è completata.",
   },
   bank_sync_review: {
     title: 'Movimenti bancari da rivedere',

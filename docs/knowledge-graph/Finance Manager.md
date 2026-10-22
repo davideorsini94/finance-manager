@@ -4,7 +4,7 @@ tags: [hub]
 
 # Finance Manager
 
-Webapp **self-hosted, multi-utente, mobile-first** per la contabilità famigliare: conti, movimenti, giroconti, carte di credito, ricorrenze, budget, obiettivi di risparmio, report, import CSV/OFX e chat con LLM locale.
+Webapp **self-hosted, multi-utente, mobile-first** per la contabilità famigliare: conti, movimenti, giroconti, carte di credito, ricorrenze, budget, obiettivi di risparmio, report, bollette di luce/gas/acqua e chat con LLM.
 
 Questa è la nota-hub del grafo di conoscenza: da qui si raggiunge tutto il resto.
 
@@ -32,7 +32,8 @@ Questa è la nota-hub del grafo di conoscenza: da qui si raggiunge tutto il rest
 - [[Condivisione Conti]] — membri, inviti, ruoli
 - [[Chat LLM]] — Ollama + tool calling
 - [[Provider LLM OpenCode (Piano)]] — piano per un secondo provider LLM (API OpenAI-compatible)
-- [[Import CSV-OFX]] — wizard di importazione con suggerimenti AI
+- [[Bollette]] — luce, gas e acqua: consumi e costi nel tempo, lettura del PDF con l'LLM (piano in [[Bollette (Piano)]])
+- [[Import CSV-OFX]] — **rimosso** in v0.20.0 (nota storica)
 - [[Sync Bancario]] — collegamento conti↔banche via Enable Banking, feature completa: consenso/mapping conti, motore di sync (dedup, quota, notifiche), categorizzazione LLM + rilevamento giroconti + pagina di revisione, rinnovo consenso e riconciliazione saldi → piano originale in [[Sync Bancario (Piano)]]
 
 ## Fatti chiave

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { CategoriesModule } from '../categories/categories.module';
-import { ImportsModule } from '../imports/imports.module';
+import { LlmChatModule } from '../llm-chat/llm-chat.module';
+import { CategoryAiService } from './category-ai.service';
 import { TransfersModule } from '../transfers/transfers.module';
 import { BANK_PROVIDER } from './bank-provider.port';
 import { BankReviewService } from './bank-review.service';
@@ -21,13 +22,15 @@ import { TransferMatcherService } from './transfer-matcher.service';
  * `BankProviderPort`, mai il client HTTP.
  *
  * Dipendenze esterne (nessun ciclo: nessuno di questi moduli importa bank-sync):
- *  - `ImportsModule` → `CategoryAiService`, il classificatore di categorie;
+ *  - `LlmChatModule` → configurazione LLM e client OpenCode per
+ *    `CategoryAiService` (il classificatore di categorie, nato con l'import
+ *    CSV e rimasto qui quando l'import è stato rimosso);
  *  - `TransfersModule` → `TransfersService`, per confermare i giroconti;
  *  - `CategoriesModule` → `CategorySharingService`, per replicare le categorie
  *    sui conti condivisi come fa `TransactionsService.create`.
  */
 @Module({
-  imports: [ImportsModule, TransfersModule, CategoriesModule],
+  imports: [LlmChatModule, TransfersModule, CategoriesModule],
   controllers: [BankSyncSettingsController, BankSyncController],
   providers: [
     BankSyncConfigService,
@@ -36,6 +39,7 @@ import { TransferMatcherService } from './transfer-matcher.service';
     SyncEngineService,
     TransferMatcherService,
     BankReviewService,
+    CategoryAiService,
     EnableBankingClient,
     EnableBankingProvider,
     { provide: BANK_PROVIDER, useExisting: EnableBankingProvider },

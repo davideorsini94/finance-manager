@@ -35,9 +35,11 @@ const TABLES = [
   'recurringRule',
   'budget',
   'goal',
-  'importBatch',
   'chatSession',
   'chatMessage',
+  // Bollette (indipendenti dai movimenti): dipendono solo da user.
+  'utilityBill',
+  'utilityBillLine',
   'auditLog',
   // Singleton senza FK: nessun vincolo di ordine. Incluso nel backup perché
   // non contiene segreti (a differenza di smtp_config, cifrato e legato alla
@@ -97,12 +99,18 @@ export class BackupService {
     const attachments = await this.prisma.attachment.findMany({
       select: { minioKey: true },
     });
-    for (const att of attachments) {
+    // ...e i PDF delle bollette, nella stessa cartella `blobs/`.
+    const billFiles = await this.prisma.utilityBill.findMany({
+      where: { fileKey: { not: null } },
+      select: { fileKey: true },
+    });
+    const keys = [...attachments.map((a) => a.minioKey), ...billFiles.map((b) => b.fileKey as string)];
+    for (const key of keys) {
       try {
-        const stream = await this.minio.getObjectStream(att.minioKey);
-        archive.append(stream, { name: `blobs/${att.minioKey}` });
+        const stream = await this.minio.getObjectStream(key);
+        archive.append(stream, { name: `blobs/${key}` });
       } catch (e) {
-        this.logger.warn(`Skipping missing blob ${att.minioKey}: ${(e as Error).message}`);
+        this.logger.warn(`Skipping missing blob ${key}: ${(e as Error).message}`);
       }
     }
 
@@ -160,7 +168,8 @@ export class BackupService {
         where: { minioKey: key },
         select: { mimeType: true },
       });
-      const mimeType = att?.mimeType ?? 'application/octet-stream';
+      const mimeType =
+        att?.mimeType ?? (key.startsWith('utility-bills/') ? 'application/pdf' : 'application/octet-stream');
       await this.minio.putObject(key, buf, mimeType);
       blobs++;
     }
@@ -179,9 +188,10 @@ export class BackupService {
       this.prisma.attachment.deleteMany({}),
       this.prisma.chatMessage.deleteMany({}),
       this.prisma.chatSession.deleteMany({}),
+      this.prisma.utilityBillLine.deleteMany({}),
+      this.prisma.utilityBill.deleteMany({}),
       this.prisma.auditLog.deleteMany({}),
       this.prisma.llmConfig.deleteMany({}),
-      this.prisma.importBatch.deleteMany({}),
       this.prisma.budget.deleteMany({}),
       this.prisma.goal.deleteMany({}),
       this.prisma.recurringRule.deleteMany({}),
@@ -216,6 +226,9 @@ function bigIntReplacer(_key: string, value: unknown): unknown {
 function deserializeRow(row: Record<string, unknown>, table: TableName): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(row)) {
+    // Colonne tolte dallo schema dopo che il backup è stato fatto: Prisma
+    // rifiuterebbe l'intera riga per un campo sconosciuto.
+    if (REMOVED_FIELDS[table]?.has(k)) continue;
     if (v === null || v === undefined) {
       out[k] = v;
     } else if (typeof v === 'string' && BIGINT_FIELDS[table]?.has(k)) {
@@ -228,6 +241,14 @@ function deserializeRow(row: Record<string, unknown>, table: TableName): Record<
   }
   return out;
 }
+
+/**
+ * Campi presenti nei backup di versioni precedenti e non più nello schema.
+ * `transaction.importBatchId`: rimosso con l'import CSV/OFX (v0.20.0).
+ */
+const REMOVED_FIELDS: Partial<Record<TableName, Set<string>>> = {
+  transaction: new Set(['importBatchId']),
+};
 
 const BIGINT_FIELDS: Partial<Record<TableName, Set<string>>> = {
   account: new Set(['balanceCents']),
@@ -252,9 +273,10 @@ const DATE_FIELDS: Partial<Record<TableName, Set<string>>> = {
   recurringRule: new Set(['startDate', 'endDate', 'nextRunDate', 'createdAt']),
   budget: new Set(['month', 'createdAt']),
   goal: new Set(['deadline', 'createdAt']),
-  importBatch: new Set(['createdAt']),
   chatSession: new Set(['createdAt', 'updatedAt']),
   chatMessage: new Set(['createdAt']),
+  utilityBill: new Set(['issueDate', 'dueDate', 'periodStart', 'periodEnd', 'extractionStartedAt', 'createdAt', 'updatedAt']),
+  utilityBillLine: new Set(['periodStart', 'periodEnd']),
   auditLog: new Set(['createdAt']),
   llmConfig: new Set(['updatedAt']),
   bankConnection: new Set(['consentExpiresAt', 'createdAt', 'updatedAt']),

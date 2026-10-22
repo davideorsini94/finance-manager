@@ -19,10 +19,8 @@ import { GoalsPage } from '@/features/goals/GoalsPage';
 import { ReportsPage } from '@/features/reports/ReportsPage';
 import { AdvancedReports } from '@/features/reports/AdvancedReports';
 import { ProjectionsPage } from '@/features/projections/ProjectionsPage';
+import { BillsPage } from '@/features/bills/BillsPage';
 import { ChatPage } from '@/features/chat/ChatPage';
-import { ImportPage } from '@/features/import/ImportPage';
-import { ImportWizard } from '@/features/import/ImportWizard';
-import { ImportTemplatesPage } from '@/features/import/ImportTemplatesPage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
 import { BankReviewPage } from '@/features/bank-review/BankReviewPage';
 import { BankCallbackPage } from '@/features/settings/BankCallbackPage';
@@ -157,22 +155,11 @@ const chatRoute = createRoute({
   component: ChatPage,
 });
 
-const importRoute = createRoute({
+// Bollette di luce, gas e acqua: sezione indipendente dai movimenti.
+const billsRoute = createRoute({
   getParentRoute: () => protectedRoute,
-  path: '/import',
-  component: ImportPage,
-});
-
-const importWizardRoute = createRoute({
-  getParentRoute: () => protectedRoute,
-  path: '/import/wizard',
-  component: ImportWizard,
-});
-
-const importTemplatesRoute = createRoute({
-  getParentRoute: () => protectedRoute,
-  path: '/import/templates',
-  component: ImportTemplatesPage,
+  path: '/bills',
+  component: BillsPage,
 });
 
 // Coda di revisione dei movimenti importati dalla banca (Fase 4).
@@ -206,9 +193,7 @@ const routeTree = rootRoute.addChildren([
     advancedReportsRoute,
     projectionsRoute,
     chatRoute,
-    importRoute,
-    importWizardRoute,
-    importTemplatesRoute,
+    billsRoute,
     bankReviewRoute,
     settingsRoute,
   ]),

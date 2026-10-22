@@ -17,7 +17,7 @@ backend ──▶ postgres 16 (dati) · minio (allegati) · ollama (LLM qwen2.5:
 | [[Backend]] | NestJS + Prisma | API REST + SSE |
 | [[Database]] | PostgreSQL 16 | via Prisma ORM |
 | Storage allegati | MinIO (S3-compatible) | presigned URL |
-| LLM | Ollama `qwen2.5:7b-instruct-q4_K_M` | per [[Chat LLM]] e [[Import CSV-OFX]] |
+| LLM | Ollama `qwen2.5:7b-instruct-q4_K_M` | per [[Chat LLM]], categorie del [[Sync Bancario]] e lettura delle [[Bollette]] (riserva di OpenCode) |
 | Reverse proxy | nginx 1.27-alpine | gzip, SSE senza buffering, body max 25 MB |
 
 ## Flussi trasversali

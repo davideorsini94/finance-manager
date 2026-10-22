@@ -19,7 +19,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AccountPolicyService } from '../common/services/account-policy.service';
 import { sanitizeExternalText } from '../common/utils/sanitize-text';
 import { NotificationsService } from '../notifications/notifications.service';
-import { CATEGORY_BATCH_SIZE, CategoryAiService } from '../imports/category-ai.service';
+import { CATEGORY_BATCH_SIZE, CategoryAiService } from './category-ai.service';
 import { BANK_PROVIDER, type BankProviderPort } from './bank-provider.port';
 import { BankSyncConfigService } from './bank-sync-config.service';
 import { buildCategoryMatchKey } from './category-match-key';

@@ -55,25 +55,6 @@ enum RecurrenceFreq {
   yearly
 }
 
-enum ImportBatchStatus {
-  pending
-  analyzing
-  ready
-  importing
-  completed
-  failed
-  cancelled
-}
-
-enum ImportRowStatus {
-  pending
-  ready
-  duplicate
-  imported
-  skipped
-  error
-}
-
 enum ChatRole {
   user
   assistant
@@ -186,9 +167,8 @@ model User {
   recurringRules      RecurringRule[]
   budgets             Budget[]
   goals               Goal[]
-  importBatches       ImportBatch[]
-  importTemplates     ImportTemplate[]
   chatSessions        ChatSession[]
+  utilityBills        UtilityBill[]
   notifications       Notification[]
   notificationPrefs   NotificationPreference[]
   sentAccountInvites  AccountInvite[]          @relation("AccountInviteInviter")
@@ -269,7 +249,6 @@ model Account {
   recurringRules       RecurringRule[]
   recurringRulesAsDest RecurringRule[]  @relation("RecurringRuleDestAccount")
   goals                Goal[]
-  importBatches        ImportBatch[]
   invites              AccountInvite[]
   favoritedByUsers     User[]           @relation("UserFavoriteAccount")
   /// Al massimo un conto banca collegato per conto app (v1).
@@ -330,8 +309,6 @@ model Category {
   transactions          Transaction[]
   recurringRules        RecurringRule[]
   budgets               Budget[]
-  importRowsAsSuggested ImportRow[]             @relation("ImportRowSuggested")
-  importRowsAsFinal     ImportRow[]             @relation("ImportRowFinal")
   bankStagedAsSuggested BankStagedTransaction[] @relation("BankStagedSuggested")
   bankStagedAsFinal     BankStagedTransaction[] @relation("BankStagedFinal")
   categoryMemories      CategoryMemory[]
@@ -384,7 +361,6 @@ model Transaction {
   transferPairId  String?         @map("transfer_pair_id") @db.Uuid
   ccChargeId      String?         @map("cc_charge_id") @db.Uuid
   recurringRuleId String?         @map("recurring_rule_id") @db.Uuid
-  importBatchId   String?         @map("import_batch_id") @db.Uuid
   /// `dedupHash` della riga bancaria da cui nasce il movimento: rende la
   /// deduplica durabile anche se link/connessione vengono cancellati.
   bankTxId        String?         @map("bank_tx_id")
@@ -396,10 +372,7 @@ model Transaction {
   user                  User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
   category              Category?               @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   recurringRule         RecurringRule?          @relation(fields: [recurringRuleId], references: [id], onDelete: SetNull)
-  importBatch           ImportBatch?            @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
   attachments           Attachment[]
-  importRowsAsDuplicate ImportRow[]             @relation("ImportRowDuplicate")
-  importRowsAsCreated   ImportRow[]             @relation("ImportRowCreated")
   bankStagedAsDuplicate BankStagedTransaction[] @relation("BankStagedDuplicate")
   bankStagedAsCreated   BankStagedTransaction[] @relation("BankStagedCreated")
 
@@ -486,82 +459,6 @@ model Goal {
   account Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
 
   @@map("goals")
-}
-
-model ImportTemplate {
-  id         String   @id @default(uuid()) @db.Uuid
-  userId     String   @map("user_id") @db.Uuid
-  name       String   @db.VarChar(100)
-  bankName   String?  @map("bank_name") @db.VarChar(100)
-  delimiter  String   @default(",") @db.VarChar(2)
-  encoding   String   @default("utf-8") @db.VarChar(20)
-  hasHeader  Boolean  @default(true) @map("has_header")
-  columnMap  Json     @map("column_map")
-  dateFormat String?  @map("date_format") @db.VarChar(20)
-  decimalSep String   @default(",") @map("decimal_sep") @db.VarChar(1)
-  amountMode String   @default("single") @map("amount_mode") @db.VarChar(20)
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz()
-
-  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  batches ImportBatch[]
-
-  @@unique([userId, name])
-  @@map("import_templates")
-}
-
-model ImportBatch {
-  id             String            @id @default(uuid()) @db.Uuid
-  userId         String            @map("user_id") @db.Uuid
-  accountId      String            @map("account_id") @db.Uuid
-  filename       String            @db.VarChar(255)
-  delimiter      String            @default(",") @db.VarChar(2)
-  encoding       String            @default("utf-8") @db.VarChar(20)
-  rowCount       Int               @default(0) @map("row_count")
-  importedCount  Int               @default(0) @map("imported_count")
-  duplicateCount Int               @default(0) @map("duplicate_count")
-  columnMap      Json              @map("column_map")
-  templateId     String?           @map("template_id") @db.Uuid
-  status         ImportBatchStatus @default(pending)
-  errorMessage   String?           @map("error_message")
-  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz()
-  completedAt    DateTime?         @map("completed_at") @db.Timestamptz()
-
-  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  account      Account         @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  template     ImportTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
-  rows         ImportRow[]
-  transactions Transaction[]
-
-  @@index([userId, createdAt(sort: Desc)])
-  @@map("import_batches")
-}
-
-model ImportRow {
-  id                       String          @id @default(uuid()) @db.Uuid
-  batchId                  String          @map("batch_id") @db.Uuid
-  rowIndex                 Int             @map("row_index")
-  raw                      Json
-  parsedDate               DateTime?       @map("parsed_date") @db.Date
-  parsedAmount             BigInt?         @map("parsed_amount_cents")
-  parsedDescription        String?         @map("parsed_description")
-  suggestedCategoryId      String?         @map("suggested_category_id") @db.Uuid
-  suggestedConfidence      Float?          @map("suggested_confidence")
-  finalCategoryId          String?         @map("final_category_id") @db.Uuid
-  duplicateOfTransactionId String?         @map("duplicate_of_transaction_id") @db.Uuid
-  transactionId            String?         @map("transaction_id") @db.Uuid
-  status                   ImportRowStatus @default(pending)
-  errorMessage             String?         @map("error_message")
-
-  batch             ImportBatch  @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  suggestedCategory Category?    @relation("ImportRowSuggested", fields: [suggestedCategoryId], references: [id], onDelete: SetNull)
-  finalCategory     Category?    @relation("ImportRowFinal", fields: [finalCategoryId], references: [id], onDelete: SetNull)
-  duplicateOf       Transaction? @relation("ImportRowDuplicate", fields: [duplicateOfTransactionId], references: [id], onDelete: SetNull)
-  transaction       Transaction? @relation("ImportRowCreated", fields: [transactionId], references: [id], onDelete: SetNull)
-
-  @@unique([batchId, rowIndex])
-  @@index([batchId, status])
-  @@map("import_rows")
 }
 
 model ChatSession {
@@ -726,7 +623,7 @@ model BankStagedTransaction {
   suggestedConfidence      Float?           @map("suggested_confidence")
   suggestedType            TransactionType? @map("suggested_type")
   /// Categoria scelta per la conferma: prefillata col suggerimento AI e
-  /// modificabile dalla coda di revisione (stesso ruolo di `ImportRow.finalCategoryId`).
+  /// modificabile dalla coda di revisione.
   finalCategoryId          String?          @map("final_category_id") @db.Uuid
   /// Pairing reciproco dei giroconti: azzerare prima delle delete.
   matchedStagedId          String?          @map("matched_staged_id") @db.Uuid
@@ -831,12 +728,12 @@ model NotificationPreference {
 /// producono due generazioni. Un record `generating` più vecchio di 15 minuti
 /// è considerato morto (backend riavviato a metà) e riclaimabile.
 model LlmReport {
-  id     String @id @default(uuid()) @db.Uuid
-  userId String @map("user_id") @db.Uuid
+  id              String          @id @default(uuid()) @db.Uuid
+  userId          String          @map("user_id") @db.Uuid
   /// 'annual' | 'monthly' — le sole modalità con report LLM.
-  scope  String @db.VarChar(10)
+  scope           String          @db.VarChar(10)
   /// '2026' per l'annuale, '2026-07' per il mensile.
-  periodKey String @map("period_key") @db.VarChar(10)
+  periodKey       String          @map("period_key") @db.VarChar(10)
   /// 'all' oppure sha1 degli accountId ORDINATI: l'ordine di selezione non
   /// deve moltiplicare le righe.
   accountsKey     String          @map("accounts_key") @db.VarChar(64)
@@ -857,4 +754,80 @@ model LlmReport {
 
   @@unique([userId, scope, periodKey, accountsKey])
   @@map("llm_reports")
+}
+
+// ============================================================
+// Bollette (luce, gas, acqua) — sezione indipendente dai movimenti:
+// nessuna relazione con Transaction/Account/Category.
+// ============================================================
+
+enum UtilityKind {
+  electricity
+  gas
+  water
+}
+
+/// Ciclo di vita di una bolletta: `extracting` mentre l'LLM legge il PDF,
+/// `review` quando ha letto e l'utente deve verificare, `failed` se non è
+/// stato possibile leggere (si compila a mano), `confirmed` dopo il
+/// salvataggio dell'utente. Le analisi contano solo le `confirmed`.
+enum UtilityBillStatus {
+  extracting
+  review
+  failed
+  confirmed
+}
+
+model UtilityBill {
+  id                  String            @id @default(uuid()) @db.Uuid
+  userId              String            @map("user_id") @db.Uuid
+  provider            String?           @db.VarChar(120)
+  billNumber          String?           @map("bill_number") @db.VarChar(80)
+  issueDate           DateTime?         @map("issue_date") @db.Date
+  dueDate             DateTime?         @map("due_date") @db.Date
+  periodStart         DateTime?         @map("period_start") @db.Date
+  periodEnd           DateTime?         @map("period_end") @db.Date
+  totalCents          Int?              @map("total_cents")
+  notes               String?           @db.VarChar(1000)
+  status              UtilityBillStatus @default(review)
+  /// PDF originale su MinIO (`utility-bills/<userId>/<uuid>.pdf`), assente
+  /// per le bollette inserite a mano.
+  fileKey             String?           @map("file_key")
+  fileName            String?           @map("file_name") @db.VarChar(255)
+  fileSizeBytes       Int?              @map("file_size_bytes")
+  extractionError     String?           @map("extraction_error") @db.VarChar(500)
+  /// Provider e modello che hanno letto il PDF (`opencode:deepseek-v4-pro`).
+  extractionModel     String?           @map("extraction_model") @db.VarChar(120)
+  extractionStartedAt DateTime?         @map("extraction_started_at") @db.Timestamptz()
+  createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt           DateTime          @updatedAt @map("updated_at") @db.Timestamptz()
+
+  user  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lines UtilityBillLine[]
+
+  @@index([userId, periodEnd(sort: Desc)])
+  @@map("utility_bills")
+}
+
+/// Un servizio dentro una bolletta: una bolletta luce+gas ha due righe.
+model UtilityBillLine {
+  id          String      @id @default(uuid()) @db.Uuid
+  billId      String      @map("bill_id") @db.Uuid
+  utility     UtilityKind
+  /// Consumo nell'unità fissa del servizio: kWh (luce), Smc (gas), m³ (acqua).
+  consumption Float?
+  /// Quota della bolletta attribuita a questo servizio, in centesimi.
+  costCents   Int?        @map("cost_cents")
+  /// Periodo proprio del servizio, se diverso da quello della bolletta
+  /// (capita nelle dual fuel con letture in date diverse).
+  periodStart DateTime?   @map("period_start") @db.Date
+  periodEnd   DateTime?   @map("period_end") @db.Date
+  /// POD (luce) o PDR (gas) o codice utenza (acqua).
+  supplyCode  String?     @map("supply_code") @db.VarChar(40)
+  estimated   Boolean     @default(false)
+
+  bill UtilityBill @relation(fields: [billId], references: [id], onDelete: Cascade)
+
+  @@unique([billId, utility])
+  @@map("utility_bill_lines")
 }

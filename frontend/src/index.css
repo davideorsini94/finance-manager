@@ -597,6 +597,20 @@
     text-align: left;
   }
 
+  /* Colori dei servizi delle bollette: sono dati (come le categorie), quindi
+     valgono in tutti i temi. Ambra per la luce, blu fiamma per il gas, ciano
+     per l'acqua; nel tema scuro più luminosi per restare leggibili. */
+  :root {
+    --util-electricity: 38 92% 48%;
+    --util-gas: 224 76% 58%;
+    --util-water: 180 72% 37%;
+  }
+  .dark {
+    --util-electricity: 42 96% 58%;
+    --util-gas: 224 90% 70%;
+    --util-water: 178 62% 48%;
+  }
+
   /* iOS safe-area: notch (top), home indicator (bottom), landscape side
      insets. Espongo le 4 utility come variabili così posso usarle ovunque
      con `paddingTop: 'var(--safe-top)'` o classi tailwind `pt-[var(--safe-top)]`. */

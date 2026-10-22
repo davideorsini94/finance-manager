@@ -6,6 +6,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { PrismaModule } from './prisma/prisma.module';
 import { CommonModule } from './common/common.module';
 import { MinioModule } from './minio/minio.module';
+import { UtilityBillsModule } from './utility-bills/utility-bills.module';
 import { MailModule } from './mail/mail.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
@@ -21,7 +22,6 @@ import { GoalsModule } from './goals/goals.module';
 import { ReportsModule } from './reports/reports.module';
 import { LlmChatModule } from './llm-chat/llm-chat.module';
 import { LlmReportsModule } from './llm-reports/llm-reports.module';
-import { ImportsModule } from './imports/imports.module';
 import { BankSyncModule } from './bank-sync/bank-sync.module';
 import { BackupModule } from './backup/backup.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -54,7 +54,7 @@ import { RolesGuard } from './common/guards/roles.guard';
     ReportsModule,
     LlmChatModule,
     LlmReportsModule,
-    ImportsModule,
+    UtilityBillsModule,
     BankSyncModule,
     BackupModule,
     SharingModule,

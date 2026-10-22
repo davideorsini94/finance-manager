@@ -10,12 +10,12 @@ PostgreSQL 16, schema gestito con Prisma: `backend/prisma/schema.prisma`. Migraz
 - **AccountInvite** — inviti per conto (token monouso, status pending/accepted/rejected/revoked/expired)
 - **Category** — per utente, albero a 2 livelli (`parentId`), eredità colore, isIncome, sortOrder
 - **CategoryMemory** — memoria delle categorie scelte a mano nella coda di revisione bancaria: `@@unique([userId, matchKey])`, `matchKey` = chiave normalizzata del movimento (controparte o causale depurata, `buildCategoryMatchKey` in `bank-sync/category-match-key.ts`, max 80 char), `categoryId`, `timesUsed`/`lastUsedAt`. Applicata **prima** dell'LLM in `SyncEngineService.categorizeOwnerQueue`, scritta (upsert) da `BankReviewService` su ogni scelta manuale di categoria (PATCH) e su ogni conferma → [[Sync Bancario]]
-- **Transaction** — accountId, userId, amountCents (negativo = uscita), type (income/expense/transfer), categoryId, transactionDate, `transferPairId` (link giroconto), `ccChargeId`, `recurringRuleId`, `importBatchId`, isPending
+- **Transaction** — accountId, userId, amountCents (negativo = uscita), type (income/expense/transfer), categoryId, transactionDate, `transferPairId` (link giroconto), `ccChargeId`, `recurringRuleId`, isPending
 - **Attachment** — transactionId, minioKey, mimeType, sizeBytes (max 10 MB)
 - **RecurringRule** — frequenza daily→yearly, nextRunDate, isActive; anche per giroconti (`toAccountId`)
 - **Budget** — unico per (userId, categoryId, month), limitCents
 - **Goal** — accountId, targetCents, currentCents, deadline
-- **ImportBatch / ImportRow / ImportTemplate** → [[Import CSV-OFX]]
+- **UtilityBill / UtilityBillLine** — bollette per utente, una riga per servizio (`UtilityKind`), stato `UtilityBillStatus` → [[Bollette]]. (I modelli dell'import CSV/OFX sono stati rimossi in v0.20.0 → [[Import CSV-OFX]])
 - **ChatSession / ChatMessage** → [[Chat LLM]]
 - **RefreshToken** (rotation + family detection), **InviteToken**, **PasswordResetToken** → [[Autenticazione e Sicurezza]]
 - **SmtpConfig** — singleton, password cifrata AES-256-GCM

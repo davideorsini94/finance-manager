@@ -12,9 +12,6 @@
     "budget": "Budget",
     "recurring": "Ricorrenze",
     "goals": "Obiettivi",
-    "import": "Importa",
-    "importWizard": "Importa CSV (wizard)",
-    "importTemplates": "Template CSV",
     "reportsAdvanced": "Report avanzati",
     "projections": "Proiezioni",
     "bankReview": "Da confermare",
@@ -26,8 +23,10 @@
       "finance": "Finanze",
       "planning": "Pianificazione",
       "tools": "Strumenti",
-      "system": "Sistema"
-    }
+      "system": "Sistema",
+      "home": "Casa"
+    },
+    "bills": "Bollette"
   },
   "auth": {
     "login": {

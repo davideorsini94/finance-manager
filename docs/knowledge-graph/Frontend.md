@@ -14,7 +14,7 @@ SPA React 19 + Vite + TypeScript in `frontend/`. UI Tailwind + shadcn/ui (Radix)
 
 ## Route principali
 
-`/` [[Pagina Dashboard]] · `/accounts` Conti · `/categories` Categorie · `/transactions` [[Pagina Movimenti]] · `/budget` Budget · `/recurring` Ricorrenze · `/goals` Obiettivi · `/reports` (+ `/reports/advanced`) [[Pagina Report]] · `/projections` Proiezioni · `/chat` [[Chat LLM]] · `/import` (+ wizard, templates) [[Import CSV-OFX]] · `/settings` Impostazioni · `/login`, `/accept-invite`, `/reset-password` (pubbliche)
+`/` [[Pagina Dashboard]] · `/accounts` Conti · `/categories` Categorie · `/transactions` [[Pagina Movimenti]] · `/budget` Budget · `/recurring` Ricorrenze · `/goals` Obiettivi · `/reports` (+ `/reports/advanced`) [[Pagina Report]] · `/projections` Proiezioni · `/chat` [[Chat LLM]] · `/bills` [[Bollette]] · `/settings` Impostazioni · `/login`, `/accept-invite`, `/reset-password` (pubbliche)
 
 ## Store globali (Zustand)
 
@@ -39,6 +39,10 @@ Punti da non rompere:
 - **Niente `<iframe src="blob:…">` per i PDF**: dentro la PWA standalone su iOS (WebKit + service worker) resta bianco — è il motivo per cui esiste `PdfPreview`. Vedi [[PWA e Mobile]].
 - **Il worker di pdf.js è importato con `?worker&url`**, non `?url`: così Vite emette un file `.js`. Con `.mjs` nginx 1.27 non ha la voce in `mime.types` e lo servirebbe come `application/octet-stream` → il browser rifiuta di avviare il Worker (rotto solo in produzione). Il worker resta same-origin, quindi la CSP `default-src 'self'` va bene così com'è.
 - `react-pdf` è in `optimizeDeps.include` (`vite.config.ts`): essendo importato solo in lazy, altrimenti Vite lo pre-bundla in una seconda passata con una copia di React diversa → "Invalid hook call" in dev.
+
+## Test
+
+`cd frontend && npm test` esegue con `node --test` le funzioni pure in `frontend/tests/*.test.mts` (Node 24 esegue TypeScript senza build). I moduli testati non devono avere import (es. `features/bills/analytics.ts`, `features/bills/numbers.ts`).
 
 ## Pattern
 
