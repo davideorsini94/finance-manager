@@ -43,7 +43,7 @@ services:
       retries: 5
 
   ollama:
-    image: ollama/ollama:0.23.0@sha256:5600a652d1081050f398152127c584222546354491f27fe47ccbc6351bc870bd
+    image: ollama/ollama:0.40.2@sha256:b86366bb528bbf7f1424435d165028497a5b69bf6ddb4fa5a87102e2b79f44fb
     container_name: fm-ollama
     restart: unless-stopped
     volumes:
