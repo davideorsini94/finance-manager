@@ -1,7 +1,8 @@
 import { Link, useRouterState } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
-import { ChevronsLeft, ChevronsRight, ChevronDown, PiggyBank } from 'lucide-react';
+import { ChevronsLeft, ChevronsRight, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
+import { AppLogo } from './AppLogo';
 import { NAV_SECTIONS, isNavItemActive } from './nav-items';
 import { useUIStore } from '@/store/uiStore';
 import { Button } from '@/components/ui/button';
@@ -28,9 +29,7 @@ export function Sidebar() {
         )}
       >
         <Link to="/" className="flex items-center gap-2 min-w-0" aria-label={t('app.name')}>
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground">
-            <PiggyBank className="h-5 w-5" />
-          </span>
+          <AppLogo className="h-9 w-9" />
           {!collapsed && (
             <span className="truncate text-base font-semibold tracking-tight">
               {t('app.name')}

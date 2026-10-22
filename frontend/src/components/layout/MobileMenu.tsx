@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useRouterState } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
-import { Menu, X, PiggyBank } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NAV_SECTIONS, isNavItemActive } from './nav-items';
 import { cn } from '@/lib/utils/cn';
+import { AppLogo } from './AppLogo';
 
 /**
  * Drawer laterale per smartphone: hamburger nella TopBar che apre un
@@ -98,9 +99,7 @@ export function MobileMenu() {
             className="flex items-center gap-2 min-w-0"
             aria-label={t('app.name')}
           >
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground">
-              <PiggyBank className="h-5 w-5" />
-            </span>
+            <AppLogo className="h-9 w-9" />
             <span className="truncate text-base font-semibold tracking-tight">{t('app.name')}</span>
           </Link>
           <Button variant="ghost" size="icon" aria-label="Chiudi" onClick={() => setOpen(false)}>
