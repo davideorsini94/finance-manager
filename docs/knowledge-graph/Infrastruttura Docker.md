@@ -8,7 +8,7 @@ Stack orchestrato da `docker-compose.yml` (prod) + `docker-compose.dev.yml` (ove
 |---|---|---|---|
 | postgres | postgres:16-alpine (pinnata sha256) | [[Database]] | `postgres_data` |
 | minio | minio/minio (pinnata) | allegati S3-compatible | `minio_data` |
-| ollama | ollama/ollama:0.23.0 | LLM locale per [[Chat LLM]] (limite 8 GB RAM, auto-pull modello da `OLLAMA_MODEL`) | `ollama_data` |
+| ollama | ollama/ollama:0.40.2 | LLM locale per [[Chat LLM]] (limite 8 GB RAM, auto-pull modello da `OLLAMA_MODEL`) | `ollama_data` |
 | backend | build da `./backend` | API [[Backend]] :3000 interno | — |
 | frontend | build da `./frontend` | SPA [[Frontend]] :80 interno | — |
 | nginx | nginx:1.27-alpine (pinnata) | reverse proxy | `nginx/nginx.conf` |

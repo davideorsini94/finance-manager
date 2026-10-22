@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Ollama } from 'ollama';
+import { ollamaChatText } from '../llm-chat/ollama-text';
 import { LlmReportStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReportsService } from '../reports/reports.service';
@@ -67,7 +68,7 @@ export interface LlmReportView {
  * un opaco "fetch failed". OpenCode ha già il suo tetto (120s) dentro
  * `OpencodeClient.chat`.
  */
-const OLLAMA_TIMEOUT_MS = 240_000;
+const OLLAMA_TIMEOUT_MS = 600_000;
 /** Il modello resta caricato tra una generazione e l'altra: su CPU il caricamento è la parte lenta. */
 const OLLAMA_KEEP_ALIVE = '30m';
 
@@ -349,13 +350,12 @@ export class LlmReportsService {
         'Server Ollama non configurato (OLLAMA_BASE_URL mancante).',
       );
     }
-    const res = await this.ollama.chat({
+    return ollamaChatText(this.ollama, {
       model: config.model,
       messages: [{ role: 'user', content: prompt }],
       keep_alive: OLLAMA_KEEP_ALIVE,
       options: { temperature: 0.3, num_ctx: 8192 },
     });
-    return res.message?.content ?? '';
   }
 
   private async buildSnapshot(userId: string, params: LlmReportParams): Promise<ReportSnapshot> {

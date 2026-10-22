@@ -26,7 +26,7 @@ const MAX_SIZE_BYTES = 10 * 1024 * 1024;
  * metà): si mostra come fallita e si può rileggere. Abbondante rispetto ai
  * ~5 minuti del caso peggiore (OpenCode in timeout + Ollama su CPU).
  */
-const STALE_EXTRACTION_MS = 12 * 60_000;
+const STALE_EXTRACTION_MS = 30 * 60_000;
 /**
  * Letture contemporanee nell'intero backend. Ognuna tiene in memoria il PDF
  * (fino a 10 MB) e occupa il modello: Ollama su CPU le servirebbe comunque una
