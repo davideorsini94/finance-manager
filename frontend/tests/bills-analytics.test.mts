@@ -154,9 +154,11 @@ test('providerHistory raggruppa le bollette consecutive dello stesso fornitore',
 test('overlappingBills trova i periodi sovrapposti dello stesso servizio', () => {
   const pairs = overlappingBills(
     [
-      bill({ id: 'a', periodStart: '2026-01-01', periodEnd: '2026-02-28', lines: [{}] }),
-      bill({ id: 'b', periodStart: '2026-02-15', periodEnd: '2026-03-31', lines: [{}] }),
-      bill({ id: 'c', periodStart: '2026-04-01', periodEnd: '2026-05-31', lines: [{}] }),
+      bill({ id: 'a', periodStart: '2026-01-01', periodEnd: '2026-02-28', lines: [{ consumption: 100 }] }),
+      bill({ id: 'b', periodStart: '2026-02-15', periodEnd: '2026-03-31', lines: [{ consumption: 80 }] }),
+      bill({ id: 'c', periodStart: '2026-04-01', periodEnd: '2026-05-31', lines: [{ consumption: 0 }] }),
+      // Acconto stornato dal conguaglio "c": consumo tolto, non è un doppione.
+      bill({ id: 'd', periodStart: '2026-04-01', periodEnd: '2026-04-30', lines: [{ consumption: null }] }),
     ],
     'electricity',
   );

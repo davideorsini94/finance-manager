@@ -287,12 +287,15 @@ export function providerHistory(bills: Bill[], utility: UtilityKind): ProviderSp
 const normalizeName = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 
 /**
- * Coppie di bollette dello stesso servizio con periodi sovrapposti: tipico di
- * un conguaglio o di una bolletta caricata due volte. Nei grafici i loro
- * consumi si sommano, quindi la UI lo segnala.
+ * Coppie di bollette dello stesso servizio con periodi sovrapposti **e consumo
+ * su entrambe**: tipico di un conguaglio o di una bolletta caricata due volte.
+ * Nei grafici i loro consumi si sommano, quindi la UI lo segnala. Un acconto
+ * stornato da un conguaglio (consumo tolto, costo tenuto) non conta: i costi
+ * sovrapposti sono giusti, perché il conguaglio è al netto degli acconti.
  */
 export function overlappingBills(bills: Bill[], utility: UtilityKind): Array<[string, string]> {
   const items = confirmedLines(bills, utility)
+    .filter(({ line }) => line.consumption !== null)
     .map(({ bill, line }) => ({ id: bill.id, period: linePeriod(bill, line) }))
     .filter((x): x is { id: string; period: { start: string; end: string } } => !!x.period)
     .sort((a, b) => a.period.start.localeCompare(b.period.start));
