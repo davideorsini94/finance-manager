@@ -464,9 +464,11 @@ function HouseholdManageDialog({
   const merge = useMutation({
     mutationFn: (target: string) => householdsApi.merge(household.id, target),
     onSuccess: async (_r, target) => {
-      await refresh();
+      // Prima si va all'abitazione di destinazione, poi si ricarica: al
+      // contrario per un attimo si vedeva "questa abitazione non esiste più".
       onOpenChange(false);
-      void navigate({ to: '/bills/$householdId', params: { householdId: target } });
+      await navigate({ to: '/bills/$householdId', params: { householdId: target } });
+      void refresh();
     },
     onError: (e: Error) => setError(e.message),
   });
@@ -651,6 +653,8 @@ function Overview({
             )}
           </div>
           {yearOptions.length > 0 && (
+            // Con molti anni il selettore scorre di lato invece di uscire dallo schermo.
+            <div className="fm-no-scrollbar -mx-5 overflow-x-auto px-5">
             <Segmented
               label="Periodo"
               value={String(period)}
@@ -660,6 +664,7 @@ function Overview({
                 ...yearOptions.map((y) => ({ key: String(y), label: String(y) })),
               ]}
             />
+            </div>
           )}
           <CostStackChart series={series} year={period === 'recent' ? undefined : period} previous={previous} />
           <Legend utilities={present} previousYear={period !== 'recent' && hasPrevious ? period - 1 : undefined} />
@@ -896,8 +901,15 @@ function UtilityDetail({
   const energy = useMemo(() => energyPrices(bills, utility), [bills, utility]);
   // Media della materia prima nelle bollette degli ultimi 12 mesi della finestra.
   const energyAvg = useMemo(
-    () => averageEnergyPrice(energy.filter((p) => !summary.windowFrom || p.date.slice(0, 7) >= summary.windowFrom)),
-    [energy, summary.windowFrom],
+    () =>
+      averageEnergyPrice(
+        energy.filter(
+          (p) =>
+            (!summary.windowFrom || p.date.slice(0, 7) >= summary.windowFrom) &&
+            (!summary.lastMonth || p.date.slice(0, 7) <= summary.lastMonth),
+        ),
+      ),
+    [energy, summary.windowFrom, summary.lastMonth],
   );
   const years = useMemo(() => yearlyTotals(bills, utility).reverse(), [bills, utility]);
   const providers = useMemo(() => providerHistory(bills, utility).reverse(), [bills, utility]);
@@ -981,7 +993,7 @@ function UtilityDetail({
                 Le linee verticali segnano un cambio di fornitore.
               </p>
             </div>
-            {prices.length + energy.length > 1 ? (
+            {new Set([...prices.map((p) => p.billId), ...energy.map((p) => p.billId)]).size > 1 ? (
               <>
                 <UnitPriceChart points={prices} energy={energy} utility={utility} />
                 {utility !== 'water' && (

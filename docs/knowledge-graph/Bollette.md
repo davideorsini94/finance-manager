@@ -1,6 +1,6 @@
 # Bollette
 
-Sezione per luce, gas e acqua: consumi e costi nel tempo, lettura automatica del PDF con l'LLM, inserimento a mano. Route `/bills` (sezione "Casa" del menu). **Indipendente dai movimenti bancari**: nessuna relazione con conti, movimenti o categorie; una bolletta pagata dal conto non entra qui e una bolletta caricata qui non crea movimenti. Piano originale in [[Bollette (Piano)]].
+Sezione per luce, gas e acqua: consumi e costi nel tempo, **divisi per abitazione**, lettura automatica del PDF con l'LLM, inserimento a mano. Route `/bills` (ingresso: caricamento, bollette da verificare, abitazioni) e `/bills/$householdId` (statistiche di un'abitazione; `none` = bollette senza abitazione), sezione "Casa" del menu. **Indipendente dai movimenti bancari**: nessuna relazione con conti, movimenti o categorie; una bolletta pagata dal conto non entra qui e una bolletta caricata qui non crea movimenti. Piano originale in [[Bollette (Piano)]].
 
 ## Dati ([[Database]])
 
@@ -34,6 +34,29 @@ Provato sul gateway reale con tre PDF (luce+gas, acqua, scansione) e con OpenCod
 - PDF: `AttachmentPreviewDialog` con la nuova prop `contentUrl` (→ `GET /utility-bills/:id/file`, in demo `/demo/bolletta-demo.pdf`)
 - Demo: `frontend/src/lib/demo/bills.ts`, due anni di luce+gas bimestrali con cambio fornitore (Edison → Enel), acqua trimestrale, ultima bolletta da verificare; sempre relativi a oggi
 
+## Abitazioni (v0.21.0)
+
+- Modello `Household` (per utente: nome, indirizzo), `UtilityBill.householdId` (SetNull) e `UtilityBill.supplyAddress` (indirizzo di fornitura letto; `''` = cercato e non trovato)
+- **Si creano da sole** (`households.service.ts`): dopo ogni lettura del PDF la bolletta va (1) nell'abitazione di un'altra bolletta con lo **stesso POD/PDR/codice utenza**, altrimenti (2) in quella con un **indirizzo equivalente**, altrimenti (3) in una nuova, se l'indirizzo ha un civico. Un'assegnazione alla volta per utente (lock in memoria), così due letture parallele dello stesso indirizzo non creano doppioni
+- **Confronto degli indirizzi** (`household-address.ts`, puro, testato sulle varianti reali): civico uguale, CAP uguale se presente su entrambi (altrimenti città), tipo di via uguale, parole della via dell'uno contenute nell'altro. "VIA NILDE IOTTI 11", "Via Nilde Iotti 11 42015 Correggio RE" e "VIA IOTTI N. 11 - 42015 Correggio RE" sono la stessa casa
+- **Indirizzo di fornitura**: chiesto all'LLM (`supplyAddress`, non quello di fatturazione né la sede del fornitore), con ripiego `findSupplyAddress(text)` senza LLM: vince la riga con "fornitura", poi l'indirizzo che si ripete; le righe di fatturazione o sede contano meno
+- **Bollette già caricate**: all'avvio (`onApplicationBootstrap`, dopo 15 s) il PDF delle bollette senza abitazione si rilegge una volta per ricavare l'indirizzo; poi si assegnano
+- Gestione: `GET /households`, `PATCH /households/:id` (nome), `POST /households/:id/merge` (unisce due abitazioni: stesso indirizzo scritto troppo diverso), `DELETE /households/:id` (solo se vuota). Nel form della bolletta il campo "Abitazione" (esistente, nessuna o nuova da indirizzo, riconosciuta se esiste già)
+- Il caricamento (PDF o a mano) sta **fuori** dalle abitazioni, nell'ingresso; dentro l'abitazione si consultano statistiche e bollette
+
+## Materia prima (v0.21.0)
+
+- Per luce e gas `UtilityBillLine.energyUnitPrice` (€/kWh, €/Smc) e `energyCostCents`: la voce "spesa per la vendita di energia elettrica / gas naturale" (bollette recenti, es. "0,177488 €/kWh + 31,17 €") o "spesa per la materia energia / gas" (meno recenti). Non rete, oneri, imposte né l'indice all'ingrosso (PUN, PSV, PSBIL)
+- Letta dall'LLM, con ripiego `findEnergyPrices(text)` (regex sulla riga di riepilogo, tollera etichette attaccate ai numeri) e limiti di plausibilità (luce 0,01–2 €/kWh, gas 0,05–5 €/Smc). Le bollette già caricate la ricavano all'avvio rileggendo il PDF una volta (`energyParsedAt`), solo nelle righe che non l'hanno
+- Nel dettaglio di luce e gas: seconda linea tratteggiata "Materia prima" nel grafico del prezzo per unità e statistica "Materia prima media" (pesata sui consumi, nella finestra dei 12 mesi). Campi "Materia prima" e "Spesa materia prima" nel form
+
+## Panoramica dell'abitazione (v0.21.0)
+
+- Elenco delle bollette **paginato** (10 per pagina, la pagina riparte dalla prima cambiando servizio)
+- "Spesa mensile" filtrabile: ultimi 24 mesi oppure un anno, con la spesa dell'anno precedente come linea tratteggiata
+- Scheda "**Anno per anno**": spesa per servizio e totale per anno (grafico impilato e tabella), variazione solo tra anni coperti per intero da tutti i servizi (`yearlySummary`)
+- Il totale "ultimi 12 mesi" parte dal primo mese coperto se lo storico è più corto (prima diceva "ott 25 – set 26" con dati solo da marzo)
+
 ## Backup
 
-Tabelle `utilityBill` e `utilityBillLine` nel backup, PDF in `blobs/utility-bills/...` ripristinati come `application/pdf` → [[Backend]].
+Tabelle `household`, `utilityBill` e `utilityBillLine` nel backup (in quest'ordine), PDF in `blobs/utility-bills/...` ripristinati come `application/pdf` → [[Backend]].

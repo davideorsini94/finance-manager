@@ -801,6 +801,8 @@ model Household {
 model UtilityBill {
   /// Abitazione della bolletta; null = non ancora assegnata.
   householdId         String?           @map("household_id") @db.Uuid
+  /// L'abitazione l'ha scelta l'utente (anche "nessuna"): l'assegnazione automatica non la tocca più.
+  householdLocked     Boolean           @default(false) @map("household_locked")
   /// Indirizzo di fornitura letto dal PDF. Stringa vuota = cercato e non trovato.
   supplyAddress       String?           @map("supply_address") @db.VarChar(300)
   id                  String            @id @default(uuid()) @db.Uuid

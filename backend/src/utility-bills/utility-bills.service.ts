@@ -132,6 +132,8 @@ export class UtilityBillsService {
       data: {
         userId,
         householdId: householdId ?? null,
+        // Inserita a mano: l'abitazione (anche "nessuna") l'ha scelta l'utente.
+        householdLocked: true,
         ...data.header,
         status: UtilityBillStatus.confirmed,
         lines: { create: data.lines },
@@ -154,8 +156,9 @@ export class UtilityBillsService {
       return tx.utilityBill.update({
         where: { id },
         data: {
-          // `undefined` = abitazione invariata.
-          ...(householdId !== undefined ? { householdId } : {}),
+          // `undefined` = abitazione invariata; altrimenti è una scelta
+          // dell'utente, che l'assegnazione automatica non toccherà più.
+          ...(householdId !== undefined ? { householdId, householdLocked: true } : {}),
           ...data.header,
           status: UtilityBillStatus.confirmed,
           extractionError: null,
@@ -164,12 +167,14 @@ export class UtilityBillsService {
         include: { lines: true },
       });
     });
+    await this.households.pruneEmpty(userId);
     return this.toView(bill);
   }
 
   async remove(userId: string, id: string): Promise<void> {
     const bill = await this.findOwned(userId, id);
     await this.prisma.utilityBill.delete({ where: { id } });
+    await this.households.pruneEmpty(userId);
     if (bill.fileKey) {
       // Il file è solo il PDF originale: se MinIO non risponde la bolletta è
       // già cancellata e resta al massimo un oggetto orfano, non un errore.
@@ -338,7 +343,23 @@ export class UtilityBillsService {
         l.energyCostCents ??= f.energyCostCents;
       }
     }
-    let applied = false;
+    // Abitazione calcolata PRIMA della transazione (serve il lock per utente)
+    // e scritta DENTRO, insieme al passaggio a "da verificare": così la
+    // bolletta non è mai visibile come da verificare senza abitazione (aprendo
+    // la verifica in quel momento, il form l'avrebbe confermata "senza").
+    let householdId: string | null = null;
+    try {
+      const owner = await this.prisma.utilityBill.findUnique({
+        where: { id: billId },
+        select: { userId: true, householdId: true, householdLocked: true },
+      });
+      if (owner && !owner.householdId && !owner.householdLocked) {
+        const codes = (data?.lines ?? []).map((l) => l.supplyCode).filter((c): c is string => !!c);
+        householdId = await this.households.resolveForBill(owner.userId, supplyAddress || null, codes, billId);
+      }
+    } catch (e) {
+      this.logger.warn(`Abitazione della bolletta ${billId} non riconosciuta: ${(e as Error).message}`);
+    }
     try {
       await this.prisma.$transaction(async (tx) => {
         const claimed = await tx.utilityBill.updateMany({
@@ -360,8 +381,14 @@ export class UtilityBillsService {
               }
             : { status: UtilityBillStatus.failed, extractionError: error, extractionModel: null, supplyAddress },
         });
-        applied = claimed.count > 0;
-        if (claimed.count === 0 || !data) return;
+        if (claimed.count === 0) return;
+        if (householdId) {
+          await tx.utilityBill.updateMany({
+            where: { id: billId, householdId: null, householdLocked: false },
+            data: { householdId },
+          });
+        }
+        if (!data) return;
         await tx.utilityBillLine.deleteMany({ where: { billId } });
         if (data.lines.length) {
           await tx.utilityBillLine.createMany({
@@ -383,7 +410,6 @@ export class UtilityBillsService {
     } catch (e) {
       this.logger.error(`Salvataggio della lettura della bolletta ${billId} fallito: ${(e as Error).message}`);
     }
-    if (applied) await this.households.assignAfterExtraction(billId);
   }
 
   /**
@@ -391,6 +417,9 @@ export class UtilityBillsService {
    * un id (dell'utente) oppure un indirizzo nuovo (riconosciuto o creato).
    */
   private async resolveHousehold(userId: string, dto: SaveUtilityBillDto): Promise<string | null | undefined> {
+    if (dto.newHouseholdAddress?.trim() && dto.householdId) {
+      throw new BadRequestException('Scegli un’abitazione esistente oppure un indirizzo nuovo, non entrambi');
+    }
     if (dto.newHouseholdAddress?.trim()) {
       return this.households.findOrCreateByAddress(userId, dto.newHouseholdAddress);
     }

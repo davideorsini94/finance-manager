@@ -229,14 +229,20 @@ export function UnitPriceChart({
   energy?: EnergyPricePoint[];
   utility: UtilityKind;
 }) {
+  // Un punto per bolletta (data + id): due bollette che finiscono lo stesso
+  // giorno (un conguaglio) non si sovrascrivono, e la materia prima resta
+  // sulla riga della sua bolletta.
   const byDate = new Map<string, { date: string; provider: string | null; total: number | null; energy: number | null; billId: string }>();
-  for (const p of points) byDate.set(p.date, { date: p.date, provider: p.provider, total: p.unitPriceCents / 100, energy: null, billId: p.billId });
-  for (const e of energy) {
-    const row = byDate.get(e.date) ?? { date: e.date, provider: e.provider, total: null, energy: null, billId: e.billId };
-    row.energy = e.unitPriceCents / 100;
-    byDate.set(e.date, row);
+  for (const p of points) {
+    byDate.set(`${p.date}|${p.billId}`, { date: p.date, provider: p.provider, total: p.unitPriceCents / 100, energy: null, billId: p.billId });
   }
-  const data = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+  for (const e of energy) {
+    const key = `${e.date}|${e.billId}`;
+    const row = byDate.get(key) ?? { date: e.date, provider: e.provider, total: null, energy: null, billId: e.billId };
+    row.energy = e.unitPriceCents / 100;
+    byDate.set(key, row);
+  }
+  const data = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date) || a.billId.localeCompare(b.billId));
   const changes = data.filter((p, i) => i > 0 && (p.provider ?? '') !== (data[i - 1].provider ?? ''));
   return (
     <ResponsiveContainer width="100%" height={220}>

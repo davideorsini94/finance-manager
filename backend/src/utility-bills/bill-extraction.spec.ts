@@ -273,6 +273,13 @@ describe('materia prima', () => {
     });
   });
 
+  it('non scambia un consumo o un anno per la spesa', () => {
+    expect(findEnergyPrices('di cui spesa per la vendita energia elettrica 0,12 €/kWh 250 kWh consumati')).toEqual({
+      electricity: { energyUnitPrice: 0.12, energyCostCents: null },
+    });
+    expect(findEnergyPrices('Spesa per la materia energia 2.025 kWh')).toEqual({});
+  });
+
   it('niente materia prima se la voce non c’è', () => {
     expect(findEnergyPrices('Totale da pagare € 63,73\nConsumo 28 mc')).toEqual({});
   });

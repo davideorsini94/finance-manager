@@ -277,7 +277,7 @@ const DATE_FIELDS: Partial<Record<TableName, Set<string>>> = {
   goal: new Set(['deadline', 'createdAt']),
   chatSession: new Set(['createdAt', 'updatedAt']),
   chatMessage: new Set(['createdAt']),
-  utilityBill: new Set(['issueDate', 'dueDate', 'periodStart', 'periodEnd', 'extractionStartedAt', 'createdAt', 'updatedAt']),
+  utilityBill: new Set(['issueDate', 'dueDate', 'periodStart', 'periodEnd', 'extractionStartedAt', 'energyParsedAt', 'createdAt', 'updatedAt']),
   utilityBillLine: new Set(['periodStart', 'periodEnd']),
   household: new Set(['createdAt', 'updatedAt']),
   auditLog: new Set(['createdAt']),

@@ -19,7 +19,7 @@ import {
 import { useConfirm } from '@/components/shared/confirm';
 import { cn } from '@/lib/utils/cn';
 import { UTILITIES, type UtilityKind } from './analytics';
-import { parseDecimal, toCents } from './numbers';
+import { parseDecimal, parseUnitPrice, toCents } from './numbers';
 import { billsApi, type Household, type SaveBillInput, type UtilityBill } from './billsApi';
 import { UTILITY_META, UtilityGlyph, utilColor } from './utilities';
 
@@ -92,8 +92,8 @@ const schema = z
       const consumptionError = numberError(l.consumption, 'consumption');
       const costError = numberError(l.cost, 'money');
       if (u !== 'water') {
-        const priceN = parseDecimal(l.energyPrice);
-        if (priceN !== null && (Number.isNaN(priceN) || priceN < 0 || priceN > 10)) {
+        const priceN = parseUnitPrice(l.energyPrice);
+        if (priceN !== null && (Number.isNaN(priceN) || priceN < 0 || priceN > 5)) {
           ctx.addIssue({ code: 'custom', path: ['lines', u, 'energyPrice'], message: 'Prezzo non valido' });
         }
         const energyCostError = numberError(l.energyCost, 'money');
@@ -159,7 +159,7 @@ const cents = (v: string) => {
   return n === null || Number.isNaN(n) ? null : toCents(n);
 };
 
-function toInput(v: FormValues): SaveBillInput {
+function toInput(v: FormValues, sendHousehold: boolean): SaveBillInput {
   const blank = (s: string) => (s.trim() ? s.trim() : null);
   return {
     provider: blank(v.provider),
@@ -170,9 +170,13 @@ function toInput(v: FormValues): SaveBillInput {
     periodEnd: v.periodEnd,
     totalCents: cents(v.total),
     notes: blank(v.notes),
-    ...(v.household === NEW_HOUSEHOLD
-      ? { newHouseholdAddress: v.newHouseholdAddress.trim() }
-      : { householdId: v.household || null }),
+    // Abitazione inviata solo se scelta in questo form: altrimenti resta quella
+    // del server (che può averla assegnata mentre il form era aperto).
+    ...(!sendHousehold
+      ? {}
+      : v.household === NEW_HOUSEHOLD
+        ? { newHouseholdAddress: v.newHouseholdAddress.trim() }
+        : { householdId: v.household || null }),
     lines: UTILITIES.filter((u) => v.lines[u].enabled).map((u) => {
       const l = v.lines[u];
       const consumption = parseDecimal(l.consumption);
@@ -189,7 +193,7 @@ function toInput(v: FormValues): SaveBillInput {
           : {
               energyCostCents: cents(l.energyCost),
               energyUnitPrice: (() => {
-                const n = parseDecimal(l.energyPrice);
+                const n = parseUnitPrice(l.energyPrice);
                 return n === null || Number.isNaN(n) ? null : Math.round(n * 1_000_000) / 1_000_000;
               })(),
             }),
@@ -218,7 +222,8 @@ export function BillForm({ open, onOpenChange, bill, households, onShowPdf }: Pr
     reset,
     setValue,
     control,
-    formState: { errors },
+    getValues,
+    formState: { errors, dirtyFields },
   } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: toFormValues(bill, households) });
 
   // Riapertura o bolletta diversa: si riparte dai suoi dati.
@@ -263,7 +268,19 @@ export function BillForm({ open, onOpenChange, bill, households, onShowPdf }: Pr
     onError: (e: Error) => setServerError(e.message),
   });
 
-  const onSubmit = handleSubmit((v) => save.mutate(toInput(v)));
+  // Nuova bolletta: l'abitazione mostrata (anche quella preselezionata) è la
+  // scelta. In modifica: solo se il campo è stato toccato.
+  const onSubmit = handleSubmit((v) =>
+    save.mutate(toInput(v, !bill || !!dirtyFields.household || !!dirtyFields.newHouseholdAddress)),
+  );
+
+  // Elenco abitazioni arrivato dopo l'apertura: si applica la preselezione
+  // "unica abitazione" se il campo non è stato ancora toccato.
+  useEffect(() => {
+    if (open && !bill && !dirtyFields.household && getValues('household') === '' && households.length === 1) {
+      setValue('household', households[0].id);
+    }
+  }, [open, bill, households, dirtyFields.household, getValues, setValue]);
 
   const onDelete = async () => {
     if (!bill) return;

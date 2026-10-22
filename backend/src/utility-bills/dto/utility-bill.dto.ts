@@ -60,11 +60,12 @@ export class UtilityBillLineDto {
   @Max(10_000_000)
   energyCostCents?: number | null;
 
+  // Valore grezzo: con la conversione implicita "" diventerebbe 0 e passerebbe.
   @IsOptional()
-  @Type(() => Number)
+  @Transform(({ obj, key }) => (obj as Record<string, unknown>)[key])
   @IsNumber({ maxDecimalPlaces: 6 }, { message: 'Prezzo della materia prima non valido' })
   @Min(0)
-  @Max(10, { message: 'Prezzo della materia prima troppo alto' })
+  @Max(5, { message: 'Prezzo della materia prima troppo alto' })
   energyUnitPrice?: number | null;
 
   // Valore grezzo: con `enableImplicitConversion` la stringa "false"

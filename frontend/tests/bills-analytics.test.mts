@@ -348,3 +348,54 @@ test('energyPrices: prezzo scritto in bolletta, altrimenti spesa / consumo; mai 
   const avg = averageEnergyPrice(p)!;
   assert.ok(Math.abs(avg - (17.7488 * 175.62 + 20 * 200) / 375.62) < 1e-9);
 });
+
+test('yearlySummary: un anno con due mesi scoperti non è completo', async () => {
+  const { yearlySummary } = await import('../src/features/bills/analytics.ts');
+  const bills = [
+    ...monthlyBills(2024, 12, 100, 1000),
+    bill({ periodStart: '2025-01-01', periodEnd: '2025-03-01', lines: [{ consumption: 100, costCents: 2000 }] }),
+    bill({ periodStart: '2025-04-30', periodEnd: '2025-12-31', lines: [{ consumption: 100, costCents: 8000 }] }),
+  ];
+  const y = yearlySummary(bills);
+  assert.equal(y[1].complete, false);
+  assert.equal(y[1].deltaPct, null);
+});
+
+test('yearlySummary: un servizio cessato non blocca il confronto degli anni dopo', async () => {
+  const { yearlySummary } = await import('../src/features/bills/analytics.ts');
+  const gas2023 = monthlyBills(2023, 12, 50, 3000).map((b) => ({ ...b, lines: b.lines.map((l) => ({ ...l, utility: 'gas' as const })) }));
+  const bills = [...gas2023, ...monthlyBills(2023, 36, 100, 1000)];
+  const y = yearlySummary(bills);
+  assert.deepEqual(y.map((x) => [x.year, x.complete]), [[2023, true], [2024, true], [2025, true]]);
+  // 2024 confrontato col 2023 solo sulla luce (il gas c'era solo nel 2023).
+  assert.ok(Math.abs(y[1].deltaPct!) < 0.01, `delta ${y[1].deltaPct}`);
+});
+
+test('combinedLast12: la finestra finisce all’ultimo mese completo di tutti i servizi', async () => {
+  const { combinedLast12 } = await import('../src/features/bills/analytics.ts');
+  const gas = monthlyBills(2025, 9, 50, 500).map((b) => ({ ...b, lines: b.lines.map((l) => ({ ...l, utility: 'gas' as const })) }));
+  const r = combinedLast12([...monthlyBills(2025, 12, 100, 1000), ...gas])!;
+  assert.equal(r.to, '2025-09');
+});
+
+test('averageEnergyPrice non fa pesare 1 kWh le bollette senza consumo', async () => {
+  const { averageEnergyPrice } = await import('../src/features/bills/analytics.ts');
+  const avg = averageEnergyPrice([
+    { billId: 'a', date: '2026-01-31', provider: null, unitPriceCents: 10, consumption: null },
+    { billId: 'b', date: '2026-02-28', provider: null, unitPriceCents: 20, consumption: 300 },
+  ]);
+  assert.equal(avg, 20);
+  assert.equal(
+    averageEnergyPrice([{ billId: 'a', date: '2026-01-31', provider: null, unitPriceCents: 10, consumption: null }]),
+    10,
+  );
+});
+
+test('parseUnitPrice: il punto di un prezzo è sempre decimale', async () => {
+  const { parseUnitPrice } = await import('../src/features/bills/numbers.ts');
+  assert.equal(parseUnitPrice('1.250'), 1.25);
+  assert.equal(parseUnitPrice('0,177488'), 0.177488);
+  assert.equal(parseUnitPrice('0.177488 €/kWh'), 0.177488);
+  assert.equal(parseUnitPrice(''), null);
+  assert.ok(Number.isNaN(parseUnitPrice('1.2.3')!));
+});

@@ -9,9 +9,16 @@ import {
 import type { Readable } from 'stream';
 import { PrismaService } from '../prisma/prisma.service';
 import { MinioService } from '../minio/minio.service';
-import { addressesMatch, cleanAddress, findSupplyAddress, householdName, parseAddress } from './household-address';
-import { extractPdfText } from './pdf-text';
+import {
+  addressesMatch,
+  cleanAddress,
+  findSupplyAddress,
+  householdName,
+  isMeterCode,
+  parseAddress,
+} from './household-address';
 import { findEnergyPrices } from './bill-extraction';
+import { extractPdfText } from './pdf-text';
 
 export interface HouseholdView {
   id: string;
@@ -22,25 +29,34 @@ export interface HouseholdView {
 }
 
 /**
+ * Abitazioni appena create e ancora vuote non si eliminano: un salvataggio
+ * può averne appena creata una e stare per assegnarle la bolletta.
+ */
+const EMPTY_HOUSEHOLD_GRACE_MS = 5 * 60_000;
+
+/**
  * Abitazioni: raggruppano le bollette per indirizzo di fornitura. Si creano
- * da sole quando arriva una bolletta con un indirizzo nuovo; nessuna UI per
- * crearle a mano fuori dal form della bolletta.
+ * da sole quando arriva una bolletta con un indirizzo nuovo.
  *
  * Riconoscimento, in ordine di affidabilità:
- * 1. un codice POD/PDR/utenza già visto in una bolletta assegnata: il
- *    contatore è quello, l'abitazione pure (anche se l'indirizzo è scritto in
- *    un altro modo o manca);
- * 2. l'indirizzo, confrontato a pezzi (`addressesMatch`) con quello delle
- *    abitazioni esistenti;
- * 3. altrimenti un'abitazione nuova con quell'indirizzo.
- * Senza codice né indirizzo la bolletta resta "senza abitazione".
+ * 1. un **POD o PDR** (codice del contatore) già visto in una bolletta
+ *    assegnata. Il codice utenza dell'acqua non vale: può essere il codice
+ *    cliente, uguale per più case;
+ * 2. l'**indirizzo**, confrontato a pezzi con quello delle abitazioni
+ *    (`addressesMatch`): se c'è un'unica abitazione equivalente in modo
+ *    rigoroso è quella; se l'indirizzo letto non dice né CAP né città, si
+ *    accetta un'unica corrispondenza permissiva;
+ * 3. altrimenti un'abitazione nuova, se l'indirizzo ha un civico.
+ * Le bollette con l'abitazione scelta dall'utente (`householdLocked`, anche
+ * "nessuna") non vengono mai riassegnate.
  */
 @Injectable()
 export class HouseholdsService implements OnApplicationBootstrap {
   private readonly logger = new Logger(HouseholdsService.name);
   /**
-   * Una assegnazione alla volta per utente: due letture in parallelo dello
-   * stesso indirizzo creerebbero due abitazioni identiche.
+   * Una operazione sulle abitazioni alla volta per utente: due letture
+   * parallele dello stesso indirizzo creerebbero due abitazioni identiche, e
+   * un'unione durante un'assegnazione lascerebbe una bolletta orfana.
    */
   private readonly locks = new Map<string, Promise<unknown>>();
 
@@ -79,23 +95,27 @@ export class HouseholdsService implements OnApplicationBootstrap {
    */
   async merge(userId: string, id: string, intoId: string): Promise<HouseholdView> {
     if (id === intoId) throw new BadRequestException('Scegli un’abitazione diversa');
-    await this.findOwned(userId, id);
-    await this.findOwned(userId, intoId);
-    await this.prisma.$transaction([
-      this.prisma.utilityBill.updateMany({ where: { userId, householdId: id }, data: { householdId: intoId } }),
-      this.prisma.household.delete({ where: { id } }),
-    ]);
+    await this.withLock(userId, async () => {
+      await this.findOwned(userId, id);
+      await this.findOwned(userId, intoId);
+      await this.prisma.$transaction([
+        this.prisma.utilityBill.updateMany({ where: { userId, householdId: id }, data: { householdId: intoId } }),
+        this.prisma.household.delete({ where: { id } }),
+      ]);
+    });
     return (await this.list(userId)).find((h) => h.id === intoId)!;
   }
 
   /** Elimina un'abitazione vuota (con bollette si unisce, non si cancella). */
   async remove(userId: string, id: string): Promise<void> {
-    await this.findOwned(userId, id);
-    const bills = await this.prisma.utilityBill.count({ where: { householdId: id } });
-    if (bills > 0) {
-      throw new ConflictException('L’abitazione ha ancora delle bollette: spostale o uniscila a un’altra');
-    }
-    await this.prisma.household.delete({ where: { id } });
+    await this.withLock(userId, async () => {
+      await this.findOwned(userId, id);
+      // Conteggio e cancellazione insieme: nel mezzo non può arrivare una bolletta.
+      const deleted = await this.prisma.household.deleteMany({ where: { id, userId, bills: { none: {} } } });
+      if (deleted.count === 0) {
+        throw new ConflictException('L’abitazione ha ancora delle bollette: spostale o uniscila a un’altra');
+      }
+    });
   }
 
   /** Verifica che l'abitazione esista e sia dell'utente (404 altrimenti). */
@@ -123,105 +143,86 @@ export class HouseholdsService implements OnApplicationBootstrap {
   }
 
   /**
-   * Dopo una lettura del PDF: assegna l'abitazione alla bolletta, se non ne
-   * ha già una. Non lancia: un problema qui non deve far fallire la lettura.
+   * Abitazione per una bolletta appena letta: per POD/PDR, per indirizzo o
+   * nuova. Non scrive sulla bolletta (lo fa chi chiama, nella stessa
+   * transazione che la porta a "da verificare"). `null` = nessuna.
    */
-  async assignAfterExtraction(billId: string): Promise<void> {
-    try {
-      const bill = await this.prisma.utilityBill.findUnique({
-        where: { id: billId },
-        include: { lines: { select: { supplyCode: true } } },
+  async resolveForBill(
+    userId: string,
+    supplyAddress: string | null,
+    codes: string[],
+    excludeBillId?: string,
+  ): Promise<string | null> {
+    return this.withLock(userId, async () => {
+      const byCode = await this.matchBySupplyCode(userId, codes, excludeBillId);
+      if (byCode) return byCode;
+      if (!supplyAddress) return null;
+      const byAddress = await this.matchByAddress(userId, supplyAddress);
+      if (byAddress) return byAddress;
+      if (!parseAddress(supplyAddress)?.number) return null;
+      const created = await this.prisma.household.create({
+        data: { userId, name: householdName(supplyAddress), address: supplyAddress },
       });
-      if (!bill || bill.householdId) return;
-      const codes = bill.lines.map((l) => l.supplyCode).filter((c): c is string => !!c);
-      await this.withLock(bill.userId, async () => {
-        const householdId =
-          (await this.matchBySupplyCode(bill.userId, codes, billId)) ??
-          (bill.supplyAddress ? await this.matchByAddress(bill.userId, bill.supplyAddress) : null) ??
-          (bill.supplyAddress && parseAddress(bill.supplyAddress)?.number
-            ? (
-                await this.prisma.household.create({
-                  data: { userId: bill.userId, name: householdName(bill.supplyAddress), address: bill.supplyAddress },
-                })
-              ).id
-            : null);
-        if (!householdId) return;
-        // Condizionato: se nel frattempo l'utente l'ha assegnata a mano, vince lui.
-        await this.prisma.utilityBill.updateMany({
-          where: { id: billId, householdId: null },
-          data: { householdId },
-        });
-      });
-    } catch (e) {
-      this.logger.warn(`Abitazione della bolletta ${billId} non assegnata: ${(e as Error).message}`);
-    }
+      return created.id;
+    });
   }
 
   /**
-   * All'avvio: le bollette caricate prima delle abitazioni (o rimaste senza)
-   * vengono assegnate rileggendo il loro PDF, senza LLM. Una bolletta già
-   * cercata senza esito ha `supplyAddress = ''` e non si rilegge più.
+   * Elimina le abitazioni rimaste senza bollette (spostate tutte altrove dal
+   * form, o create da un salvataggio poi fallito), dopo un periodo di grazia.
+   */
+  async pruneEmpty(userId: string): Promise<void> {
+    await this.withLock(userId, () =>
+      this.prisma.household.deleteMany({
+        where: { userId, bills: { none: {} }, createdAt: { lt: new Date(Date.now() - EMPTY_HOUSEHOLD_GRACE_MS) } },
+      }),
+    ).catch((e: Error) => this.logger.warn(`Pulizia abitazioni vuote fallita: ${e.message}`));
+  }
+
+  /**
+   * All'avvio, dopo 15 s e una bolletta alla volta: le bollette caricate prima
+   * delle abitazioni o della materia prima. Non deve poter far cadere il
+   * processo: ogni errore resta nel log.
    */
   onApplicationBootstrap(): void {
-    // Dopo l'avvio, per non rallentarlo; una bolletta alla volta.
-    setTimeout(() => void this.backfill(), 15_000).unref();
+    setTimeout(() => {
+      this.backfill().catch((e: Error) => this.logger.error(`Ripasso delle bollette interrotto: ${e.message}`));
+    }, 15_000).unref();
   }
 
   /**
-   * Bollette caricate prima delle abitazioni o della materia prima: si
-   * rilegge il loro PDF (senza LLM, una volta sola) per ricavare l'indirizzo
-   * di fornitura e la riga della materia prima. Non sovrascrive niente: la
-   * materia prima si scrive solo nelle righe che non l'hanno, l'abitazione
-   * solo se manca.
+   * Rilegge il PDF (senza LLM, una volta sola per bolletta) per ricavare
+   * indirizzo di fornitura e materia prima, poi assegna l'abitazione. Non
+   * sovrascrive niente: tutte le scritture sono condizionate al campo ancora
+   * vuoto, così un salvataggio o una rilettura fatti nel frattempo vincono.
    */
   async backfill(): Promise<number> {
     const bills = await this.prisma.utilityBill.findMany({
       where: {
         status: { not: 'extracting' },
-        OR: [{ householdId: null }, { energyParsedAt: null, fileKey: { not: null } }],
+        OR: [
+          { householdId: null, householdLocked: false },
+          { energyParsedAt: null, fileKey: { not: null } },
+        ],
       },
       select: {
         id: true,
+        userId: true,
         fileKey: true,
         supplyAddress: true,
         householdId: true,
+        householdLocked: true,
         energyParsedAt: true,
-        lines: { select: { id: true, utility: true, energyCostCents: true, energyUnitPrice: true } },
+        lines: { select: { utility: true, supplyCode: true } },
       },
       orderBy: { createdAt: 'asc' },
     });
     let assigned = 0;
     for (const b of bills) {
-      const needsAddress = !b.householdId && b.supplyAddress === null && !!b.fileKey;
-      const needsEnergy = !b.energyParsedAt && !!b.fileKey;
-      if (needsAddress || needsEnergy) {
-        let text: string;
-        try {
-          text = await extractPdfText(await streamToBuffer(await this.minio.getObjectStream(b.fileKey!)));
-        } catch (e) {
-          this.logger.warn(`PDF della bolletta ${b.id} non riletto: ${(e as Error).message}`);
-          continue; // si riproverà al prossimo avvio
-        }
-        if (needsAddress) {
-          await this.prisma.utilityBill.update({ where: { id: b.id }, data: { supplyAddress: findSupplyAddress(text) ?? '' } });
-        }
-        if (needsEnergy) {
-          const found = findEnergyPrices(text);
-          for (const l of b.lines) {
-            const f = l.utility === 'water' ? undefined : found[l.utility];
-            if (!f || l.energyCostCents !== null || l.energyUnitPrice !== null) continue;
-            await this.prisma.utilityBillLine.update({
-              where: { id: l.id },
-              data: { energyCostCents: f.energyCostCents, energyUnitPrice: f.energyUnitPrice },
-            });
-          }
-          await this.prisma.utilityBill.update({ where: { id: b.id }, data: { energyParsedAt: new Date() } });
-        }
-      }
-      if (!b.householdId) {
-        await this.assignAfterExtraction(b.id);
-        const after = await this.prisma.utilityBill.findUnique({ where: { id: b.id }, select: { householdId: true } });
-        if (after?.householdId) assigned += 1;
+      try {
+        assigned += await this.backfillOne(b);
+      } catch (e) {
+        this.logger.warn(`Ripasso della bolletta ${b.id} non riuscito: ${(e as Error).message}`);
       }
     }
     if (bills.length) this.logger.log(`Bollette ripassate: ${bills.length}, abitazioni assegnate: ${assigned}`);
@@ -230,12 +231,63 @@ export class HouseholdsService implements OnApplicationBootstrap {
 
   // ------------------------------------------------------------------
 
-  private async matchBySupplyCode(userId: string, codes: string[], excludeBillId: string): Promise<string | null> {
-    if (codes.length === 0) return null;
+  private async backfillOne(b: {
+    id: string;
+    userId: string;
+    fileKey: string | null;
+    supplyAddress: string | null;
+    householdId: string | null;
+    householdLocked: boolean;
+    energyParsedAt: Date | null;
+    lines: Array<{ utility: string; supplyCode: string | null }>;
+  }): Promise<number> {
+    const wantsHousehold = !b.householdId && !b.householdLocked;
+    let supplyAddress = b.supplyAddress;
+    const needsText = !!b.fileKey && ((wantsHousehold && supplyAddress === null) || !b.energyParsedAt);
+    if (needsText) {
+      let text = '';
+      try {
+        text = await extractPdfText(await streamToBuffer(await this.minio.getObjectStream(b.fileKey!)));
+      } catch (e) {
+        // PDF mancante o illeggibile: lo si segna come già cercato, per non
+        // rileggerlo (e loggarlo) a ogni avvio.
+        this.logger.warn(`PDF della bolletta ${b.id} non riletto: ${(e as Error).message}`);
+      }
+      if (wantsHousehold && supplyAddress === null) {
+        supplyAddress = text ? (findSupplyAddress(text) ?? '') : '';
+        await this.prisma.utilityBill.updateMany({ where: { id: b.id, supplyAddress: null }, data: { supplyAddress } });
+      }
+      if (!b.energyParsedAt) {
+        const found = text ? findEnergyPrices(text) : {};
+        for (const kind of ['electricity', 'gas'] as const) {
+          const f = found[kind];
+          if (!f) continue;
+          await this.prisma.utilityBillLine.updateMany({
+            where: { billId: b.id, utility: kind, energyCostCents: null, energyUnitPrice: null },
+            data: { energyCostCents: f.energyCostCents, energyUnitPrice: f.energyUnitPrice },
+          });
+        }
+        await this.prisma.utilityBill.updateMany({ where: { id: b.id, energyParsedAt: null }, data: { energyParsedAt: new Date() } });
+      }
+    }
+    if (!wantsHousehold) return 0;
+    const codes = b.lines.map((l) => l.supplyCode).filter((c): c is string => !!c);
+    const householdId = await this.resolveForBill(b.userId, supplyAddress || null, codes, b.id);
+    if (!householdId) return 0;
+    const res = await this.prisma.utilityBill.updateMany({
+      where: { id: b.id, householdId: null, householdLocked: false },
+      data: { householdId },
+    });
+    return res.count;
+  }
+
+  private async matchBySupplyCode(userId: string, codes: string[], excludeBillId?: string): Promise<string | null> {
+    const meters = codes.filter(isMeterCode);
+    if (meters.length === 0) return null;
     const line = await this.prisma.utilityBillLine.findFirst({
       where: {
-        supplyCode: { in: codes },
-        bill: { userId, householdId: { not: null }, id: { not: excludeBillId } },
+        supplyCode: { in: meters },
+        bill: { userId, householdId: { not: null }, ...(excludeBillId ? { id: { not: excludeBillId } } : {}) },
       },
       select: { bill: { select: { householdId: true } } },
       orderBy: { bill: { createdAt: 'desc' } },
@@ -245,23 +297,15 @@ export class HouseholdsService implements OnApplicationBootstrap {
 
   private async matchByAddress(userId: string, address: string): Promise<string | null> {
     const parsed = parseAddress(address);
-    if (!parsed) return null;
+    if (!parsed?.number) return null;
     const households = await this.prisma.household.findMany({ where: { userId }, select: { id: true, address: true } });
-    // Si confronta con l'indirizzo dell'abitazione e con quelli già letti
-    // dalle sue bollette: così una variante riconosciuta una volta aiuta le
-    // successive.
-    for (const h of households) {
-      if (addressesMatch(parsed, parseAddress(h.address))) return h.id;
-    }
-    const known = await this.prisma.utilityBill.findMany({
-      where: { userId, householdId: { not: null }, supplyAddress: { not: null } },
-      select: { householdId: true, supplyAddress: true },
-      distinct: ['supplyAddress'],
-    });
-    for (const k of known) {
-      if (k.supplyAddress && addressesMatch(parsed, parseAddress(k.supplyAddress))) return k.householdId;
-    }
-    return null;
+    const strict = households.filter((h) => addressesMatch(parsed, parseAddress(h.address)));
+    if (strict.length === 1) return strict[0].id;
+    if (strict.length > 1) return null; // ambiguo: meglio "senza abitazione" che quella sbagliata
+    // L'indirizzo non permette di confrontare la località (manca il CAP o la
+    // città da una parte): si accetta solo un'unica abitazione compatibile.
+    const lenient = households.filter((h) => addressesMatch(parsed, parseAddress(h.address), { lenient: true }));
+    return lenient.length === 1 ? lenient[0].id : null;
   }
 
   private withLock<T>(userId: string, fn: () => Promise<T>): Promise<T> {

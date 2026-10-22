@@ -354,16 +354,19 @@ export function findEnergyPrices(
 ): Partial<Record<'electricity' | 'gas', { energyUnitPrice: number | null; energyCostCents: number | null }>> {
   const out: Partial<Record<'electricity' | 'gas', { energyUnitPrice: number | null; energyCostCents: number | null }>> = {};
   const flat = text.replace(/\s+/g, ' ');
+  // La spesa si accetta solo dove è inequivocabile: dopo il "+" del formato
+  // recente ("…€/kWh+ 31,17 €") o attaccata al simbolo € in quello vecchio.
+  // Senza questo vincolo "0,12 €/kWh 250 kWh consumati" dava 250 € di spesa.
   const kinds: Array<['electricity' | 'gas', RegExp, RegExp]> = [
     [
       'electricity',
-      /spesa per (?:la )?vendita (?:di )?energia elettrica\s*([\d.,]+)\s*€\s*\/\s*kwh\s*\+?\s*([\d.,]+)?\s*€?/i,
-      /spesa per (?:la )?materia (?:prima )?energia(?: elettrica)?\s*(?:€|euro)?\s*([\d.,]+)/i,
+      /spesa per (?:la )?vendita (?:di )?energia elettrica\s*([\d.,]+)\s*€\s*\/\s*kwh(?:\s*\+\s*([\d.,]+)\s*€)?/i,
+      /spesa per (?:la )?materia (?:prima )?energia(?: elettrica)?\s*(?:(?:€|euro)\s*([\d.,]+)|([\d.,]+)\s*(?:€|euro))/i,
     ],
     [
       'gas',
-      /spesa per (?:la )?vendita (?:di )?gas(?: naturale)?\s*([\d.,]+)\s*€\s*\/\s*smc\s*\+?\s*([\d.,]+)?\s*€?/i,
-      /spesa per (?:la )?materia (?:prima )?gas(?: naturale)?\s*(?:€|euro)?\s*([\d.,]+)/i,
+      /spesa per (?:la )?vendita (?:di )?gas(?: naturale)?\s*([\d.,]+)\s*€\s*\/\s*smc(?:\s*\+\s*([\d.,]+)\s*€)?/i,
+      /spesa per (?:la )?materia (?:prima )?gas(?: naturale)?\s*(?:(?:€|euro)\s*([\d.,]+)|([\d.,]+)\s*(?:€|euro))/i,
     ],
   ];
   for (const [kind, recent, older] of kinds) {
@@ -376,7 +379,7 @@ export function findEnergyPrices(
     }
     const o = flat.match(older);
     if (o) {
-      const cost = toCents(o[1]);
+      const cost = toCents(o[1] ?? o[2]);
       if (cost !== null) out[kind] = { energyUnitPrice: null, energyCostCents: cost };
     }
   }
