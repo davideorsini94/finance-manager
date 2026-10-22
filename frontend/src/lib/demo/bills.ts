@@ -130,7 +130,28 @@ function build(): UtilityBill[] {
     });
   });
 
-  return out.sort((a, b) => (b.periodEnd ?? '').localeCompare(a.periodEnd ?? ''));
+  // Una lettura non riuscita, per mostrare "Riprova" e "Compila".
+  out.push({
+    id: 'demo-bill-failed',
+    provider: null,
+    billNumber: null,
+    issueDate: null,
+    dueDate: null,
+    periodStart: null,
+    periodEnd: null,
+    totalCents: null,
+    notes: null,
+    status: 'failed',
+    hasFile: true,
+    fileName: 'bolletta-acqua-scansione.pdf',
+    extractionError: 'Il PDF non contiene testo leggibile (forse è una scansione): inserisci i dati a mano',
+    extractionModel: null,
+    createdAt: created,
+    updatedAt: created,
+    lines: [],
+  });
+
+  return out.sort((a, b) => (b.periodEnd ?? '9999').localeCompare(a.periodEnd ?? '9999'));
 }
 
 export const DEMO_UTILITY_BILLS: UtilityBill[] = build();

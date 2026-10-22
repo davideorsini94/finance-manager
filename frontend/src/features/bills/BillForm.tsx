@@ -268,7 +268,26 @@ export function BillForm({ open, onOpenChange, bill, onShowPdf }: Props) {
             )}
             {bill && status === 'failed' && (
               <Notice tone="warn" icon={AlertTriangle}>
-                {bill.extractionError ?? 'Non sono riuscito a leggere la bolletta.'} Inserisci i dati a mano o rileggi il PDF.
+                <span className="block">
+                  {bill.extractionError ?? 'Non sono riuscito a leggere la bolletta.'}
+                </span>
+                {bill.hasFile ? (
+                  <span className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => reextract.mutate(bill.id)}
+                      disabled={busy}
+                      className="h-8 rounded-full"
+                    >
+                      <RefreshCw className={cn('h-3.5 w-3.5', reextract.isPending && 'animate-spin')} />
+                      Riprova la lettura
+                    </Button>
+                    <span className="text-xs text-muted-foreground">oppure inserisci i dati qui sotto</span>
+                  </span>
+                ) : (
+                  <span className="mt-1 block">Inserisci i dati a mano.</span>
+                )}
               </Notice>
             )}
 
@@ -493,7 +512,7 @@ function Notice({
       )}
     >
       <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', tone === 'warn' && 'text-[hsl(var(--warn))]')} />
-      <p>{children}</p>
+      <div className="min-w-0">{children}</div>
     </div>
   );
 }
