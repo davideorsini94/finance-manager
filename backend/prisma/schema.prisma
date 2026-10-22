@@ -155,28 +155,29 @@ model User {
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz()
 
-  favoriteAccount     Account?                 @relation("UserFavoriteAccount", fields: [favoriteAccountId], references: [id], onDelete: SetNull)
-  accountsOwned       Account[]                @relation("AccountOwner")
-  accountMembers      AccountMember[]
-  categories          Category[]
-  transactions        Transaction[]
-  attachments         Attachment[]
-  refreshTokens       RefreshToken[]
-  invitesSent         InviteToken[]            @relation("InvitedBy")
-  passwordResetTokens PasswordResetToken[]
-  recurringRules      RecurringRule[]
-  budgets             Budget[]
-  goals               Goal[]
-  chatSessions        ChatSession[]
-  utilityBills        UtilityBill[]
-  households          Household[]
-  notifications       Notification[]
-  notificationPrefs   NotificationPreference[]
-  sentAccountInvites  AccountInvite[]          @relation("AccountInviteInviter")
-  bankConnections     BankConnection[]
-  bankSyncRuns        BankSyncRun[]
-  categoryMemories    CategoryMemory[]
-  llmReports          LlmReport[]
+  favoriteAccount      Account?                 @relation("UserFavoriteAccount", fields: [favoriteAccountId], references: [id], onDelete: SetNull)
+  accountsOwned        Account[]                @relation("AccountOwner")
+  accountMembers       AccountMember[]
+  categories           Category[]
+  transactions         Transaction[]
+  attachments          Attachment[]
+  refreshTokens        RefreshToken[]
+  invitesSent          InviteToken[]            @relation("InvitedBy")
+  passwordResetTokens  PasswordResetToken[]
+  recurringRules       RecurringRule[]
+  budgets              Budget[]
+  goals                Goal[]
+  chatSessions         ChatSession[]
+  utilityBills         UtilityBill[]
+  households           Household[]
+  householdMemberships HouseholdMember[]
+  notifications        Notification[]
+  notificationPrefs    NotificationPreference[]
+  sentAccountInvites   AccountInvite[]          @relation("AccountInviteInviter")
+  bankConnections      BankConnection[]
+  bankSyncRuns         BankSyncRun[]
+  categoryMemories     CategoryMemory[]
+  llmReports           LlmReport[]
 
   @@map("users")
 }
@@ -791,11 +792,29 @@ model Household {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz()
 
-  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bills UtilityBill[]
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bills   UtilityBill[]
+  members HouseholdMember[]
 
   @@index([userId])
   @@map("households")
+}
+
+/// Altri account con cui il proprietario (`Household.userId`) condivide
+/// un'abitazione: vedono tutte le sue bollette e possono caricarne e
+/// modificarne. Solo il proprietario gestisce membri, nome, unione ed
+/// eliminazione.
+model HouseholdMember {
+  householdId String   @map("household_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([householdId, userId])
+  @@index([userId])
+  @@map("household_members")
 }
 
 model UtilityBill {

@@ -13,6 +13,9 @@ import {
   Sparkles,
   TrendingDown,
   TrendingUp,
+  UserMinus,
+  Users,
+  X,
 } from 'lucide-react';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
@@ -51,7 +54,8 @@ import {
   type UtilityKind,
   type UtilitySummary,
 } from './analytics';
-import { billsApi, householdsApi, type Household, type UtilityBill } from './billsApi';
+import { billsApi, householdsApi, personLabel, type Household, type UtilityBill } from './billsApi';
+import { useAuth } from '@/features/auth/useAuth';
 import { BillForm, modelLabel } from './BillForm';
 import { CostStackChart, MonthlyChart, UnitPriceChart, YearCompareChart, YearOverYearChart } from './BillsCharts';
 import {
@@ -209,7 +213,14 @@ export function BillsPage() {
           </div>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {shown.map((h) => (
-              <HouseholdCard key={h.id} id={h.id} name={h.name} address={h.address} bills={confirmed.filter((b) => b.householdId === h.id)} />
+              <HouseholdCard
+                key={h.id}
+                id={h.id}
+                name={h.name}
+                address={h.address}
+                shared={sharingLabel(h)}
+                bills={confirmed.filter((b) => b.householdId === h.id)}
+              />
             ))}
             {unassigned.length > 0 && (
               <HouseholdCard id="none" name="Senza abitazione" address="Bollette senza indirizzo riconosciuto: aprile e scegli l’abitazione" bills={unassigned} muted />
@@ -223,6 +234,13 @@ export function BillsPage() {
   );
 }
 
+/** "Condivisa con Giulia" / "Condivisa da Davide", `null` se non condivisa. */
+function sharingLabel(h: Household): string | null {
+  if (h.role === 'member') return `Condivisa da ${personLabel(h.owner)}`;
+  if (h.members.length === 0) return null;
+  return `Condivisa con ${h.members.map(personLabel).join(', ')}`;
+}
+
 /** Card di un'abitazione nell'ingresso: servizi, spesa recente, ripartizione. */
 function HouseholdCard({
   id,
@@ -230,12 +248,14 @@ function HouseholdCard({
   address,
   bills,
   muted,
+  shared,
 }: {
   id: string;
   name: string;
   address: string | null;
   bills: UtilityBill[];
   muted?: boolean;
+  shared?: string | null;
 }) {
   const total = useMemo(() => combinedLast12(bills), [bills]);
   const utilities = UTILITIES.filter((u) => bills.some((b) => b.lines.some((l) => l.utility === u)));
@@ -279,6 +299,12 @@ function HouseholdCard({
             <div className="min-w-0 flex-1">
               <div className="truncate text-[16px] font-semibold tracking-tight">{name}</div>
               {address && <div className="line-clamp-2 text-xs text-muted-foreground">{address}</div>}
+              {shared && (
+                <div className="mt-1 inline-flex max-w-full items-center gap-1 text-xs font-medium text-primary">
+                  <Users className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  <span className="truncate">{shared}</span>
+                </div>
+              )}
             </div>
             <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
           </div>
@@ -335,6 +361,13 @@ export function HouseholdPage() {
   const [manageOpen, setManageOpen] = useState(false);
   const isNone = householdId === 'none';
   const household = households.find((h) => h.id === householdId) ?? null;
+  const meId = useAuth((s) => s.user?.id);
+  // Nelle abitazioni condivise ogni bolletta dice chi l'ha aggiunta (se non io).
+  const authorOf = useMemo(() => {
+    if (!household || (household.role === 'owner' && household.members.length === 0)) return undefined;
+    const people = new Map([household.owner, ...household.members].map((p) => [p.userId, personLabel(p)]));
+    return (b: UtilityBill) => (b.addedById === meId ? null : (people.get(b.addedById) ?? null));
+  }, [household, meId]);
 
   const scoped = useMemo(
     () => bills.filter((b) => b.status === 'confirmed' && (isNone ? !b.householdId : b.householdId === householdId)),
@@ -378,6 +411,11 @@ export function HouseholdPage() {
             <p className="mt-1 text-sm text-muted-foreground">
               {isNone ? 'Apri una bolletta e scegli a quale abitazione appartiene.' : (household?.address ?? '')}
             </p>
+            {household && sharingLabel(household) && (
+              <p className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-primary">
+                <Users className="h-4 w-4" aria-hidden /> {sharingLabel(household)}
+              </p>
+            )}
           </div>
           {household && (
             <Button variant="outline" onClick={() => setManageOpen(true)}>
@@ -409,6 +447,7 @@ export function HouseholdPage() {
             bills={view === 'overview' ? scoped : scoped.filter((b) => b.lines.some((l) => l.utility === view))}
             duplicates={duplicates}
             onOpen={openForm}
+            authorOf={authorOf}
           />
         </>
       )}
@@ -418,7 +457,8 @@ export function HouseholdPage() {
           open={manageOpen}
           onOpenChange={setManageOpen}
           household={household}
-          others={households.filter((h) => h.id !== household.id)}
+          // Si unisce solo tra abitazioni proprie.
+          others={households.filter((h) => h.id !== household.id && h.role === 'owner')}
         />
       )}
       {editor}
@@ -426,7 +466,11 @@ export function HouseholdPage() {
   );
 }
 
-/** Rinomina, unisci a un'altra abitazione (stesso indirizzo scritto diverso), elimina se vuota. */
+/**
+ * Rinomina, unisci a un'altra abitazione (stesso indirizzo scritto diverso),
+ * condividi con altri account. Chi la vede perché condivisa può solo smettere
+ * di vederla.
+ */
 function HouseholdManageDialog({
   open,
   onOpenChange,
@@ -485,6 +529,20 @@ function HouseholdManageDialog({
     if (ok) merge.mutate(target.id);
   };
 
+  if (household.role === 'member') {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Abitazione condivisa</DialogTitle>
+            <DialogDescription>{household.address ?? 'Indirizzo non indicato'}</DialogDescription>
+          </DialogHeader>
+          <HouseholdSharing household={household} onOpenChange={onOpenChange} />
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
@@ -534,8 +592,147 @@ function HouseholdManageDialog({
           </div>
         )}
         {error && <p className="text-sm text-destructive">{error}</p>}
+        <HouseholdSharing household={household} onOpenChange={onOpenChange} />
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Condivisione di un'abitazione con altri account dell'app, per email. Il
+ * proprietario aggiunge e toglie; chi la vede perché condivisa può uscirne.
+ */
+function HouseholdSharing({ household, onOpenChange }: { household: Household; onOpenChange: (o: boolean) => void }) {
+  const qc = useQueryClient();
+  const confirm = useConfirm();
+  const navigate = useNavigate();
+  const meId = useAuth((st) => st.user?.id);
+  const [email, setEmail] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const isOwner = household.role === 'owner';
+  const refresh = () => qc.invalidateQueries({ queryKey: ['utility-bills'], refetchType: 'all' });
+
+  const add = useMutation({
+    mutationFn: () => householdsApi.addMember(household.id, email.trim()),
+    onSuccess: async () => {
+      setEmail('');
+      setError(null);
+      await refresh();
+    },
+    onError: (e: Error) => setError(e.message),
+  });
+  const remove = useMutation({
+    mutationFn: (userId: string) => householdsApi.removeMember(household.id, userId),
+    onSuccess: async (_r, userId) => {
+      if (userId === meId) {
+        // Uscito da un'abitazione condivisa: non la si vede più.
+        onOpenChange(false);
+        await navigate({ to: '/bills' });
+      }
+      await refresh();
+    },
+    onError: (e: Error) => setError(e.message),
+  });
+
+  const onRemove = async (userId: string, label: string) => {
+    const leaving = userId === meId;
+    const ok = await confirm({
+      title: leaving ? `Smettere di vedere “${household.name}”?` : `Togliere ${label}?`,
+      description: leaving
+        ? `Non vedrai più le bollette di questa abitazione, nemmeno quelle che hai caricato tu: restano a ${personLabel(household.owner)}.`
+        : `${label} non vedrà più le bollette di “${household.name}”, nemmeno quelle che ha caricato: restano a te.`,
+      confirmLabel: leaving ? 'Smetti di vedere' : 'Togli',
+      destructive: true,
+    });
+    if (ok) remove.mutate(userId);
+  };
+
+  return (
+    <section className="space-y-3 border-t border-border/60 pt-4" aria-label="Condivisione">
+      <div>
+        <h3 className="flex items-center gap-1.5 text-sm font-semibold">
+          <Users className="h-4 w-4 text-primary" aria-hidden /> Condivisione
+        </h3>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {isOwner
+            ? 'Chi aggiungi vede tutte le bollette di questa abitazione e può caricarne e correggerne. Deve avere un account su Finance Manager.'
+            : `${personLabel(household.owner)} ha condiviso con te questa abitazione: vedi le sue bollette e puoi caricarne e correggerne.`}
+        </p>
+      </div>
+      <ul className="space-y-1.5">
+        {[household.owner, ...household.members].map((p) => {
+          const owner = p.userId === household.owner.userId;
+          const canRemove = !owner && (isOwner || p.userId === meId);
+          return (
+            <li key={p.userId} className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-2">
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">
+                  {personLabel(p)}
+                  {p.userId === meId && <span className="font-normal text-muted-foreground"> (tu)</span>}
+                </span>
+                {p.name && <span className="block truncate text-xs text-muted-foreground">{p.email}</span>}
+              </span>
+              {owner ? (
+                <span className="shrink-0 text-xs text-muted-foreground">Proprietario</span>
+              ) : (
+                canRemove && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0"
+                    disabled={remove.isPending}
+                    onClick={() => onRemove(p.userId, personLabel(p))}
+                  >
+                    {p.userId === meId ? (
+                      <>
+                        <UserMinus className="h-4 w-4" /> Esci
+                      </>
+                    ) : (
+                      <>
+                        <X className="h-4 w-4" /> Togli
+                      </>
+                    )}
+                  </Button>
+                )
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {isOwner && (
+        <form
+          className="space-y-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            add.mutate();
+          }}
+        >
+          <Label htmlFor="household-share-email">Condividi con</Label>
+          <div className="flex gap-2">
+            <Input
+              id="household-share-email"
+              type="email"
+              inputMode="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              autoComplete="email"
+              placeholder="email dell’account"
+              value={email}
+              maxLength={255}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setError(null);
+              }}
+            />
+            <Button type="submit" disabled={!email.includes('@') || add.isPending}>
+              {add.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Condividi'}
+            </Button>
+          </div>
+        </form>
+      )}
+      {error && <p className="text-sm text-destructive">{error}</p>}
+    </section>
   );
 }
 
@@ -1204,10 +1401,13 @@ function BillList({
   bills,
   duplicates,
   onOpen,
+  authorOf,
 }: {
   bills: UtilityBill[];
   duplicates: Set<string>;
   onOpen: (b: UtilityBill) => void;
+  /** Nome di chi ha aggiunto la bolletta, se va mostrato (abitazioni condivise). */
+  authorOf?: (b: UtilityBill) => string | null;
 }) {
   const [page, setPage] = useState(1);
   const sorted = useMemo(
@@ -1271,6 +1471,7 @@ function BillList({
                             {l.estimated && <span className="text-[hsl(var(--warn))]">stimata</span>}
                           </span>
                         ))}
+                        {authorOf?.(b) && <span>aggiunta da {authorOf(b)}</span>}
                         {duplicates.has(b.id) && (
                           <span className="inline-flex items-center gap-1 text-[hsl(var(--warn))]">
                             <AlertTriangle className="h-3 w-3" /> possibile doppione

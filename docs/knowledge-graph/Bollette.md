@@ -46,6 +46,18 @@ Provato sul gateway reale con tre PDF (luce+gas, acqua, scansione) e con OpenCod
 - Gestione: `GET /households`, `PATCH /households/:id` (nome), `POST /households/:id/merge` (unisce due abitazioni: stesso indirizzo scritto troppo diverso), `DELETE /households/:id` (solo se vuota). Nel form della bolletta il campo "Abitazione" (esistente, nessuna o nuova da indirizzo, riconosciuta se esiste già)
 - Il caricamento (PDF o a mano) sta **fuori** dalle abitazioni, nell'ingresso; dentro l'abitazione si consultano statistiche e bollette
 
+## Abitazioni condivise (v0.22.0)
+
+Richiesta dell'utente: condividere le abitazioni con altri account (la compagna) inserendo la mail, così entrambi vedono e caricano le bollette.
+- Modello `HouseholdMember` (`household_members`, chiave `householdId+userId`, cascade): il proprietario resta `Household.userId`
+- `POST /households/:id/members` `{email}` (solo proprietario; l'account deve esistere ed essere attivo, email senza maiuscole/spazi; idempotente) → notifica in-app `system` con link `/bills/<id>` (`NotificationBell` ora segue `data.href` interno). `DELETE /households/:id/members/:userId`: il proprietario toglie chiunque, un membro solo se stesso
+- **Accesso alle bollette** (`HouseholdsService.billAccessWhere`): quelle delle abitazioni proprie o condivise, più le proprie senza abitazione. Vale per elenco, dettaglio, PDF, salvataggio, rilettura ed eliminazione. Chi esce (o viene tolto) non vede più nemmeno le bollette che aveva caricato lì: restano al proprietario
+- Riconoscimento delle bollette nuove (POD/PDR e indirizzo) su **tutte le abitazioni accessibili**: una bolletta caricata dal membro finisce nella casa condivisa; se non corrisponde a niente si crea un'abitazione del membro
+- Solo il proprietario rinomina, unisce (solo tra abitazioni proprie; bollette di tutti e membri passano alla destinazione) ed elimina; per gli altri `403`
+- `UtilityBillView.addedById`: nelle abitazioni condivise l'elenco mostra "aggiunta da …"; `HouseholdView` ha `role`, `owner`, `members`
+- UI: card e testata con "Condivisa con … / Condivisa da …", sezione **Condivisione** nella finestra Gestisci (aggiungi per email, togli, esci); la demo ha la casa di Roma condivisa
+- Verificato con un test d'integrazione su un Postgres usa e getta (6 scenari: visibilità, errori, case-insensitive, riconoscimento POD/indirizzo, permessi, uscita, unione)
+
 ## Materia prima (v0.21.0)
 
 - Per luce e gas `UtilityBillLine.energyUnitPrice` (€/kWh, €/Smc) e `energyCostCents`: la voce "spesa per la vendita di energia elettrica / gas naturale" (bollette recenti, es. "0,177488 €/kWh + 31,17 €") o "spesa per la materia energia / gas" (meno recenti). Non rete, oneri, imposte né l'indice all'ingrosso (PUN, PSV, PSBIL)
