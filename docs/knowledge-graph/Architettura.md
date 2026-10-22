@@ -6,7 +6,7 @@ Stack a 6 servizi orchestrati con Docker Compose (vedi [[Infrastruttura Docker]]
 Browser/PWA ──HTTPS (Tailscale Funnel)──▶ nginx :80
                                             ├── /api/* ──▶ backend (NestJS :3000)
                                             └── /*     ──▶ frontend (React SPA)
-backend ──▶ postgres 16 (dati) · minio (allegati) · ollama (LLM qwen2.5:7b)
+backend ──▶ postgres 16 (dati) · minio (allegati) · ollama (LLM qwen3.5:4b)
 ```
 
 ## Componenti
@@ -17,7 +17,7 @@ backend ──▶ postgres 16 (dati) · minio (allegati) · ollama (LLM qwen2.5:
 | [[Backend]] | NestJS + Prisma | API REST + SSE |
 | [[Database]] | PostgreSQL 16 | via Prisma ORM |
 | Storage allegati | MinIO (S3-compatible) | presigned URL |
-| LLM | Ollama `qwen2.5:7b-instruct-q4_K_M` | per [[Chat LLM]], categorie del [[Sync Bancario]] e lettura delle [[Bollette]] (riserva di OpenCode) |
+| LLM | Ollama `qwen3.5:4b-q4_K_M` (dalla v0.21.3; il 7B non entra nella memoria libera dell'host) | per [[Chat LLM]], categorie del [[Sync Bancario]] e lettura delle [[Bollette]] (riserva di OpenCode) |
 | Reverse proxy | nginx 1.27-alpine | gzip, SSE senza buffering, body max 25 MB |
 
 ## Flussi trasversali

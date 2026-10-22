@@ -42,12 +42,20 @@ const CATALOG_SEED: readonly {
   description: string;
 }[] = [
   {
+    tag: 'qwen3.5:4b-q4_K_M',
+    displayName: 'Qwen3.5 4B',
+    downloadSize: '3,3 GB',
+    ramRequiredGb: 4,
+    description:
+      'Modello predefinito dell\'app (ottobre 2026): il più recente che entra nella memoria di questo server. Legge le bollette meglio dei modelli piccoli precedenti; su CPU servono 3–5 minuti a bolletta. Consigliato.',
+  },
+  {
     tag: 'qwen2.5:7b-instruct-q4_K_M',
     displayName: 'Qwen2.5 7B Instruct',
     downloadSize: '4,7 GB',
     ramRequiredGb: 6,
     description:
-      'Modello predefinito dell\'app: ottimo italiano e tool-calling affidabile, il migliore per la chat finanziaria e la categorizzazione automatica. Consigliato.',
+      'Ottimo italiano e tool-calling affidabile, ma richiede circa 6 GB: su questo server non si carica (memoria libera insufficiente).',
   },
   {
     tag: 'llama3.1:8b-instruct-q4_K_M',

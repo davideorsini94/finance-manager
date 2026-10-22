@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Ollama } from 'ollama';
+import { ollamaChatText } from '../llm-chat/ollama-text';
 import { LlmConfigService } from '../llm-chat/llm-config.service';
 import { OpencodeClient } from '../llm-chat/opencode.client';
 import { isQuotaError } from '../llm-chat/llm-fallback';
@@ -21,7 +22,9 @@ import {
 const OLLAMA_TEXT_MAX_CHARS = 12_000;
 const OLLAMA_NUM_CTX = 8192;
 /** Sotto i 300s di `headersTimeout` di undici, come in `CategoryAiService`. */
-const OLLAMA_TIMEOUT_MS = 280_000;
+// qwen3.5:4b su CPU impiega 3–5 minuti a bolletta, e con due letture in coda
+// la seconda aspetta la prima: margine ampio (vedi STALE_EXTRACTION_MS).
+const OLLAMA_TIMEOUT_MS = 12 * 60_000;
 
 export interface ExtractionOutcome {
   data: ExtractedBill;
@@ -95,15 +98,17 @@ export class BillExtractorService {
     if (local && this.ollama) {
       const startedAt = Date.now();
       try {
-        const res = await this.ollama.chat({
+        const content = await ollamaChatText(this.ollama, {
           model: local.model,
           messages: [
             { role: 'user', content: buildExtractionPrompt(cleanPdfText(pdfText, OLLAMA_TEXT_MAX_CHARS)) },
           ],
           format: 'json',
+          // Scaricato subito dopo: sull'host la memoria libera è poca.
+          keep_alive: '1m',
           options: { temperature: 0, num_ctx: OLLAMA_NUM_CTX },
         });
-        const data = normalizeExtraction(extractJsonObject(res.message?.content ?? ''));
+        const data = normalizeExtraction(extractJsonObject(content));
         if (isUsefulExtraction(data)) {
           this.logger.log(`Bolletta ${billId} letta da Ollama ${local.model} in ${seconds(startedAt)}s`);
           return { data, model: `ollama:${local.model}` };

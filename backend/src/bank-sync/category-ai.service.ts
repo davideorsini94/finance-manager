@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Ollama } from 'ollama';
+import { ollamaChatText } from '../llm-chat/ollama-text';
 import { ConfigService } from '@nestjs/config';
 import { LlmConfigService } from '../llm-chat/llm-config.service';
 import { OpencodeClient } from '../llm-chat/opencode.client';
@@ -40,7 +41,7 @@ export const CATEGORY_BATCH_SIZE = 8;
  * undici: così a scadere è il **nostro** abort, con un messaggio riconoscibile,
  * e il chiamante ripiega sull'euristica invece di restare appeso.
  */
-const OLLAMA_TIMEOUT_MS = 240_000;
+const OLLAMA_TIMEOUT_MS = 600_000;
 
 /**
  * Quanto tenere il modello caricato in RAM dopo una chiamata. Senza questo
@@ -160,7 +161,7 @@ export class CategoryAiService {
   ): Promise<CategorySuggestion[] | null> {
     if (!this.ollama) return null;
     try {
-      const res = await this.ollama.chat({
+      const content = await ollamaChatText(this.ollama, {
         model,
         messages: [{ role: 'user', content: prompt }],
         format: 'json',
@@ -168,7 +169,7 @@ export class CategoryAiService {
         keep_alive: OLLAMA_KEEP_ALIVE,
         options: { temperature: 0 },
       });
-      const suggestions = this.parseResponse(res.message?.content ?? '', inputs, categories);
+      const suggestions = this.parseResponse(content, inputs, categories);
       this.logger.log(
         `Batch categorie ${inputs.length} righe in ${elapsedSeconds(startedAt)}s (modello ${model})`,
       );
