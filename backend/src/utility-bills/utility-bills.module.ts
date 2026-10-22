@@ -3,6 +3,8 @@ import { LlmChatModule } from '../llm-chat/llm-chat.module';
 import { BillExtractorService } from './bill-extractor.service';
 import { UtilityBillsController } from './utility-bills.controller';
 import { UtilityBillsService } from './utility-bills.service';
+import { HouseholdsController } from './households.controller';
+import { HouseholdsService } from './households.service';
 
 /**
  * Bollette di luce, gas e acqua. Indipendente dai movimenti bancari: non
@@ -12,7 +14,7 @@ import { UtilityBillsService } from './utility-bills.service';
  */
 @Module({
   imports: [LlmChatModule],
-  controllers: [UtilityBillsController],
-  providers: [UtilityBillsService, BillExtractorService],
+  controllers: [UtilityBillsController, HouseholdsController],
+  providers: [UtilityBillsService, BillExtractorService, HouseholdsService],
 })
 export class UtilityBillsModule {}

@@ -19,8 +19,8 @@ import {
 import { useConfirm } from '@/components/shared/confirm';
 import { cn } from '@/lib/utils/cn';
 import { UTILITIES, type UtilityKind } from './analytics';
-import { parseDecimal, toCents } from './numbers';
-import { billsApi, type SaveBillInput, type UtilityBill } from './billsApi';
+import { parseDecimal, parseUnitPrice, toCents } from './numbers';
+import { billsApi, type Household, type SaveBillInput, type UtilityBill } from './billsApi';
 import { UTILITY_META, UtilityGlyph, utilColor } from './utilities';
 
 /** Stessi limiti del backend (`dto/utility-bill.dto.ts`). */
@@ -50,6 +50,8 @@ const lineSchema = z.object({
   enabled: z.boolean(),
   consumption: z.string(),
   cost: z.string(),
+  energyPrice: z.string(),
+  energyCost: z.string(),
   supplyCode: z.string().max(40),
   estimated: z.boolean(),
   ownPeriod: z.boolean(),
@@ -67,9 +69,15 @@ const schema = z
     periodEnd: z.string().min(1, 'Indica la fine del periodo'),
     total: z.string(),
     notes: z.string().max(1000),
+    /** '' = nessuna abitazione, NEW_HOUSEHOLD = nuova da indirizzo, altrimenti l'id. */
+    household: z.string(),
+    newHouseholdAddress: z.string().max(300),
     lines: z.object({ electricity: lineSchema, gas: lineSchema, water: lineSchema }),
   })
   .superRefine((v, ctx) => {
+    if (v.household === NEW_HOUSEHOLD && !v.newHouseholdAddress.trim()) {
+      ctx.addIssue({ code: 'custom', path: ['newHouseholdAddress'], message: 'Indica l’indirizzo dell’abitazione' });
+    }
     const totalError = numberError(v.total, 'money');
     if (totalError) ctx.addIssue({ code: 'custom', path: ['total'], message: totalError });
     if (v.periodStart && v.periodEnd && v.periodStart > v.periodEnd) {
@@ -83,6 +91,14 @@ const schema = z
       const l = v.lines[u];
       const consumptionError = numberError(l.consumption, 'consumption');
       const costError = numberError(l.cost, 'money');
+      if (u !== 'water') {
+        const priceN = parseUnitPrice(l.energyPrice);
+        if (priceN !== null && (Number.isNaN(priceN) || priceN < 0 || priceN > 5)) {
+          ctx.addIssue({ code: 'custom', path: ['lines', u, 'energyPrice'], message: 'Prezzo non valido' });
+        }
+        const energyCostError = numberError(l.energyCost, 'money');
+        if (energyCostError) ctx.addIssue({ code: 'custom', path: ['lines', u, 'energyCost'], message: energyCostError });
+      }
       if (consumptionError) ctx.addIssue({ code: 'custom', path: ['lines', u, 'consumption'], message: consumptionError });
       if (costError) ctx.addIssue({ code: 'custom', path: ['lines', u, 'cost'], message: costError });
       if (consumptionError || costError) continue;
@@ -98,18 +114,24 @@ const schema = z
   });
 
 type FormValues = z.infer<typeof schema>;
+
+const NEW_HOUSEHOLD = '__new';
 type LineValues = FormValues['lines']['electricity'];
 
 const fmtNumber = (n: number | null, decimals = 3) =>
   n === null ? '' : new Intl.NumberFormat('it-IT', { maximumFractionDigits: decimals, useGrouping: false }).format(n);
 
-function toFormValues(bill: UtilityBill | null): FormValues {
+function toFormValues(bill: UtilityBill | null, households: Household[]): FormValues {
+  // Nuova bolletta a mano con una sola abitazione: è quasi certamente quella.
+  const household = bill ? (bill.householdId ?? '') : households.length === 1 ? households[0].id : '';
   const line = (u: UtilityKind): LineValues => {
     const l = bill?.lines.find((x) => x.utility === u);
     return {
       enabled: !!l,
       consumption: fmtNumber(l?.consumption ?? null),
       cost: l?.costCents == null ? '' : fmtNumber(l.costCents / 100, 2),
+      energyPrice: fmtNumber(l?.energyUnitPrice ?? null, 6),
+      energyCost: l?.energyCostCents == null ? '' : fmtNumber(l.energyCostCents / 100, 2),
       supplyCode: l?.supplyCode ?? '',
       estimated: l?.estimated ?? false,
       ownPeriod: !!(l?.periodStart && l?.periodEnd),
@@ -126,6 +148,8 @@ function toFormValues(bill: UtilityBill | null): FormValues {
     periodEnd: bill?.periodEnd ?? '',
     total: bill?.totalCents == null ? '' : fmtNumber(bill.totalCents / 100, 2),
     notes: bill?.notes ?? '',
+    household,
+    newHouseholdAddress: bill?.supplyAddress ?? '',
     lines: { electricity: line('electricity'), gas: line('gas'), water: line('water') },
   };
 }
@@ -135,7 +159,7 @@ const cents = (v: string) => {
   return n === null || Number.isNaN(n) ? null : toCents(n);
 };
 
-function toInput(v: FormValues): SaveBillInput {
+function toInput(v: FormValues, sendHousehold: boolean): SaveBillInput {
   const blank = (s: string) => (s.trim() ? s.trim() : null);
   return {
     provider: blank(v.provider),
@@ -146,6 +170,13 @@ function toInput(v: FormValues): SaveBillInput {
     periodEnd: v.periodEnd,
     totalCents: cents(v.total),
     notes: blank(v.notes),
+    // Abitazione inviata solo se scelta in questo form: altrimenti resta quella
+    // del server (che può averla assegnata mentre il form era aperto).
+    ...(!sendHousehold
+      ? {}
+      : v.household === NEW_HOUSEHOLD
+        ? { newHouseholdAddress: v.newHouseholdAddress.trim() }
+        : { householdId: v.household || null }),
     lines: UTILITIES.filter((u) => v.lines[u].enabled).map((u) => {
       const l = v.lines[u];
       const consumption = parseDecimal(l.consumption);
@@ -157,6 +188,15 @@ function toInput(v: FormValues): SaveBillInput {
         periodEnd: l.ownPeriod ? l.periodEnd || null : null,
         supplyCode: blank(l.supplyCode),
         estimated: l.estimated,
+        ...(u === 'water'
+          ? { energyCostCents: null, energyUnitPrice: null }
+          : {
+              energyCostCents: cents(l.energyCost),
+              energyUnitPrice: (() => {
+                const n = parseUnitPrice(l.energyPrice);
+                return n === null || Number.isNaN(n) ? null : Math.round(n * 1_000_000) / 1_000_000;
+              })(),
+            }),
       };
     }),
   };
@@ -167,10 +207,12 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   /** `null` = nuova bolletta inserita a mano. */
   bill: UtilityBill | null;
+  /** Abitazioni esistenti, per scegliere dove va la bolletta. */
+  households: Household[];
   onShowPdf?: (bill: UtilityBill) => void;
 }
 
-export function BillForm({ open, onOpenChange, bill, onShowPdf }: Props) {
+export function BillForm({ open, onOpenChange, bill, households, onShowPdf }: Props) {
   const qc = useQueryClient();
   const confirm = useConfirm();
   const [serverError, setServerError] = useState<string | null>(null);
@@ -180,18 +222,23 @@ export function BillForm({ open, onOpenChange, bill, onShowPdf }: Props) {
     reset,
     setValue,
     control,
-    formState: { errors },
-  } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: toFormValues(bill) });
+    getValues,
+    formState: { errors, dirtyFields },
+  } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: toFormValues(bill, households) });
 
   // Riapertura o bolletta diversa: si riparte dai suoi dati.
   useEffect(() => {
     if (open) {
-      reset(toFormValues(bill));
+      reset(toFormValues(bill, households));
       setServerError(null);
     }
+    // `households` fuori dalle dipendenze di proposito: un ricaricamento
+    // dell'elenco a form aperto non deve cancellare quello che si sta scrivendo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, bill, reset]);
 
   const lines = useWatch({ control, name: 'lines' });
+  const household = useWatch({ control, name: 'household' });
   const invalidate = () => qc.invalidateQueries({ queryKey: ['utility-bills'], refetchType: 'all' });
 
   const save = useMutation({
@@ -221,7 +268,19 @@ export function BillForm({ open, onOpenChange, bill, onShowPdf }: Props) {
     onError: (e: Error) => setServerError(e.message),
   });
 
-  const onSubmit = handleSubmit((v) => save.mutate(toInput(v)));
+  // Nuova bolletta: l'abitazione mostrata (anche quella preselezionata) è la
+  // scelta. In modifica: solo se il campo è stato toccato.
+  const onSubmit = handleSubmit((v) =>
+    save.mutate(toInput(v, !bill || !!dirtyFields.household || !!dirtyFields.newHouseholdAddress)),
+  );
+
+  // Elenco abitazioni arrivato dopo l'apertura: si applica la preselezione
+  // "unica abitazione" se il campo non è stato ancora toccato.
+  useEffect(() => {
+    if (open && !bill && !dirtyFields.household && getValues('household') === '' && households.length === 1) {
+      setValue('household', households[0].id);
+    }
+  }, [open, bill, households, dirtyFields.household, getValues, setValue]);
 
   const onDelete = async () => {
     if (!bill) return;
@@ -322,6 +381,30 @@ export function BillForm({ open, onOpenChange, bill, onShowPdf }: Props) {
             </fieldset>
 
             <div className="grid grid-cols-2 gap-3">
+              <Field label="Abitazione" className="col-span-2" error={errors.household?.message}>
+                <select
+                  className="fm-glass-field h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  {...register('household')}
+                >
+                  <option value="">Nessuna abitazione</option>
+                  {households.map((h) => (
+                    <option key={h.id} value={h.id}>
+                      {h.name}
+                    </option>
+                  ))}
+                  <option value={NEW_HOUSEHOLD}>Nuova abitazione…</option>
+                </select>
+              </Field>
+              {household === NEW_HOUSEHOLD && (
+                <Field label="Indirizzo della nuova abitazione" className="col-span-2" error={errors.newHouseholdAddress?.message}>
+                  <Input placeholder="Es. Via Roma 12, 40100 Bologna" {...register('newHouseholdAddress')} />
+                </Field>
+              )}
+              {bill?.supplyAddress && household !== NEW_HOUSEHOLD && (
+                <p className="col-span-2 -mt-1.5 text-xs text-muted-foreground">
+                  Indirizzo di fornitura letto: {bill.supplyAddress}
+                </p>
+              )}
               <Field label="Fornitore" className="col-span-2">
                 <Input placeholder="Es. Enel Energia" {...register('provider')} />
               </Field>
@@ -430,6 +513,16 @@ function LineSection({
         <Field label="Costo" error={errors?.cost?.message}>
           <Input inputMode="decimal" placeholder="0,00" suffix="€" {...register(`lines.${utility}.cost`)} />
         </Field>
+        {utility !== 'water' && (
+          <>
+            <Field label="Materia prima" error={errors?.energyPrice?.message}>
+              <Input inputMode="decimal" placeholder="0,000000" suffix={meta.priceUnit} {...register(`lines.${utility}.energyPrice`)} />
+            </Field>
+            <Field label="Spesa materia prima" error={errors?.energyCost?.message}>
+              <Input inputMode="decimal" placeholder="0,00" suffix="€" {...register(`lines.${utility}.energyCost`)} />
+            </Field>
+          </>
+        )}
         <Field label={meta.codeLabel} className="col-span-2">
           <Input autoCapitalize="characters" spellCheck={false} {...register(`lines.${utility}.supplyCode`)} />
         </Field>

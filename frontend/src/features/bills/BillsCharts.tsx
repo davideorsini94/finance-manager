@@ -2,6 +2,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  ComposedChart,
   Line,
   LineChart,
   ReferenceLine,
@@ -11,7 +12,7 @@ import {
   YAxis,
 } from 'recharts';
 import { formatCents } from '@/lib/utils/currency';
-import type { MonthPoint, UnitPricePoint, UtilityKind, YoYPoint } from './analytics';
+import type { EnergyPricePoint, MonthPoint, UnitPricePoint, UtilityKind, YearSummary, YoYPoint } from './analytics';
 import { UTILITIES } from './analytics';
 import {
   UTILITY_META,
@@ -106,28 +107,54 @@ export function YearOverYearChart({
   );
 }
 
-/** Spesa mensile di tutti i servizi impilata (panoramica). */
-export function CostStackChart({ series }: { series: Record<UtilityKind, MonthPoint[]> }) {
+/**
+ * Spesa mensile di tutti i servizi impilata (panoramica).
+ * - senza `year`: gli ultimi 24 mesi;
+ * - con `year`: i 12 mesi di quell'anno, più (`previous`) la spesa totale
+ *   dell'anno prima mese per mese come linea tratteggiata, per confronto.
+ */
+export function CostStackChart({
+  series,
+  year,
+  previous,
+}: {
+  series: Record<UtilityKind, MonthPoint[]>;
+  year?: number;
+  /** Spesa dell'anno precedente per mese (centesimi), 12 valori. */
+  previous?: Array<number | null>;
+}) {
   const months = new Map<string, Record<string, number | string | null>>();
+  if (year) {
+    for (let m = 1; m <= 12; m++) {
+      const key = `${year}-${String(m).padStart(2, '0')}`;
+      months.set(key, { month: key, previous: previous?.[m - 1] == null ? null : previous[m - 1]! / 100 });
+    }
+  }
   for (const u of UTILITIES) {
     for (const p of series[u]) {
+      if (year && Number(p.month.slice(0, 4)) !== year) continue;
       const row = months.get(p.month) ?? { month: p.month };
       row[u] = p.costCents === null ? null : p.costCents / 100;
       months.set(p.month, row);
     }
   }
-  const data = [...months.values()].sort((a, b) => String(a.month).localeCompare(String(b.month))).slice(-24);
+  const sorted = [...months.values()].sort((a, b) => String(a.month).localeCompare(String(b.month)));
+  const data = year ? sorted : sorted.slice(-24);
   const present = UTILITIES.filter((u) => series[u].length > 0);
+  const showPrevious = !!year && !!previous?.some((v) => v !== null);
   return (
     <ResponsiveContainer width="100%" height={240}>
-      <BarChart data={data} margin={{ top: 8, right: 4, left: -8, bottom: 0 }}>
+      <ComposedChart data={data} margin={{ top: 8, right: 4, left: -8, bottom: 0 }}>
         {GRID}
-        <XAxis dataKey="month" tickFormatter={monthTick} {...AXIS} minTickGap={12} />
+        <XAxis dataKey="month" tickFormatter={monthTick} {...AXIS} minTickGap={year ? 4 : 12} />
         <YAxis {...AXIS} width={48} tickFormatter={compactEuro} />
         <Tooltip
           {...TOOLTIP}
           labelFormatter={(m: string) => monthLabel(m)}
-          formatter={(v: number, key: string) => [euro(v), UTILITY_META[key as UtilityKind]?.label ?? key]}
+          formatter={(v: number, key: string) => [
+            euro(v),
+            key === 'previous' ? `Totale ${year ? year - 1 : ''}` : (UTILITY_META[key as UtilityKind]?.label ?? key),
+          ]}
         />
         {present.map((u, i) => (
           <Bar
@@ -140,6 +167,49 @@ export function CostStackChart({ series }: { series: Record<UtilityKind, MonthPo
             radius={i === present.length - 1 ? [6, 6, 0, 0] : [0, 0, 0, 0]}
           />
         ))}
+        {showPrevious && (
+          <Line
+            type="monotone"
+            dataKey="previous"
+            stroke="hsl(var(--foreground) / 0.55)"
+            strokeWidth={2}
+            strokeDasharray="5 4"
+            dot={{ r: 2.5, fill: 'hsl(var(--foreground) / 0.55)', strokeWidth: 0 }}
+            connectNulls={false}
+          />
+        )}
+      </ComposedChart>
+    </ResponsiveContainer>
+  );
+}
+
+/** Spesa anno per anno, impilata per servizio. */
+export function YearCompareChart({ years }: { years: YearSummary[] }) {
+  const present = UTILITIES.filter((u) => years.some((y) => y.costCents[u] !== null));
+  const data = years.map((y) => ({
+    year: String(y.year),
+    ...Object.fromEntries(present.map((u) => [u, y.costCents[u] === null ? null : y.costCents[u]! / 100])),
+  }));
+  return (
+    <ResponsiveContainer width="100%" height={200}>
+      <BarChart data={data} margin={{ top: 8, right: 4, left: -8, bottom: 0 }}>
+        {GRID}
+        <XAxis dataKey="year" {...AXIS} />
+        <YAxis {...AXIS} width={60} tickFormatter={compactEuro} />
+        <Tooltip
+          {...TOOLTIP}
+          formatter={(v: number, key: string) => [euro(v), UTILITY_META[key as UtilityKind]?.label ?? key]}
+        />
+        {present.map((u, i) => (
+          <Bar
+            key={u}
+            dataKey={u}
+            stackId="year"
+            fill={utilColor(u)}
+            maxBarSize={56}
+            radius={i === present.length - 1 ? [8, 8, 0, 0] : [0, 0, 0, 0]}
+          />
+        ))}
       </BarChart>
     </ResponsiveContainer>
   );
@@ -149,26 +219,48 @@ export function CostStackChart({ series }: { series: Record<UtilityKind, MonthPo
  * Prezzo per unità bolletta per bolletta, con una linea verticale dove cambia
  * il fornitore: è lì che di solito il prezzo salta.
  */
-export function UnitPriceChart({ points, utility }: { points: UnitPricePoint[]; utility: UtilityKind }) {
-  const data = points.map((p) => ({ ...p, value: p.unitPriceCents / 100 }));
+export function UnitPriceChart({
+  points,
+  energy = [],
+  utility,
+}: {
+  points: UnitPricePoint[];
+  /** Prezzo della sola materia prima, per la seconda linea (luce e gas). */
+  energy?: EnergyPricePoint[];
+  utility: UtilityKind;
+}) {
+  // Un punto per bolletta (data + id): due bollette che finiscono lo stesso
+  // giorno (un conguaglio) non si sovrascrivono, e la materia prima resta
+  // sulla riga della sua bolletta.
+  const byDate = new Map<string, { date: string; provider: string | null; total: number | null; energy: number | null; billId: string }>();
+  for (const p of points) {
+    byDate.set(`${p.date}|${p.billId}`, { date: p.date, provider: p.provider, total: p.unitPriceCents / 100, energy: null, billId: p.billId });
+  }
+  for (const e of energy) {
+    const key = `${e.date}|${e.billId}`;
+    const row = byDate.get(key) ?? { date: e.date, provider: e.provider, total: null, energy: null, billId: e.billId };
+    row.energy = e.unitPriceCents / 100;
+    byDate.set(key, row);
+  }
+  const data = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date) || a.billId.localeCompare(b.billId));
   const changes = data.filter((p, i) => i > 0 && (p.provider ?? '') !== (data[i - 1].provider ?? ''));
   return (
-    <ResponsiveContainer width="100%" height={200}>
+    <ResponsiveContainer width="100%" height={220}>
       <LineChart data={data} margin={{ top: 18, right: 8, left: -8, bottom: 0 }}>
         {GRID}
         <XAxis dataKey="date" tickFormatter={(d: string) => monthTick(d.slice(0, 7))} {...AXIS} minTickGap={16} />
         <YAxis
           {...AXIS}
           width={48}
-          domain={['auto', 'auto']}
+          domain={[0, 'auto']}
           tickFormatter={(v: number) => new Intl.NumberFormat('it-IT', { maximumFractionDigits: 2 }).format(v)}
         />
         <Tooltip
           {...TOOLTIP}
           labelFormatter={(d: string) => monthLabel(d.slice(0, 7))}
-          formatter={(v: number, _n: string, item: { payload?: UnitPricePoint }) => [
+          formatter={(v: number, key: string) => [
             formatUnitPrice(utility, v * 100),
-            item.payload?.provider ?? 'Prezzo',
+            key === 'energy' ? 'Materia prima' : 'Prezzo totale',
           ]}
         />
         {changes.map((c) => (
@@ -182,12 +274,25 @@ export function UnitPriceChart({ points, utility }: { points: UnitPricePoint[]; 
         ))}
         <Line
           type="monotone"
-          dataKey="value"
+          dataKey="total"
           stroke={utilColor(utility)}
           strokeWidth={2.5}
           dot={{ r: 3.5, fill: utilColor(utility), strokeWidth: 0 }}
           activeDot={{ r: 5 }}
+          connectNulls
         />
+        {energy.length > 0 && (
+          <Line
+            type="monotone"
+            dataKey="energy"
+            stroke={utilColor(utility, 0.6)}
+            strokeWidth={2}
+            strokeDasharray="5 4"
+            dot={{ r: 3, fill: utilColor(utility, 0.6), strokeWidth: 0 }}
+            activeDot={{ r: 4.5 }}
+            connectNulls
+          />
+        )}
       </LineChart>
     </ResponsiveContainer>
   );

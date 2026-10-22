@@ -37,6 +37,8 @@ function bill(p: Partial<Bill> & { lines: Partial<BillLine>[] }): Bill {
       periodEnd: l.periodEnd ?? null,
       supplyCode: null,
       estimated: l.estimated ?? false,
+      energyCostCents: l.energyCostCents ?? null,
+      energyUnitPrice: l.energyUnitPrice ?? null,
     })),
   };
 }
@@ -283,4 +285,117 @@ test('parseDecimal legge i numeri come li scrive un italiano', async () => {
   assert.equal(toCents(1.005), 101);
   assert.equal(toCents(0.1 + 0.2), 30);
   assert.equal(toCents(-12.345), -1234);
+});
+
+test('yearlySummary: totali per anno, variazione solo tra anni completi', async () => {
+  const { yearlySummary, monthlyTotalsOfYear, billYears } = await import('../src/features/bills/analytics.ts');
+  const water = (y: number, q: number, cents: number) => {
+    const sm = (q - 1) * 3 + 1;
+    const em = sm + 2;
+    const last = new Date(Date.UTC(y, em, 0)).getUTCDate();
+    return bill({
+      periodStart: `${y}-${String(sm).padStart(2, '0')}-01`,
+      periodEnd: `${y}-${String(em).padStart(2, '0')}-${last}`,
+      lines: [{ utility: 'water', consumption: 20, costCents: cents }],
+    });
+  };
+  const bills = [
+    ...monthlyBills(2024, 12, 100, 1000),
+    ...monthlyBills(2025, 12, 100, 1200),
+    ...monthlyBills(2026, 3, 100, 1300),
+    ...[1, 2, 3, 4].map((q) => water(2024, q, 3000)),
+    ...[1, 2, 3, 4].map((q) => water(2025, q, 3000)),
+    water(2026, 1, 3300),
+  ];
+  const y = yearlySummary(bills);
+  assert.deepEqual(y.map((x) => x.year), [2024, 2025, 2026]);
+  assert.equal(y[0].totalCents, 12000 + 12000);
+  assert.equal(y[1].costCents.electricity, 14400);
+  assert.ok(Math.abs(y[1].totalCents - 26400) <= 2);
+  assert.equal(y[1].costCents.gas, null);
+  // Il centesimo arrotondato mese per mese sposta la variazione di qualche millesimo.
+  assert.ok(Math.abs(y[1].deltaPct! - 10) < 0.01, `delta ${y[1].deltaPct}`);
+  assert.equal(y[2].complete, false);
+  assert.equal(y[2].deltaPct, null);
+  const m = monthlyTotalsOfYear(bills, 2026);
+  // Gennaio: luce del mese + 31/90 della bolletta trimestrale dell’acqua.
+  assert.equal(m[0], 1300 + Math.round((3300 * 31) / 90));
+  assert.equal(m[5], null);
+  assert.deepEqual(billYears(bills), [2026, 2025, 2024]);
+});
+
+test('combinedLast12 con meno di un anno di storico parte dal primo mese coperto', async () => {
+  const { combinedLast12 } = await import('../src/features/bills/analytics.ts');
+  const bills = monthlyBills(2026, 9, 100, 1000).slice(2); // marzo → settembre 2026
+  const r = combinedLast12(bills)!;
+  assert.deepEqual([r.from, r.to, r.months], ['2026-03', '2026-09', 7]);
+  assert.equal(r.costCents, 7000);
+});
+
+test('energyPrices: prezzo scritto in bolletta, altrimenti spesa / consumo; mai per l’acqua', async () => {
+  const { energyPrices, averageEnergyPrice } = await import('../src/features/bills/analytics.ts');
+  const bills = [
+    bill({ periodStart: '2026-05-01', periodEnd: '2026-05-31', lines: [{ consumption: 175.62, costCents: 3908, energyUnitPrice: 0.177488 }] }),
+    bill({ periodStart: '2026-06-01', periodEnd: '2026-06-30', lines: [{ consumption: 200, costCents: 5000, energyCostCents: 4000 }] }),
+    bill({ periodStart: '2026-07-01', periodEnd: '2026-07-31', lines: [{ consumption: 100, costCents: 3000 }] }),
+    bill({ periodStart: '2026-07-01', periodEnd: '2026-07-31', lines: [{ utility: 'water', consumption: 10, costCents: 3000, energyCostCents: 100 }] }),
+  ];
+  const p = energyPrices(bills, 'electricity');
+  assert.equal(p.length, 2);
+  assert.ok(Math.abs(p[0].unitPriceCents - 17.7488) < 1e-9);
+  assert.equal(p[1].unitPriceCents, 20);
+  assert.deepEqual(energyPrices(bills, 'water'), []);
+  const avg = averageEnergyPrice(p)!;
+  assert.ok(Math.abs(avg - (17.7488 * 175.62 + 20 * 200) / 375.62) < 1e-9);
+});
+
+test('yearlySummary: un anno con due mesi scoperti non è completo', async () => {
+  const { yearlySummary } = await import('../src/features/bills/analytics.ts');
+  const bills = [
+    ...monthlyBills(2024, 12, 100, 1000),
+    bill({ periodStart: '2025-01-01', periodEnd: '2025-03-01', lines: [{ consumption: 100, costCents: 2000 }] }),
+    bill({ periodStart: '2025-04-30', periodEnd: '2025-12-31', lines: [{ consumption: 100, costCents: 8000 }] }),
+  ];
+  const y = yearlySummary(bills);
+  assert.equal(y[1].complete, false);
+  assert.equal(y[1].deltaPct, null);
+});
+
+test('yearlySummary: un servizio cessato non blocca il confronto degli anni dopo', async () => {
+  const { yearlySummary } = await import('../src/features/bills/analytics.ts');
+  const gas2023 = monthlyBills(2023, 12, 50, 3000).map((b) => ({ ...b, lines: b.lines.map((l) => ({ ...l, utility: 'gas' as const })) }));
+  const bills = [...gas2023, ...monthlyBills(2023, 36, 100, 1000)];
+  const y = yearlySummary(bills);
+  assert.deepEqual(y.map((x) => [x.year, x.complete]), [[2023, true], [2024, true], [2025, true]]);
+  // 2024 confrontato col 2023 solo sulla luce (il gas c'era solo nel 2023).
+  assert.ok(Math.abs(y[1].deltaPct!) < 0.01, `delta ${y[1].deltaPct}`);
+});
+
+test('combinedLast12: la finestra finisce all’ultimo mese completo di tutti i servizi', async () => {
+  const { combinedLast12 } = await import('../src/features/bills/analytics.ts');
+  const gas = monthlyBills(2025, 9, 50, 500).map((b) => ({ ...b, lines: b.lines.map((l) => ({ ...l, utility: 'gas' as const })) }));
+  const r = combinedLast12([...monthlyBills(2025, 12, 100, 1000), ...gas])!;
+  assert.equal(r.to, '2025-09');
+});
+
+test('averageEnergyPrice non fa pesare 1 kWh le bollette senza consumo', async () => {
+  const { averageEnergyPrice } = await import('../src/features/bills/analytics.ts');
+  const avg = averageEnergyPrice([
+    { billId: 'a', date: '2026-01-31', provider: null, unitPriceCents: 10, consumption: null },
+    { billId: 'b', date: '2026-02-28', provider: null, unitPriceCents: 20, consumption: 300 },
+  ]);
+  assert.equal(avg, 20);
+  assert.equal(
+    averageEnergyPrice([{ billId: 'a', date: '2026-01-31', provider: null, unitPriceCents: 10, consumption: null }]),
+    10,
+  );
+});
+
+test('parseUnitPrice: il punto di un prezzo è sempre decimale', async () => {
+  const { parseUnitPrice } = await import('../src/features/bills/numbers.ts');
+  assert.equal(parseUnitPrice('1.250'), 1.25);
+  assert.equal(parseUnitPrice('0,177488'), 0.177488);
+  assert.equal(parseUnitPrice('0.177488 €/kWh'), 0.177488);
+  assert.equal(parseUnitPrice(''), null);
+  assert.ok(Number.isNaN(parseUnitPrice('1.2.3')!));
 });

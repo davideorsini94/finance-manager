@@ -7,7 +7,7 @@
  */
 
 import { demoDataset } from './data';
-import { DEMO_UTILITY_BILLS } from './bills';
+import { DEMO_HOUSEHOLDS, DEMO_UTILITY_BILLS } from './bills';
 import type { Transaction } from '@/types/domain';
 
 interface Ctx {
@@ -167,6 +167,9 @@ export function demoHandle(ctx: Ctx): unknown | null {
 
   // Bollette: elenco e dettaglio. Upload, salvataggi e riletture cadono nel
   // ramo generico delle mutation (risposta `{ ok, demo }`, nessuna modifica).
+  if (matches(pathname, 'households') && method === 'GET') {
+    return DEMO_HOUSEHOLDS;
+  }
   // Il dettaglio va prima dell'elenco: `matches` fa match anche sui prefissi.
   if (matches(pathname, 'utility-bills/.*') && method === 'GET') {
     const id = demoIdFromPath(pathname, -1);

@@ -25,3 +25,16 @@ export function parseDecimal(raw: string): number | null {
 export function toCents(euro: number): number {
   return Math.round(Number((euro * 100).toFixed(6)));
 }
+
+/**
+ * Prezzo unitario (€/kWh, €/Smc): qui il punto è sempre il separatore
+ * decimale, perché un prezzo non arriva mai alle migliaia ("1.250" €/Smc è
+ * 1,25 e non 1250, come leggerebbe `parseDecimal`).
+ */
+export function parseUnitPrice(raw: string): number | null {
+  const s = raw.replace(/[\s€]/g, '').replace(/\/(kwh|smc|m3|m³)$/i, '');
+  if (!s) return null;
+  if (!/^\d*[.,]?\d+$/.test(s)) return Number.NaN;
+  const n = Number(s.replace(',', '.'));
+  return Number.isFinite(n) ? n : Number.NaN;
+}

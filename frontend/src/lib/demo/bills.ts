@@ -1,4 +1,4 @@
-import type { UtilityBill } from '@/features/bills/billsApi';
+import type { Household, UtilityBill } from '@/features/bills/billsApi';
 
 /**
  * Bollette finte per la modalità demo, sempre "recenti" rispetto a oggi:
@@ -63,6 +63,8 @@ function build(): UtilityBill[] {
     const periodEnd = iso(sy, em, lastDay(sy, em));
     out.push({
       id: `demo-bill-dual-${i}`,
+      householdId: 'demo-home-roma',
+      supplyAddress: 'Via dei Ciliegi 14, 00135 Roma (RM)',
       provider: enel ? 'Enel Energia' : 'Edison Energia',
       billNumber: `${enel ? 'EN' : 'ED'}${sy}${String(400000 + i * 137)}`,
       issueDate: iso(em === 12 ? sy + 1 : sy, em === 12 ? 1 : em + 1, 8),
@@ -79,8 +81,9 @@ function build(): UtilityBill[] {
       createdAt: created,
       updatedAt: created,
       lines: [
-        { utility: 'electricity', consumption: elecKwh, costCents: elecCents, periodStart: null, periodEnd: null, supplyCode: 'IT001E18273645', estimated: false },
-        { utility: 'gas', consumption: gasSmc, costCents: gasCents, periodStart: null, periodEnd: null, supplyCode: '00881234567890', estimated: i % 4 === 1 },
+        // Materia prima: circa due terzi del prezzo unitario (il resto è rete, oneri, imposte).
+        { utility: 'electricity', consumption: elecKwh, costCents: elecCents, periodStart: null, periodEnd: null, supplyCode: 'IT001E18273645', estimated: false, energyUnitPrice: Math.round(elecPrice * 0.6 * 1e6) / 1e6, energyCostCents: Math.round(elecKwh * elecPrice * 60) },
+        { utility: 'gas', consumption: gasSmc, costCents: gasCents, periodStart: null, periodEnd: null, supplyCode: '00881234567890', estimated: i % 4 === 1, energyUnitPrice: Math.round(gasPrice * 0.68 * 1e6) / 1e6, energyCostCents: Math.round(gasSmc * gasPrice * 68) },
       ],
     });
   });
@@ -109,6 +112,8 @@ function build(): UtilityBill[] {
     const cents = Math.round((m3 * price + 14) * 100);
     out.push({
       id: `demo-bill-water-${i}`,
+      householdId: 'demo-home-roma',
+      supplyAddress: 'Via dei Ciliegi 14, 00135 Roma (RM)',
       provider: 'Acea Ato 2',
       billNumber: `AC${sy}${String(70000 + i * 31)}`,
       issueDate: iso(em === 12 ? sy + 1 : sy, em === 12 ? 1 : em + 1, 12),
@@ -130,9 +135,43 @@ function build(): UtilityBill[] {
     });
   });
 
+  // Seconda abitazione: casa al mare, solo luce, consumi quasi solo d'estate.
+  const seaYear = now.getUTCFullYear() - (now.getUTCMonth() < 8 ? 1 : 0);
+  [[seaYear - 1, 5], [seaYear - 1, 7], [seaYear - 1, 9], [seaYear, 5], [seaYear, 7]].forEach(([sy, sm], i) => {
+    const em = sm + 1;
+    const summer = sm === 7 ? 1 : sm === 5 ? 0.45 : 0.25;
+    const kwh = Math.round(420 * summer * (0.9 + rand() * 0.2) + 15);
+    const cents = Math.round((kwh * (0.29 + rand() * 0.02) + 19) * 100);
+    out.push({
+      id: `demo-bill-sea-${i}`,
+      householdId: 'demo-home-mare',
+      supplyAddress: 'Viale Gramsci 31, 47838 Riccione (RN)',
+      provider: 'Hera Comm',
+      billNumber: `HC${sy}${String(9100 + i)}`,
+      issueDate: iso(sy, em + 1 > 12 ? 12 : em + 1, 10),
+      dueDate: iso(sy, em + 1 > 12 ? 12 : em + 1, 28),
+      periodStart: iso(sy, sm, 1),
+      periodEnd: iso(sy, em, lastDay(sy, em)),
+      totalCents: cents,
+      notes: null,
+      status: 'confirmed',
+      hasFile: true,
+      fileName: `hera-${sy}-${String(sm).padStart(2, '0')}.pdf`,
+      extractionError: null,
+      extractionModel: 'opencode:deepseek-v4-pro',
+      createdAt: created,
+      updatedAt: created,
+      lines: [
+        { utility: 'electricity', consumption: kwh, costCents: cents, periodStart: null, periodEnd: null, supplyCode: 'IT001E77810344', estimated: false },
+      ],
+    });
+  });
+
   // Una lettura non riuscita, per mostrare "Riprova" e "Compila".
   out.push({
     id: 'demo-bill-failed',
+    householdId: null,
+    supplyAddress: null,
     provider: null,
     billNumber: null,
     issueDate: null,
@@ -155,3 +194,8 @@ function build(): UtilityBill[] {
 }
 
 export const DEMO_UTILITY_BILLS: UtilityBill[] = build();
+
+export const DEMO_HOUSEHOLDS: Household[] = [
+  { id: 'demo-home-roma', name: 'Casa · Via dei Ciliegi 14', address: 'Via dei Ciliegi 14, 00135 Roma (RM)', billCount: 0, createdAt: new Date().toISOString() },
+  { id: 'demo-home-mare', name: 'Casa al mare · Riccione', address: 'Viale Gramsci 31, 47838 Riccione (RN)', billCount: 0, createdAt: new Date().toISOString() },
+].map((h) => ({ ...h, billCount: DEMO_UTILITY_BILLS.filter((b) => b.householdId === h.id).length }));

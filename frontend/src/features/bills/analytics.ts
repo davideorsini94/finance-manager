@@ -23,6 +23,10 @@ export interface BillLine {
   periodEnd: string | null;
   supplyCode: string | null;
   estimated: boolean;
+  /** Spesa per la materia prima (solo luce e gas), centesimi. */
+  energyCostCents?: number | null;
+  /** Prezzo unitario della materia prima, €/kWh o €/Smc. */
+  energyUnitPrice?: number | null;
 }
 
 export interface Bill {
@@ -430,16 +434,35 @@ export function utilitySummary(bills: Bill[], utility: UtilityKind): UtilitySumm
  * servizi (che finisce all'ultimo mese completo tra tutti): sommare finestre
  * diverse per servizio mescolerebbe anni diversi.
  */
-export function combinedLast12(bills: Bill[]): { from: string; to: string; costCents: number } | null {
+export function combinedLast12(
+  bills: Bill[],
+): { from: string; to: string; months: number; costCents: number } | null {
   const all = UTILITIES.map((u) => monthlySeries(bills, u)).filter((s) => s.length > 0);
   if (all.length === 0) return null;
+  // La finestra finisce all'ultimo mese completo per TUTTI i servizi ancora
+  // attivi: col massimo, un servizio in ritardo di qualche mese contava solo
+  // in parte. Un servizio fermo da più di 3 mesi (cessato) non frena la finestra.
   const ends = all.map((s) => s[lastCompleteIndex(s)].month).sort();
-  const to = ends[ends.length - 1];
+  const latest = ends[ends.length - 1];
+  let cutoff = latest;
+  for (let i = 0; i < 3; i++) cutoff = prevMonth(cutoff);
+  const to = ends.filter((e) => e >= cutoff)[0];
   let from = to;
   for (let i = 0; i < 11; i++) from = prevMonth(from);
+  // Con meno di un anno di storico la finestra parte dal primo mese coperto:
+  // "ott 25 – set 26" con dati solo da marzo faceva credere a un anno intero.
+  const firstCovered = all.map((s) => s[0].month).sort()[0];
+  if (firstCovered > from) from = firstCovered;
   let cost = 0;
   for (const s of all) for (const p of s) if (p.month >= from && p.month <= to && p.costCents !== null) cost += p.costCents;
-  return { from, to, costCents: Math.round(cost) };
+  return { from, to, months: monthsBetween(from, to), costCents: Math.round(cost) };
+}
+
+/** Mesi da `from` a `to` compresi ("2026-03" → "2026-09" = 7). */
+function monthsBetween(from: string, to: string): number {
+  const [fy, fm] = from.split('-').map(Number);
+  const [ty, tm] = to.split('-').map(Number);
+  return (ty - fy) * 12 + (tm - fm) + 1;
 }
 
 function prevMonth(month: string): string {
@@ -479,4 +502,135 @@ export function yearOverYear(
     });
   }
   return { year, points };
+}
+
+export interface YearSummary {
+  year: number;
+  /** Spesa per servizio nell'anno (centesimi), `null` se il servizio non ha bollette quell'anno. */
+  costCents: Record<UtilityKind, number | null>;
+  totalCents: number;
+  /** Anno coperto per intero da tutti i servizi che compaiono nello storico. */
+  complete: boolean;
+  /** Variazione del totale sull'anno prima, solo se entrambi gli anni sono completi. */
+  deltaPct: number | null;
+}
+
+/** Un anno conta come coperto se le bollette ne coprono almeno l'85% dei giorni. */
+const YEAR_COVERAGE = 0.85;
+
+/**
+ * Anno per anno, tutti i servizi insieme.
+ *
+ * Completezza: per ogni servizio ATTIVO quell'anno (con bollette in
+ * quell'anno) servono bollette sull'85% dei giorni. Un servizio senza
+ * bollette in un anno conta come buco solo se ne ha sia prima sia dopo; se è
+ * cessato o è iniziato dopo, quell'anno semplicemente non lo riguarda.
+ *
+ * Variazione: solo tra due anni consecutivi entrambi completi, e confrontando
+ * i servizi presenti in tutti e due (un servizio aggiunto non deve sembrare un
+ * aumento della spesa).
+ */
+export function yearlySummary(bills: Bill[]): YearSummary[] {
+  const series = new Map<UtilityKind, MonthPoint[]>();
+  for (const u of UTILITIES) series.set(u, monthlySeries(bills, u));
+  const present = UTILITIES.filter((u) => series.get(u)!.length > 0);
+  const years = [...new Set(present.flatMap((u) => series.get(u)!.map((p) => Number(p.month.slice(0, 4)))))].sort(
+    (a, b) => a - b,
+  );
+  const daysInYear = (y: number) => (new Date(Date.UTC(y, 1, 29)).getUTCMonth() === 1 ? 366 : 365);
+
+  const perYear = years.map((year) => {
+    const costCents = { electricity: null, gas: null, water: null } as Record<UtilityKind, number | null>;
+    let complete = true;
+    for (const u of present) {
+      const pts = series.get(u)!.filter((p) => Number(p.month.slice(0, 4)) === year);
+      const covered = pts.reduce((s, p) => s + Math.min(p.coveredDays, p.daysInMonth), 0);
+      const cost = pts.reduce((s, p) => s + (p.costCents ?? 0), 0);
+      if (covered > 0) {
+        costCents[u] = Math.round(cost);
+        if (covered / daysInYear(year) < YEAR_COVERAGE) complete = false;
+      } else {
+        const months = series.get(u)!.map((p) => Number(p.month.slice(0, 4)));
+        const before = months.some((y) => y < year);
+        const after = months.some((y) => y > year);
+        if (before && after) complete = false; // buco in mezzo allo storico
+      }
+    }
+    const totalCents = UTILITIES.reduce((s, u) => s + (costCents[u] ?? 0), 0);
+    return { year, costCents, totalCents, complete, deltaPct: null as number | null };
+  });
+
+  for (let i = 1; i < perYear.length; i++) {
+    const prev = perYear[i - 1];
+    const cur = perYear[i];
+    if (prev.year !== cur.year - 1 || !prev.complete || !cur.complete) continue;
+    const common = UTILITIES.filter((u) => prev.costCents[u] !== null && cur.costCents[u] !== null);
+    const prevSum = common.reduce((s, u) => s + prev.costCents[u]!, 0);
+    const curSum = common.reduce((s, u) => s + cur.costCents[u]!, 0);
+    if (common.length > 0 && prevSum > 0) cur.deltaPct = ((curSum - prevSum) / prevSum) * 100;
+  }
+  return perYear;
+}
+
+/** Spesa di un anno mese per mese (centesimi), tutti i servizi: 12 valori, `null` dove non c'è niente. */
+export function monthlyTotalsOfYear(bills: Bill[], year: number): Array<number | null> {
+  const out: Array<number | null> = Array(12).fill(null);
+  for (const u of UTILITIES) {
+    for (const p of monthlySeries(bills, u)) {
+      if (Number(p.month.slice(0, 4)) !== year || p.costCents === null) continue;
+      const i = Number(p.month.slice(5, 7)) - 1;
+      out[i] = (out[i] ?? 0) + p.costCents;
+    }
+  }
+  return out;
+}
+
+/** Anni con almeno un mese coperto, dal più recente. */
+export function billYears(bills: Bill[]): number[] {
+  return yearlySummary(bills).map((y) => y.year).reverse();
+}
+
+export interface EnergyPricePoint {
+  billId: string;
+  date: string;
+  provider: string | null;
+  /** Prezzo della sola materia prima, centesimi per unità. */
+  unitPriceCents: number;
+  /** Consumo della bolletta: serve a pesare le medie. */
+  consumption: number | null;
+}
+
+/**
+ * Prezzo della materia prima bolletta per bolletta (solo luce e gas): quello
+ * scritto in bolletta, altrimenti spesa della materia prima / consumo.
+ */
+export function energyPrices(bills: Bill[], utility: UtilityKind): EnergyPricePoint[] {
+  if (utility === 'water') return [];
+  return confirmedLines(bills, utility)
+    .flatMap(({ bill, line }) => {
+      const period = linePeriod(bill, line);
+      if (!period) return [];
+      const unit =
+        line.energyUnitPrice != null
+          ? line.energyUnitPrice * 100
+          : line.energyCostCents != null && line.consumption && line.consumption > 0
+            ? line.energyCostCents / line.consumption
+            : null;
+      if (unit === null || unit <= 0) return [];
+      return [{ billId: bill.id, date: period.end, provider: bill.provider, unitPriceCents: unit, consumption: line.consumption }];
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/**
+ * Media della materia prima pesata sui consumi. Le bollette senza consumo non
+ * si possono pesare: se ce ne sono solo di quelle si usa la media semplice.
+ */
+export function averageEnergyPrice(points: EnergyPricePoint[]): number | null {
+  const weighted = points.filter((p) => p.consumption && p.consumption > 0);
+  if (weighted.length > 0) {
+    const weight = weighted.reduce((s, p) => s + p.consumption!, 0);
+    return weighted.reduce((s, p) => s + p.unitPriceCents * p.consumption!, 0) / weight;
+  }
+  return points.length ? points.reduce((s, p) => s + p.unitPriceCents, 0) / points.length : null;
 }

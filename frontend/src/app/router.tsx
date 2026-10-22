@@ -19,7 +19,7 @@ import { GoalsPage } from '@/features/goals/GoalsPage';
 import { ReportsPage } from '@/features/reports/ReportsPage';
 import { AdvancedReports } from '@/features/reports/AdvancedReports';
 import { ProjectionsPage } from '@/features/projections/ProjectionsPage';
-import { BillsPage } from '@/features/bills/BillsPage';
+import { BillsPage, HouseholdPage } from '@/features/bills/BillsPage';
 import { ChatPage } from '@/features/chat/ChatPage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
 import { BankReviewPage } from '@/features/bank-review/BankReviewPage';
@@ -162,6 +162,13 @@ const billsRoute = createRoute({
   component: BillsPage,
 });
 
+// Abitazione: statistiche delle sue forniture. `none` = bollette senza abitazione.
+const billsHouseholdRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/bills/$householdId',
+  component: HouseholdPage,
+});
+
 // Coda di revisione dei movimenti importati dalla banca (Fase 4).
 const bankReviewRoute = createRoute({
   getParentRoute: () => protectedRoute,
@@ -194,6 +201,7 @@ const routeTree = rootRoute.addChildren([
     projectionsRoute,
     chatRoute,
     billsRoute,
+    billsHouseholdRoute,
     bankReviewRoute,
     settingsRoute,
   ]),
