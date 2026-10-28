@@ -73,7 +73,16 @@ const snapshot: ReportSnapshot = {
       txCount: 2,
     },
   ],
-  transfers: [{ date: '2026-07-05', fromAccount: 'Fineco', toAccount: 'Cointestato', amountCents: '30000' }],
+  transfers: [
+    { date: '2026-07-05', fromAccount: 'Fineco', toAccount: 'Cointestato', amountCents: '30000' },
+    {
+      date: '2026-07-20',
+      fromAccount: 'Fineco',
+      toAccount: 'altro conto',
+      amountCents: '50000',
+      unmatched: true,
+    },
+  ],
   toVerify: {
     items: [{ date: '2026-07-09', description: 'Pagamento X', amountCents: '-1800', accountName: 'Fineco' }],
     total: 3,
@@ -196,7 +205,11 @@ describe('buildReportPrompt: dati per conto', () => {
   });
 
   it('riporta giroconti, da verificare e ricorrenti', () => {
-    expect(prompt).toContain('2026-07-05 · Fineco → Cointestato · 300.00 €');
+    expect(prompt).toContain('2026-07-05 · Fineco → Cointestato · 300.00 €\n');
+    expect(prompt).toContain(
+      '2026-07-20 · Fineco → altro conto · 500.00 € (categoria Giroconto, altra gamba non abbinata)',
+    );
+    expect(prompt).toContain('non sommarli mai a entrate, uscite o categorie');
     expect(prompt).toContain('3 in totale');
     expect(prompt).toContain('… e altri 2');
     expect(prompt).toContain('Affitto · 800.00 € · mensile · Fineco · Casa');

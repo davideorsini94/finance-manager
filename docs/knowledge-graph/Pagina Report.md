@@ -28,13 +28,15 @@ Sotto le card KPI di **annuale** e **mensile** c'è la card "Report dell'assiste
 - **Badge "dati cambiati"**: `dataFingerprint` (totali + numero movimenti alla generazione) confrontato a ogni lettura. Limite noto: una modifica che lascia i totali identici (es. il cambio di categoria di un movimento) non lo accende.
 - **Markdown hardening condiviso con la chat**: `components/shared/markdown.tsx` (immagini rimosse, link resi testo inerte) — il report può citare causali bancarie, cioè testo di terzi → [[Autenticazione e Sicurezza]].
 - **L'apertura del prompt è configurabile** in Impostazioni → Modello AI (campo "Prompt dei report di periodo", admin-only): decide taglio, tono e sezioni. Dati e regole di formato restano sempre → [[Chat LLM]]
+- **Giroconti fuori da entrate e uscite (2026-10-28)**: oltre ai giroconti abbinati (`type=transfer`), anche le entrate/uscite con categoria **"Giroconto"** (nome che inizia per "giroconto", anche sottocategoria o con spazi/maiuscole diverse; filtri in `backend/src/reports/transfer-category.ts`) sono escluse da totali, alberi categorie, serie, movimenti più grandi; nei conti contano come giroconti in entrata/uscita e nell'elenco giroconti compaiono come "altra gamba non abbinata". Vale anche per [[Pagina Dashboard]] e le card della pagina, che usano lo stesso `ReportsService`. Nel saldo cumulativo giornaliero restano (spostano comunque il saldo).
+- **Regole fisse finali del prompt**: italiano e markdown, solo dati forniti, importi come scritti, giroconti mai sommati a entrate/uscite, niente H1/link/immagini/codice. La soglia "variazioni sotto il 5%" sta nell'apertura predefinita, così un prompt personalizzato può chiedere confronti diversi senza contraddizioni.
 - Il prompt riceve **solo aggregati** (totali, serie, alberi categorie, totali del periodo precedente) più i 15 movimenti di uscita più grandi, mai tutte le transazioni né gli id interni.
 - **Chi ha scritto il report** è sempre in chiaro sotto al titolo ("Generato il … · OpenCode · deepseek-v4-flash"), con il marchio **(riserva)** quando ha risposto il modello locale al posto del provider configurato — il confronto usa `llmApi.get()`, senza colonne aggiuntive a DB. Regole del ripiego in [[Chat LLM]].
 - Il "Confronto periodi" **non** ha report LLM (date arbitrarie: un report salvato non verrebbe quasi mai riusato).
 
 ## Backend
 
-`ReportsController` (`backend/src/reports/reports.controller.ts`) compone i metodi di `ReportsService`: `periodTotals`, `monthlyAggregates`, `categoryBreakdown` e `categoryBreakdownTree` — questi ultimi due prendono un `flow: 'expense' | 'income'` (default `expense`) e vengono chiamati due volte per servire entrambe le viste. Dettagli in [[API]].
+`ReportsController` (`backend/src/reports/reports.controller.ts`) compone i metodi di `ReportsService` (gli aggregati di entrate/uscite passano da `flowTxWhere`, che toglie i movimenti con categoria "Giroconto"): `periodTotals`, `monthlyAggregates`, `categoryBreakdown` e `categoryBreakdownTree` — questi ultimi due prendono un `flow: 'expense' | 'income'` (default `expense`) e vengono chiamati due volte per servire entrambe le viste. Dettagli in [[API]].
 
 ## Collegamenti
 

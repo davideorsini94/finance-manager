@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma, TransactionType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccountPolicyService } from '../common/services/account-policy.service';
+import { CATEGORIZED_TRANSFER_WHERE, NOT_CATEGORIZED_TRANSFER_WHERE } from './transfer-category';
 
 export interface AccountOverview {
   name: string;
@@ -22,6 +23,8 @@ export interface TransferItem {
   fromAccount: string;
   toAccount: string;
   amountCents: string;
+  /** Movimento con categoria "Giroconto" senza la gamba opposta abbinata. */
+  unmatched?: boolean;
 }
 
 export interface ToVerifyItem {
@@ -64,7 +67,8 @@ export class ReportContextService {
    * Il saldo a DB è quello attuale e non coincide con la somma dei movimenti
    * (storico importato parziale): saldo finale = attuale − movimenti successivi
    * al periodo; saldo iniziale = finale − movimenti del periodo (giroconti
-   * compresi).
+   * compresi). Le entrate/uscite con categoria "Giroconto" contano come
+   * giroconti in entrata/uscita, non come entrate/uscite.
    */
   async accountsOverview(
     userId: string,
@@ -86,6 +90,7 @@ export class ReportContextService {
     if (accounts.length === 0) return [];
     const ids = accounts.map((a) => a.id);
     const inPeriod = { accountId: { in: ids }, transactionDate: { gte: from, lte: to } };
+    const transferLike = { OR: [{ type: TransactionType.transfer }, CATEGORIZED_TRANSFER_WHERE] };
 
     const [after, byType, trIn, trOut] = await Promise.all([
       this.prisma.transaction.groupBy({
@@ -95,18 +100,18 @@ export class ReportContextService {
       }),
       this.prisma.transaction.groupBy({
         by: ['accountId', 'type'],
-        where: inPeriod,
+        where: { ...inPeriod, AND: [NOT_CATEGORIZED_TRANSFER_WHERE] },
         _sum: { amountCents: true },
         _count: { _all: true },
       }),
       this.prisma.transaction.groupBy({
         by: ['accountId'],
-        where: { ...inPeriod, type: TransactionType.transfer, amountCents: { gt: 0n } },
+        where: { ...inPeriod, ...transferLike, amountCents: { gt: 0n } },
         _sum: { amountCents: true },
       }),
       this.prisma.transaction.groupBy({
         by: ['accountId'],
-        where: { ...inPeriod, type: TransactionType.transfer, amountCents: { lt: 0n } },
+        where: { ...inPeriod, ...transferLike, amountCents: { lt: 0n } },
         _sum: { amountCents: true },
       }),
     ]);
@@ -116,10 +121,11 @@ export class ReportContextService {
       const rows = byType.filter((r) => r.accountId === a.id);
       const sumOf = (t: TransactionType) =>
         rows.find((r) => r.type === t)?._sum.amountCents ?? 0n;
-      const periodAll = rows.reduce((acc, r) => acc + (r._sum.amountCents ?? 0n), 0n);
       const closing = a.balanceCents - afterSum;
       const tIn = trIn.find((r) => r.accountId === a.id)?._sum.amountCents ?? 0n;
       const tOut = trOut.find((r) => r.accountId === a.id)?._sum.amountCents ?? 0n;
+      const periodAll =
+        sumOf(TransactionType.income) + sumOf(TransactionType.expense) + tIn + tOut;
       return {
         name: a.name,
         type: a.type,
@@ -138,7 +144,11 @@ export class ReportContextService {
     });
   }
 
-  /** Giroconti veri (movimenti accoppiati tra conti), una riga per coppia. */
+  /**
+   * Giroconti del periodo: quelli veri (movimenti accoppiati tra conti), una
+   * riga per coppia, più le entrate/uscite con categoria "Giroconto", marcate
+   * `unmatched` perché l'altra gamba non è abbinata.
+   */
   async transfers(
     userId: string,
     from: Date,
@@ -190,7 +200,28 @@ export class ReportContextService {
       });
       if (items.length >= limit) break;
     }
-    return items;
+
+    const loose = await this.prisma.transaction.findMany({
+      where: {
+        ...CATEGORIZED_TRANSFER_WHERE,
+        transactionDate: { gte: from, lte: to },
+        account: accountFilter,
+      },
+      orderBy: { transactionDate: 'asc' },
+      take: limit,
+      select: { transactionDate: true, amountCents: true, account: { select: { name: true } } },
+    });
+    for (const l of loose) {
+      const outgoing = l.amountCents < 0n;
+      items.push({
+        date: l.transactionDate.toISOString().slice(0, 10),
+        fromAccount: outgoing ? l.account.name : 'altro conto',
+        toAccount: outgoing ? 'altro conto' : l.account.name,
+        amountCents: (outgoing ? -l.amountCents : l.amountCents).toString(),
+        unmatched: true,
+      });
+    }
+    return items.sort((x, y) => x.date.localeCompare(y.date)).slice(0, limit * 2);
   }
 
   /** Entrate/uscite del periodo senza categoria: il "Da verificare". */

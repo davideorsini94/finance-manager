@@ -16,6 +16,7 @@ Route `/` — file `frontend/src/features/dashboard/DashboardPage.tsx`, client A
 - **Toggle Padre / Sottocategorie**: appiattisce l'albero scelto — un nodo per categoria padre oppure uno per sottocategoria (etichetta "Padre · Figlio"); vale per entrambi i flussi (`buildCategoryBreakdown`).
 - **Scroll assistito su mobile**: su iPhone la card del dettaglio sta sotto la piega, quindi al click su una KPI la pagina la porta in vista, ma **solo se non è già (quasi) visibile** — altrimenti il click sembrerebbe non fare nulla. Helper `revealIfOffscreen()` in `frontend/src/lib/utils/reveal.ts`; lo scroll avviene dentro `<main>` (vedi [[PWA e Mobile]]).
 - **Vocabolario del flusso condiviso** con la [[Pagina Report]] (che ha la stessa interazione sulle sue card): tipo `Flow`, etichette `FLOW_UI`, props di selezione `flowSelectProps()` e hint `FlowHint` stanno in `frontend/src/features/dashboard/flow.tsx`.
+- **Giroconti esclusi** (2026-10-28): totali, torte e grafico non contano le entrate/uscite con categoria "Giroconto" (stesso filtro della [[Pagina Report]]); il saldo cumulativo sì.
 - **Dati sempre freschi**: `staleTime: 0` + `refetchOnMount: 'always'` sulla query, perché totali e saldo cambiano dopo ogni movimento/giroconto.
 
 ## Backend
