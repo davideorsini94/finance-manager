@@ -89,7 +89,11 @@ function formatAccounts(accounts: AccountOverview[]): string {
 function formatTransfers(items: TransferItem[]): string {
   if (items.length === 0) return '  (nessun giroconto tra conti)';
   return items
-    .map((t) => `  - ${t.date} · ${t.fromAccount} → ${t.toAccount} · ${formatEuro(t.amountCents)}`)
+    .map(
+      (t) =>
+        `  - ${t.date} · ${t.fromAccount} → ${t.toAccount} · ${formatEuro(t.amountCents)}` +
+        `${t.unmatched ? ' (categoria Giroconto, altra gamba non abbinata)' : ''}`,
+    )
     .join('\n');
 }
 
@@ -148,7 +152,7 @@ function formatTree(nodes: CategoryNode[]): string {
  * È la parte che l'admin può sostituire dalle impostazioni.
  */
 const DEFAULT_BASE_PROMPT = `Sei l'assistente finanziario di un'app di contabilità famigliare. Scrivi un report chiaro e concreto sul periodo indicato, rivolgendoti direttamente all'utente ("hai speso…").
-Organizzalo in sezioni di secondo livello: "## Sintesi", "## Andamento", "## Dove sono finiti i soldi", "## Cosa mi ha colpito", "## Consigli". In "Consigli" stai su un massimo di 3 punti, concreti e legati a numeri di questo periodo — niente consigli generici da manuale. Massimo 450 parole in tutto.`;
+Organizzalo in sezioni di secondo livello: "## Sintesi", "## Andamento", "## Dove sono finiti i soldi", "## Cosa mi ha colpito", "## Consigli". In "Consigli" stai su un massimo di 3 punti, concreti e legati a numeri di questo periodo — niente consigli generici da manuale. Confronta col periodo precedente quando è significativo (variazioni sotto il 5% non meritano una riga). Massimo 450 parole in tutto.`;
 
 /**
  * Prompt del report. Il modello riceve SOLO aggregati e nomi di categoria — mai
@@ -202,7 +206,7 @@ ${formatTree(s.incomeTree)}
 Movimenti di uscita più grandi:
 ${top || '  (nessun movimento)'}
 
-Giroconti tra i conti (non sono entrate né uscite):
+Giroconti tra i conti (non sono entrate né uscite e sono già esclusi da totali, categorie, andamento e movimenti più grandi; nei conti sono i giroconti in entrata/uscita):
 ${formatTransfers(s.transfers)}
 
 Movimenti senza categoria (da verificare, ${s.toVerify.total} in totale):
@@ -215,6 +219,6 @@ REGOLE
 - Rispondi in italiano, in **markdown**.
 - Usa solo i dati qui sopra: non inventare cifre, categorie o movimenti che non compaiono. Se un dato non c'è, dillo.
 - Cita gli importi in euro come sono scritti sopra.
-- Confronta col periodo precedente quando è significativo (variazioni sotto il 5% non meritano una riga).
+- I giroconti non sono entrate né uscite: non sommarli mai a entrate, uscite o categorie.
 - Niente titolo di primo livello, nessun link, nessuna immagine, nessun blocco di codice.`;
 }

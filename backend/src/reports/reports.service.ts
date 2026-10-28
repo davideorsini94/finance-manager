@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma, TransactionType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccountPolicyService } from '../common/services/account-policy.service';
+import { CATEGORIZED_TRANSFER_WHERE, NOT_CATEGORIZED_TRANSFER_WHERE } from './transfer-category';
 
 export interface PeriodTotals {
   incomeCents: string;
@@ -82,7 +83,7 @@ export class ReportsService {
     limit = 15,
   ): Promise<TopTransaction[]> {
     const rows = await this.prisma.transaction.findMany({
-      where: this.accessibleTxWhere(
+      where: this.flowTxWhere(
         userId,
         {
           transactionDate: { gte: from, lte: to },
@@ -128,8 +129,25 @@ export class ReportsService {
   }
 
   /**
+   * Come `accessibleTxWhere`, per gli aggregati di entrate/uscite: esclude anche
+   * i movimenti con categoria "Giroconto", che sono spostamenti tra conti.
+   */
+  private flowTxWhere(
+    userId: string,
+    extra: Partial<Prisma.TransactionWhereInput> = {},
+    accountIds?: string[],
+    categoryIds?: string[],
+  ): Prisma.TransactionWhereInput {
+    return {
+      ...this.accessibleTxWhere(userId, extra, accountIds, categoryIds),
+      AND: [NOT_CATEGORIZED_TRANSFER_WHERE],
+    };
+  }
+
+  /**
    * Totali entrata/uscita/netto in un periodo.
-   * I giroconti vengono esclusi (sono interni e non rappresentano denaro entrante/uscente reale).
+   * I giroconti vengono esclusi (sono interni e non rappresentano denaro entrante/uscente reale),
+   * compresi i movimenti con categoria "Giroconto".
    * `accountIds` (opz.) restringe a un sottoinsieme di conti.
    */
   async periodTotals(
@@ -139,7 +157,7 @@ export class ReportsService {
     accountIds?: string[],
     categoryIds?: string[],
   ): Promise<PeriodTotals> {
-    const where = this.accessibleTxWhere(
+    const where = this.flowTxWhere(
       userId,
       {
         transactionDate: { gte: from, lte: to },
@@ -189,7 +207,7 @@ export class ReportsService {
     const isIncome = flow === 'income';
     const grouped = await this.prisma.transaction.groupBy({
       by: ['categoryId'],
-      where: this.accessibleTxWhere(
+      where: this.flowTxWhere(
         userId,
         {
           type: isIncome ? TransactionType.income : TransactionType.expense,
@@ -248,7 +266,7 @@ export class ReportsService {
     const isIncome = flow === 'income';
     const grouped = await this.prisma.transaction.groupBy({
       by: ['categoryId'],
-      where: this.accessibleTxWhere(
+      where: this.flowTxWhere(
         userId,
         {
           type: isIncome ? TransactionType.income : TransactionType.expense,
@@ -416,7 +434,7 @@ export class ReportsService {
     categoryIds?: string[],
   ): Promise<DailyPoint[]> {
     const transactions = await this.prisma.transaction.findMany({
-      where: this.accessibleTxWhere(
+      where: this.flowTxWhere(
         userId,
         {
           type: { not: TransactionType.transfer },
@@ -427,6 +445,20 @@ export class ReportsService {
       ),
       select: { amountCents: true, type: true, transactionDate: true },
       orderBy: { transactionDate: 'asc' },
+    });
+    // I movimenti con categoria "Giroconto" non sono né entrate né uscite, ma
+    // spostano comunque il saldo dei conti selezionati.
+    const moved = await this.prisma.transaction.findMany({
+      where: {
+        ...this.accessibleTxWhere(
+          userId,
+          { transactionDate: { gte: from, lte: to } },
+          accountIds,
+          categoryIds,
+        ),
+        AND: [CATEGORIZED_TRANSFER_WHERE],
+      },
+      select: { amountCents: true, transactionDate: true },
     });
 
     // Calcola saldo iniziale (somma di tutto prima di `from`, inclusi giroconti per coerenza)
@@ -441,22 +473,27 @@ export class ReportsService {
     });
     let cumulative = opening._sum.amountCents ?? 0n;
 
-    const buckets = new Map<string, { income: bigint; expense: bigint }>();
+    const buckets = new Map<string, { income: bigint; expense: bigint; moved: bigint }>();
+    const bucketOf = (d: Date) => {
+      const key = d.toISOString().slice(0, 10);
+      let b = buckets.get(key);
+      if (!b) buckets.set(key, (b = { income: 0n, expense: 0n, moved: 0n }));
+      return b;
+    };
     for (const tx of transactions) {
-      const key = tx.transactionDate.toISOString().slice(0, 10);
-      const b = buckets.get(key) ?? { income: 0n, expense: 0n };
+      const b = bucketOf(tx.transactionDate);
       if (tx.type === TransactionType.income) b.income += tx.amountCents;
       else if (tx.type === TransactionType.expense) b.expense += tx.amountCents; // negativo
-      buckets.set(key, b);
     }
+    for (const tx of moved) bucketOf(tx.transactionDate).moved += tx.amountCents;
 
     const points: DailyPoint[] = [];
     const cur = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate()));
     const end = new Date(Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), to.getUTCDate()));
     while (cur <= end) {
       const key = cur.toISOString().slice(0, 10);
-      const b = buckets.get(key) ?? { income: 0n, expense: 0n };
-      cumulative += b.income + b.expense;
+      const b = buckets.get(key) ?? { income: 0n, expense: 0n, moved: 0n };
+      cumulative += b.income + b.expense + b.moved;
       points.push({
         date: key,
         incomeCents: b.income.toString(),
@@ -476,7 +513,7 @@ export class ReportsService {
     const to = new Date(Date.UTC(year + 1, 0, 1));
 
     const txs = await this.prisma.transaction.findMany({
-      where: this.accessibleTxWhere(
+      where: this.flowTxWhere(
         userId,
         {
           type: { not: TransactionType.transfer },
