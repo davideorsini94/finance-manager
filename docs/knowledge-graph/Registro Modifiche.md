@@ -2,6 +2,10 @@
 
 Log cronologico (più recente in alto) delle modifiche al progetto. Una riga per intervento: data, cosa, file principali. Le note di dettaglio vivono nelle pagine collegate.
 
+## 2026-10-28
+
+- **Accesso da fuori (Tailscale Funnel)**: l'utente non raggiungeva l'app da fuori. Stack e Funnel risultavano attivi; nei log di tailscaled reset di connessione verso il controllo e il DERP (12:30). Funnel riattivato (`tailscale funnel --https=443 off` + `--bg 80`) e verificato da una rete esterna. Aggiunta in [[Tailscale e Accesso]] la procedura e il motivo per cui le prove fatte dal server stesso non sono affidabili. Nessuna modifica al codice.
+
 ## 2026-10-22
 
 - **v0.22.0 — abitazioni condivise**. Richiesta: condividere le abitazioni delle bollette con altri account inserendo la mail, così anche la compagna vede le bollette ed entrambi possono inserirle. Nuovo modello `HouseholdMember`, endpoint `POST/DELETE /households/:id/members`, accesso alle bollette esteso alle abitazioni condivise, riconoscimento delle bollette nuove sulle abitazioni accessibili, "aggiunta da" nell'elenco, sezione Condivisione nella finestra Gestisci, notifica in-app con link all'abitazione. Test d'integrazione su DB usa e getta (6 scenari) + backend 175, frontend 27. File: `backend/prisma/schema.prisma`, `backend/src/utility-bills/{households.service,households.controller,utility-bills.service,utility-bills.module}.ts`, `backend/src/backup/backup.service.ts`, `frontend/src/features/bills/{BillsPage,billsApi}.ts(x)`, `frontend/src/components/layout/NotificationBell.tsx`, `frontend/src/lib/demo/bills.ts`. Rilascio: bump **minore** `0.22.0`, rollback `0.21.3` (schema solo con aggiunte). Dettagli in [[Bollette]].
