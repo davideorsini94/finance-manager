@@ -2,6 +2,10 @@
 
 Log cronologico (più recente in alto) delle modifiche al progetto. Una riga per intervento: data, cosa, file principali. Le note di dettaglio vivono nelle pagine collegate.
 
+## 2026-11-01
+
+- **Accesso da fuori (Tailscale Funnel)**: dall'Italia gli ingressi europei del Funnel non inoltravano le connessioni (TCP aperto, TLS muta), dagli USA sì. Risolto col riavvio di `tailscaled` (fatto dall'utente con sudo) + Funnel 443 riattivato, poi modalità aereo sull'iPhone. Procedura di prova per singolo ingresso aggiunta in [[Tailscale e Accesso]]. Nessuna modifica al codice.
+
 ## 2026-10-28
 
 - **v0.22.1 — report: giroconti mai tra entrate e uscite, prompt senza contraddizioni**. Richiesta dell'utente: "assicurati che i giroconti non vengano considerati come entrate/uscite nel report". I giroconti abbinati erano già esclusi, ma 23 movimenti dal sync bancario con categoria "Giroconto" (sottocategoria di "Spese bancarie" per entrambi gli utenti, più "Giroconto " con spazio finale) restavano entrate/uscite: a settembre 2026 gonfiavano le entrate di 13.450 € e le uscite di 13.050 €. Ora sono esclusi da totali, categorie, serie e movimenti più grandi, contati come giroconti nei conti ed elencati come "altra gamba non abbinata"; l'effetto vale anche per dashboard e pagina Report. Prompt: regola fissa sui giroconti, soglia del 5% spostata nell'apertura predefinita (contraddiceva il prompt personalizzato che chiede la variazione di ogni categoria). Prompt personalizzato a DB: regola 1 aggiornata (i giroconti senza controparte sono già esclusi), copia del testo precedente salvata prima della modifica. File: `backend/src/reports/{transfer-category,reports.service,report-context.service}.ts`, `backend/src/llm-reports/llm-report.prompt{,.spec}.ts`. Rilascio: bump **patch** `0.22.1`, rollback `0.22.0` (nessuna modifica allo schema). Dettagli in [[Pagina Report]].
