@@ -48,6 +48,11 @@ export class NotificationsController {
     return { ok: true };
   }
 
+  @Delete()
+  async removeAll(@CurrentUser() user: AuthUser) {
+    return { deleted: await this.service.removeAll(user.id) };
+  }
+
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@CurrentUser() user: AuthUser, @Param('id', new ParseUUIDPipe()) id: string) {

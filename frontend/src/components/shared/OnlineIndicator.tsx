@@ -1,14 +1,23 @@
 import { useOnlineStatus } from '@/lib/pwa';
 import { WifiOff } from 'lucide-react';
 
+/**
+ * Pillola di vetro sotto la barra in alto quando manca la rete: non sposta la
+ * pagina e non copre i pulsanti della barra.
+ */
 export function OnlineIndicator() {
   const online = useOnlineStatus();
   if (online) return null;
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 bg-amber-500 px-4 py-1.5 text-center text-xs font-medium text-white">
-      <span className="inline-flex items-center gap-1.5">
-        <WifiOff className="h-3.5 w-3.5" /> Sei offline — le modifiche verranno sincronizzate quando torni online
-      </span>
+    <div
+      role="status"
+      className="pointer-events-none fixed inset-x-0 z-50 flex justify-center px-4"
+      style={{ top: 'calc(var(--safe-top, 0px) + 3.9rem)' }}
+    >
+      <div className="fm-material inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium text-[hsl(var(--warn))]">
+        <WifiOff className="h-3.5 w-3.5" aria-hidden /> Sei offline
+        <span className="hidden sm:inline">: le modifiche partono al ritorno della rete</span>
+      </div>
     </div>
   );
 }

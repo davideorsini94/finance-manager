@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Plus, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -23,6 +23,7 @@ import { eurosToCents } from '@/lib/utils/currency';
 import { MoneyAmount } from '@/components/shared/MoneyAmount';
 import { budgetApi } from './budgetApi';
 import { useConfirm } from '@/components/shared/confirm';
+import { AddButton } from '@/components/shared/PageHeader';
 
 const schema = z.object({
   categoryId: z.string().uuid({ message: 'Categoria richiesta' }),
@@ -96,14 +97,13 @@ export function BudgetPage() {
             onChange={(e) => setMonth(e.target.value || currentMonth())}
             className="w-36 sm:w-40"
           />
-          <Button
+          <AddButton
+            label="Nuovo budget"
             onClick={() => {
               reset({ categoryId: '', limit: '' as unknown as number });
               setFormOpen(true);
             }}
-          >
-            <Plus className="h-4 w-4 mr-2" /> Nuovo
-          </Button>
+          />
         </div>
       </div>
 

@@ -1,11 +1,9 @@
 import { useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { formatCents } from '@/lib/utils/currency';
+import { Segmented } from '@/components/ui/segmented';
 import { MoneyAmount } from '@/components/shared/MoneyAmount';
-import { formatDate } from '@/lib/utils/date';
+import { dayLabel } from '@/lib/utils/date';
 import { AccountMultiSelect } from '@/components/shared/AccountMultiSelect';
 import { CategoryMultiSelect } from '@/components/shared/CategoryMultiSelect';
 import { accountsApi } from '@/features/accounts/accountsApi';
@@ -13,28 +11,52 @@ import { categoriesApi } from '@/features/categories/categoriesApi';
 import { sortByName } from '@/lib/utils/sort';
 import { reportsApi, type CategoryNode, type CategoryBreakdownItem } from './dashboardApi';
 import { IncomeExpenseBar } from './charts/IncomeExpenseBar';
-import { CategoryPieChart } from './charts/CategoryPieChart';
+import { CategoryPieChart, FALLBACK_PALETTE, pieSlices } from './charts/CategoryPieChart';
 import { BalanceArea } from './charts/BalanceArea';
-import { AnimatedNumber } from '@/components/shared/animated/AnimatedNumber';
-import { SparkLine } from '@/components/shared/animated/SparkLine';
 import { StaggerList } from '@/components/shared/animated/StaggerList';
+import { PeriodSummary } from '@/components/shared/PeriodSummary';
+import { DateRangeChip } from '@/components/shared/DateRangeChip';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { GroupHeader } from '@/components/shared/GroupHeader';
+import { TxRowContent, groupByDay } from '@/features/transactions/TxRowContent';
+import { Link } from '@tanstack/react-router';
+import { Receipt } from 'lucide-react';
 import { Skeleton } from '@/components/shared/animated/Skeleton';
 import { cn } from '@/lib/utils/cn';
 import { revealIfOffscreen } from '@/lib/utils/reveal';
-import { FLOW_UI, FlowHint, flowSelectProps, type Flow } from './flow';
+import { FLOW_UI, type Flow } from './flow';
 
 function isoDaysAgo(days: number): string {
   return new Date(Date.now() - days * 86400_000).toISOString().slice(0, 10);
 }
 
-const PRESETS = [
-  { label: '7g', days: 7 },
-  { label: '30g', days: 30 },
-  { label: '90g', days: 90 },
-  { label: 'YTD', days: -1 },
+type Preset = '7' | '30' | '90' | 'ytd';
+
+const PRESETS: { value: Preset; label: string }[] = [
+  { value: '7', label: '7g' },
+  { value: '30', label: '30g' },
+  { value: '90', label: '90g' },
+  { value: 'ytd', label: 'Anno' },
 ];
 
+/** Intervallo di un preset: ultimi N giorni o dall'inizio dell'anno. */
+function presetRange(p: Preset): { from: string; to: string } {
+  const to = new Date().toISOString().slice(0, 10);
+  if (p === 'ytd') return { from: `${new Date().getFullYear()}-01-01`, to };
+  return { from: isoDaysAgo(Number(p)), to };
+}
+
+/** Periodo precedente della stessa durata, per la variazione del netto. */
+function previousRange(from: string, to: string): { from: string; to: string } {
+  const f = new Date(`${from}T00:00:00Z`).getTime();
+  const t = new Date(`${to}T00:00:00Z`).getTime();
+  const len = t - f + 86400_000;
+  const iso = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+  return { from: iso(f - len), to: iso(f - 86400_000) };
+}
+
 export function DashboardPage() {
+  const [preset, setPresetState] = useState<Preset | null>('30');
   const [from, setFrom] = useState(isoDaysAgo(30));
   const [to, setTo] = useState(new Date().toISOString().slice(0, 10));
   const [accountIds, setAccountIds] = useState<string[]>([]);
@@ -83,6 +105,20 @@ export function DashboardPage() {
 
   const data = dashboardQuery.data;
 
+  // Stesso filtro sul periodo precedente: solo per la variazione del netto.
+  const prev = previousRange(from, to);
+  const previousQuery = useQuery({
+    queryKey: ['dashboard', prev.from, prev.to, [...accountIds].sort(), [...categoryIds].sort()],
+    queryFn: () =>
+      reportsApi.dashboard(
+        prev.from,
+        prev.to,
+        accountIds.length > 0 ? accountIds : undefined,
+        categoryIds.length > 0 ? categoryIds : undefined,
+      ),
+    enabled: !!data,
+  });
+
   // Il filtro per categoria mostra SOLO le categorie padre: selezionarne una
   // ingloba (lato backend) anche i movimenti delle sue sottocategorie.
   const parentCategories = useMemo(
@@ -105,120 +141,61 @@ export function DashboardPage() {
     revealIfOffscreen(breakdownRef.current);
   };
 
-  const setPreset = (days: number) => {
-    if (days < 0) {
-      setFrom(`${new Date().getFullYear()}-01-01`);
-      setTo(new Date().toISOString().slice(0, 10));
-    } else {
-      setFrom(isoDaysAgo(days));
-      setTo(new Date().toISOString().slice(0, 10));
-    }
+  const setPreset = (p: Preset) => {
+    const r = presetRange(p);
+    setPresetState(p);
+    setFrom(r.from);
+    setTo(r.to);
   };
 
   return (
     <div className="space-y-6 relative">
       {/* Hero glow decorativo dietro l'header */}
       <div className="fm-hero-glow" aria-hidden />
-      {/* Titolo sopra, filtri sotto: affiancati, i filtri andavano a capo a
-          metà (la seconda data da sola su una riga) anche su desktop. */}
       <div className="relative flex flex-col gap-3">
-        <div>
-          <h1 className="fm-large-title">Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Panoramica finanziaria del periodo selezionato
-          </p>
-        </div>
-        {/* Su mobile i filtri stanno su UNA riga scorrevole: andando a capo
-            occupavano tre righe prima del primo numero. Da sm in su tornano a
-            capo normalmente. I popover sono in portal, lo scroll non li taglia. */}
+        <h1 className="fm-large-title">Dashboard</h1>
+        <Segmented
+          ariaLabel="Periodo"
+          options={PRESETS}
+          value={preset}
+          onChange={setPreset}
+          className="w-full sm:w-auto sm:self-start"
+        />
+        {/* Filtri in chip su UNA riga scorrevole (su mobile); il periodo
+            personalizzato si sceglie dalla chip delle date. I popover sono in
+            portal, lo scroll orizzontale non li taglia. */}
         <div className="fm-no-scrollbar -mx-4 flex items-center gap-2 overflow-x-auto pb-1 pl-4 pr-8 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 [&>*]:shrink-0 [mask-image:linear-gradient(to_right,black_calc(100%-2rem),transparent)] sm:[mask-image:none]">
-          <AccountMultiSelect
-            accounts={accounts}
-            value={accountIds}
-            onChange={setAccountIds}
-          />
+          <AccountMultiSelect accounts={accounts} value={accountIds} onChange={setAccountIds} />
           <CategoryMultiSelect
             categories={parentCategories}
             value={categoryIds}
             onChange={setCategoryIds}
           />
-          {PRESETS.map((p) => (
-            <Button key={p.label} variant="outline" size="sm" onClick={() => setPreset(p.days)}>
-              {p.label}
-            </Button>
-          ))}
-          {/* Su mobile gli input data riempiono lo spazio disponibile invece di
-              una larghezza fissa che, affiancata, sforava lo schermo. */}
-          <Input
-            type="date"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-            className="w-[8.75rem] sm:w-36"
-          />
-          <Input
-            type="date"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            className="w-[8.75rem] sm:w-36"
+          <DateRangeChip
+            from={from}
+            to={to}
+            onChange={(r) => {
+              setPresetState(null);
+              if (r.from) setFrom(r.from);
+              if (r.to) setTo(r.to);
+            }}
           />
         </div>
       </div>
 
-      {/* KPI cards — Entrate/Uscite selezionano il flusso della card "per categoria" */}
-      {/* Mobile: Entrate e Uscite affiancate, Netto a tutta larghezza sotto —
-          i tre numeri stanno nella prima schermata invece di tre card alte. */}
-      <StaggerList className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
-        <KpiCard
-          label="Entrate"
-          value={data ? Number(data.totals.incomeCents) / 100 : null}
-          valueClassName="text-[hsl(var(--pos))]"
-          spark={
-            data?.daily && data.daily.length > 1
-              ? data.daily.map((d) => Number(d.incomeCents) / 100)
-              : undefined
-          }
-          sparkColor="hsl(var(--pos))"
-          select={{
-            active: flow === 'income',
-            onSelect: () => selectFlow('income'),
-            selectedClassName: FLOW_UI.income.selected,
-            hint: 'Mostra le entrate per categoria',
-          }}
-        />
-        <KpiCard
-          label="Uscite"
-          value={data ? Number(data.totals.expenseCents) / 100 : null}
-          valueClassName="text-[hsl(var(--neg))]"
-          spark={
-            data?.daily && data.daily.length > 1
-              ? data.daily.map((d) => Math.abs(Number(d.expenseCents)) / 100)
-              : undefined
-          }
-          sparkColor="hsl(var(--neg))"
-          select={{
-            active: flow === 'expense',
-            onSelect: () => selectFlow('expense'),
-            selectedClassName: FLOW_UI.expense.selected,
-            hint: 'Mostra le spese per categoria',
-          }}
-        />
-        <KpiCard
-          label="Netto"
-          value={data ? Number(data.totals.netCents) / 100 : null}
-          valueClassName={
-            data && Number(data.totals.netCents) >= 0
-              ? 'text-[hsl(var(--pos))]'
-              : 'text-[hsl(var(--neg))]'
-          }
-          spark={
-            data?.daily && data.daily.length > 1
-              ? data.daily.map((d) => (Number(d.incomeCents) + Number(d.expenseCents)) / 100)
-              : undefined
-          }
-          sparkColor="hsl(var(--primary))"
-          className="col-span-2 md:col-span-1"
-        />
-      </StaggerList>
+      <PeriodSummary
+        totals={data?.totals}
+        previous={previousQuery.data?.totals}
+        netLabel="Netto del periodo"
+        previousLabel="sul periodo prima"
+        netSpark={
+          data?.daily && data.daily.length > 1
+            ? cumulativeNet(data.daily)
+            : undefined
+        }
+        flow={flow}
+        onSelectFlow={selectFlow}
+      />
 
       <StaggerList className="grid gap-4 lg:grid-cols-2">
         <Card className="fm-glass fm-card-in">
@@ -244,7 +221,7 @@ export function DashboardPage() {
               <div
                 role="radiogroup"
                 aria-label="Livello di dettaglio categorie"
-                className="inline-flex shrink-0 rounded-md border p-0.5 text-xs"
+                className="inline-flex shrink-0 rounded-full bg-muted p-0.5 text-xs font-medium"
               >
                 <button
                   type="button"
@@ -252,9 +229,9 @@ export function DashboardPage() {
                   aria-checked={!categoryDetail}
                   onClick={() => setCategoryDetail(false)}
                   className={cn(
-                    'rounded px-2 py-1 transition-colors',
+                    'rounded-full px-2.5 py-1 transition-colors',
                     !categoryDetail
-                      ? 'bg-primary text-primary-foreground'
+                      ? 'bg-card text-foreground shadow-sm'
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
@@ -266,9 +243,9 @@ export function DashboardPage() {
                   aria-checked={categoryDetail}
                   onClick={() => setCategoryDetail(true)}
                   className={cn(
-                    'rounded px-2 py-1 transition-colors',
+                    'rounded-full px-2.5 py-1 transition-colors',
                     categoryDetail
-                      ? 'bg-primary text-primary-foreground'
+                      ? 'bg-card text-foreground shadow-sm'
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
@@ -280,8 +257,17 @@ export function DashboardPage() {
           <CardContent>
             {data ? (
               <>
-                <CategoryPieChart data={categoryBreakdown} emptyLabel={FLOW_UI[flow].emptyChart} />
-                <CategoryBreakdownList items={categoryBreakdown} />
+                {categoryBreakdown.length === 0 ? (
+                  <CategoryPieChart data={categoryBreakdown} emptyLabel={FLOW_UI[flow].emptyChart} />
+                ) : (
+                  <div className="grid items-center gap-5 sm:grid-cols-[180px_1fr]">
+                    <CategoryPieChart
+                      data={categoryBreakdown}
+                      centerLabel={flow === 'income' ? 'Entrate' : 'Uscite'}
+                    />
+                    <CategoryBreakdownList items={categoryBreakdown} />
+                  </div>
+                )}
               </>
             ) : (
               <Skel />
@@ -300,105 +286,52 @@ export function DashboardPage() {
         </Card>
       </StaggerList>
 
-      <Card className="overflow-hidden fm-glass fm-card-in">
-        <CardHeader>
-          <CardTitle className="text-base">Ultime operazioni</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {!data || data.recent.length === 0 ? (
-            <p className="p-6 text-sm text-muted-foreground text-center">Nessun movimento.</p>
-          ) : (
-            <ul className="divide-y fm-stagger">
-              {data.recent.map((tx) => {
-                const cents = Number(tx.amountCents);
-                return (
-                  <li
-                    key={tx.id}
-                    className="fm-card-in flex items-center gap-3 p-3 sm:px-4 transition-colors hover:bg-muted/40"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium truncate">
-                        {tx.description || (tx.category?.name ?? 'Movimento')}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDate(tx.transactionDate)} · {tx.account.name}
-                        {tx.category && ` · ${tx.category.name}`}
-                      </p>
-                    </div>
-                    <MoneyAmount cents={cents} size="row" colored className="font-semibold" />
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+      <section className="fm-card-in">
+        <div className="mb-1 flex items-baseline justify-between px-1">
+          <h2 className="text-base font-semibold">Ultime operazioni</h2>
+          <Link to="/transactions" className="text-sm font-medium text-primary hover:underline">
+            Vedi tutte
+          </Link>
+        </div>
+        {!data ? (
+          <Skel />
+        ) : data.recent.length === 0 ? (
+          <Card>
+            <EmptyState
+              icon={Receipt}
+              title="Nessun movimento"
+              description="I movimenti che aggiungi o che arrivano dalla banca compaiono qui."
+            />
+          </Card>
+        ) : (
+          groupByDay(data.recent).map((g) => (
+            <div key={g.day} className="mt-3">
+              <GroupHeader label={dayLabel(g.day)} />
+              <Card className="overflow-hidden">
+                <ul className="divide-y">
+                  {g.items.map((tx) => (
+                    <li key={tx.id} className="flex items-center gap-3 px-3 py-2.5 sm:px-4">
+                      <TxRowContent tx={tx} />
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            </div>
+          ))
+        )}
+      </section>
     </div>
   );
 }
 
+/** Netto progressivo giorno per giorno: la linea finisce sul netto del periodo. */
+function cumulativeNet(daily: { incomeCents: string; expenseCents: string }[]): number[] {
+  let acc = 0;
+  return daily.map((d) => (acc += (Number(d.incomeCents) - Number(d.expenseCents)) / 100));
+}
+
 function Skel() {
   return <Skeleton height={260} rounded="md" />;
-}
-
-interface KpiCardProps {
-  label: string;
-  /** null finché i dati non sono arrivati (mostra "—"). */
-  value: number | null;
-  valueClassName: string;
-  className?: string;
-  spark?: number[];
-  sparkColor: string;
-  /** Se presente la card fa da selettore per la vista "per categoria" sotto. */
-  select?: {
-    active: boolean;
-    onSelect: () => void;
-    /** Classi di evidenziazione a card selezionata (outline: vedi FLOW_UI). */
-    selectedClassName: string;
-    hint: string;
-  };
-}
-
-/**
- * Card KPI del periodo. Con `select` diventa cliccabile (e raggiungibile da
- * tastiera): Entrate/Uscite scelgono il flusso mostrato dalla torta per categoria.
- */
-function KpiCard({ label, value, valueClassName, className, spark, sparkColor, select }: KpiCardProps) {
-  return (
-    <Card
-      className={cn(
-        'fm-glass fm-card-in relative overflow-hidden',
-        select && 'fm-press cursor-pointer transition-shadow hover:shadow-md',
-        select?.active && select.selectedClassName,
-        className,
-      )}
-      {...(select ? flowSelectProps(select) : {})}
-    >
-      <CardHeader className="space-y-1 p-4 pb-3 sm:space-y-1.5 sm:p-6 sm:pb-2">
-        <CardDescription className="flex flex-wrap items-center gap-x-1.5 text-[13px] font-medium">
-          {label}
-          {select && <FlowHint active={select.active} />}
-        </CardDescription>
-        <CardTitle className={cn('text-2xl sm:text-3xl', valueClassName)}>
-          {value !== null ? (
-            <AnimatedNumber
-              value={value}
-              render={(n) => <MoneyAmount cents={Math.round(n * 100)} size="kpi" />}
-            />
-          ) : (
-            '—'
-          )}
-        </CardTitle>
-      </CardHeader>
-      {spark && spark.length > 1 && (
-        // Mobile: sparkline nel flusso sotto la cifra (nelle card affiancate
-        // non c'è posto a destra); da sm torna nell'angolo.
-        <div className="px-4 pb-3 opacity-60 sm:absolute sm:bottom-3 sm:right-3 sm:p-0">
-          <SparkLine data={spark} color={sparkColor} width={110} height={28} />
-        </div>
-      )}
-    </Card>
-  );
 }
 
 /**
@@ -438,39 +371,37 @@ function buildCategoryBreakdown(tree: CategoryNode[], detail: boolean): Category
   );
 }
 
-const BREAKDOWN_PALETTE = [
-  'hsl(var(--chart-1))',
-  'hsl(var(--chart-2))',
-  'hsl(var(--chart-3))',
-  'hsl(var(--chart-4))',
-  'hsl(var(--chart-5))',
-];
-
-/** Lista categorie (legenda con importi) sotto il grafico, rispetta il toggle. */
+/**
+ * Legenda accanto alla ciambella: stesse voci e stessi colori delle fette
+ * (prime 8 + "Altro"), con importo, quota e barra di peso.
+ */
 function CategoryBreakdownList({ items }: { items: CategoryBreakdownItem[] }) {
   if (items.length === 0) return null;
-  const sorted = [...items].sort(
-    (a, b) => Number(BigInt(b.amountCents) - BigInt(a.amountCents)),
-  );
+  const slices = pieSlices(items);
+  const total = slices.reduce((acc, c) => acc + c.cents, 0) || 1;
   return (
-    <ul className="mt-4 space-y-1.5 border-t pt-3">
-      {sorted.map((c, i) => (
-        <li
-          key={`${c.categoryId ?? 'none'}-${i}`}
-          className="flex items-center justify-between gap-3 text-sm"
-        >
-          <span className="flex min-w-0 items-center gap-2">
-            <span
-              className="h-2.5 w-2.5 shrink-0 rounded-full"
-              style={{ background: c.color ?? BREAKDOWN_PALETTE[i % BREAKDOWN_PALETTE.length] }}
-            />
-            <span className="truncate">{c.categoryName}</span>
-          </span>
-          <span className="shrink-0 tabular-nums text-muted-foreground">
-            {formatCents(Number(c.amountCents))}
-          </span>
-        </li>
-      ))}
+    <ul className="space-y-2.5">
+      {slices.map((c, i) => {
+        const color = c.color ?? FALLBACK_PALETTE[i % FALLBACK_PALETTE.length];
+        const share = c.cents / total;
+        return (
+          <li key={`${c.name}-${i}`} className="text-sm">
+            <div className="flex items-center justify-between gap-3">
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: color }} />
+                <span className="truncate">{c.name}</span>
+              </span>
+              <span className="flex shrink-0 items-baseline gap-2 tabular-nums">
+                <span className="text-xs text-muted-foreground">{Math.round(share * 100)}%</span>
+                <MoneyAmount cents={c.cents} size="inline" className="font-medium" />
+              </span>
+            </div>
+            <span className="mt-1 block h-1 overflow-hidden rounded-full bg-muted" aria-hidden>
+              <span className="block h-full rounded-full" style={{ width: `${Math.max(2, share * 100)}%`, background: color }} />
+            </span>
+          </li>
+        );
+      })}
     </ul>
   );
 }

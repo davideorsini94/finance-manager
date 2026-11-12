@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Plus, Pencil, Trash2, Trophy, CheckCircle2 } from 'lucide-react';
+import { Pencil, Trash2, Trophy, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -31,6 +31,7 @@ import { formatDate } from '@/lib/utils/date';
 import { accountsApi } from '@/features/accounts/accountsApi';
 import { goalsApi, type Goal } from './goalsApi';
 import { useConfirm } from '@/components/shared/confirm';
+import { AddButton } from '@/components/shared/PageHeader';
 
 const schema = z.object({
   name: z.string().min(1).max(100),
@@ -117,9 +118,7 @@ export function GoalsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="fm-large-title">Obiettivi di risparmio</h1>
-        <Button onClick={() => openForm()}>
-          <Plus className="h-4 w-4 mr-2" /> Nuovo
-        </Button>
+        <AddButton label="Nuovo obiettivo" onClick={() => openForm()} />
       </div>
 
       {goals.length === 0 ? (

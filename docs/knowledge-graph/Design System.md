@@ -75,6 +75,20 @@ Regole prese da tre pagine Apple (Adopting Liquid Glass, HIG Materials, Applying
 - **Sfondo ambientale** fermo su `.fm-shell` (radiali blu penna/salvia/carta del Registro): è livello contenuti, non vetro
 - Ripieghi: senza `backdrop-filter`, `prefers-reduced-transparency`, `prefers-contrast: more` → superfici piene; `prefers-reduced-motion` → niente compressione e niente animazioni di ingresso
 
+## Svecchiamento v0.23.0 (2026-11-12)
+
+Otto proposte mostrate in anteprima (artifact "Finance Manager, nuova interfaccia") e approvate tutte dall'utente. Componenti nuovi, tutti nel vocabolario Liquid Glass (vetro sul livello funzionale, card piene):
+
+- **`components/ui/segmented.tsx`** — controllo segmentato (capsula `fm-material`, voce scelta su foglio pieno): periodo della [[Pagina Dashboard]], Mese/Anno/Confronto della [[Pagina Report]]
+- **`components/shared/PeriodSummary.tsx`** — netto come numero principale (variazione sul periodo precedente della stessa durata, netto progressivo come linea) + riquadri Entrate/Uscite con barra di proporzione, selettori del flusso. La selezione è un **filetto** senza fondo tinto (`FLOW_UI.selected`)
+- **`components/shared/SwipeRow.tsx`** — righe con azioni nascoste: col dito scorri a sinistra (direzione decisa dopo 10px, `touch-action: pan-y`, colpetto per velocità, resistenza oltre il bordo, una sola riga aperta in tutta l'app, azioni dietro la riga montate visibili solo durante lo swipe), col mouse le azioni compaiono al passaggio/focus come fratelli della riga (non dentro il suo `role=button`), con colonna riservata (`slots`) per tenere gli importi incolonnati. Usata in Movimenti, Conti, notifiche
+- **`PageHeader` / `AddButton`** — azione principale: pulsante col testo su PC, cerchio di vetro col + sotto `lg` (Movimenti, Conti, Categorie, Budget, Ricorrenze, Obiettivi)
+- **`DateRangeChip`** (scorciatoie + due date in un popover), **`GroupHeader`**, **`EmptyState`** (stato vuoto con azione); chip per i filtri (`AccountMultiSelect`/`CategoryMultiSelect` a capsula, tinta d'accento se attivi)
+- **`features/transactions/TxRowContent.tsx`** — riga movimento con tassello della categoria (`findIcon` in `icon-pool.ts`: chiave anche in PascalCase, nessun ripiego generico) e `groupByDay`; date `dayLabel`/`shortDate` in `lib/utils/date.ts`
+- **Grafici**: `charts/ChartTooltip.tsx` (cursore a pillola scura, assi senza linee né tacche, importi compatti), ciambella col totale al centro e legenda che usa le stesse fette (`pieSlices`: prime 8 + "Altro") e la stessa palette (`FALLBACK_PALETTE`)
+- **Avvisi**: modalità demo e offline sono pillole di vetro (offline sotto la barra, non sopra i pulsanti), non più strisce gialle
+- **`SparkLine`**: `stretch` per allargarsi al contenitore (tratto non scalato, senza animazione); il disegno animato usa `pathLength=1`, prima il tratteggio fisso a 200 lasciava buchi nelle linee lunghe
+
 ## Superfici con colore del conto
 
 Card dei conti (pagina Conti e striscia della [[Pagina Movimenti]]): **foglio piatto** con la spina sinistra nel colore del conto e il tassello dell'icona tinto al 12%. Il fondo tinto pieno (fino a v0.17) faceva sembrare ogni conto uno stato e competeva con l'evidenziazione della card selezionata.

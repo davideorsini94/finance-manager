@@ -57,7 +57,13 @@ export function AccountMultiSelect({
         <Button
           variant="outline"
           size="sm"
-          className={cn('justify-between gap-2 min-w-[160px]', className)}
+          className={cn(
+            // Chip: stessa forma dei filtri di Dashboard e Movimenti; tinta
+            // d'accento quando il filtro è attivo.
+            'h-8 justify-between gap-1.5 rounded-full border-border/80 bg-card/70 px-3 font-medium',
+            value.length > 0 && 'border-transparent bg-accent text-accent-foreground hover:bg-accent',
+            className,
+          )}
         >
           <span className="inline-flex items-center gap-1.5 truncate">
             <Wallet className="h-3.5 w-3.5 opacity-60" />

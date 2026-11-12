@@ -71,4 +71,5 @@ export interface NotificationListResult {
 export type NotificationStreamEvent =
   | { event: 'created'; notification: NotificationDto }
   | { event: 'read'; ids: string[] }
-  | { event: 'unread_count'; count: number };
+  | { event: 'unread_count'; count: number }
+  | { event: 'cleared' };

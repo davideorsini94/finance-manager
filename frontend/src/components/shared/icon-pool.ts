@@ -172,3 +172,14 @@ export function getIcon(key: string | null | undefined): LucideIcon {
   if (!key) return Wallet;
   return ICON_POOL[key] ?? Wallet;
 }
+
+/**
+ * Come `getIcon` ma senza ripiego: `null` se la chiave non è nel pool (anche
+ * in PascalCase, come "ShoppingCart" → "shopping-cart"). Serve dove un'icona
+ * generica sbagliata è peggio di nessuna icona (tassello della categoria).
+ */
+export function findIcon(key: string | null | undefined): LucideIcon | null {
+  if (!key) return null;
+  const kebab = key.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+  return ICON_POOL[key] ?? ICON_POOL[kebab] ?? null;
+}

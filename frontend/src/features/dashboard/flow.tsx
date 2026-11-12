@@ -24,7 +24,8 @@ export const FLOW_UI: Record<
     /** Testo a grafico vuoto. */
     emptyChart: string;
     /**
-     * Evidenziazione della card/voce selezionata. **Outline, non ring**: nel tema
+     * Evidenziazione della card/voce selezionata: solo un filetto, senza fondo
+     * tinto (una card tutta rossa si leggeva come un errore). **Outline, non ring**: nel tema
      * glass `fm-glass` sovrascrive il `box-shadow` della card e l'anello di
      * Tailwind sparirebbe (stessa trappola delle card conto dei Movimenti).
      */
@@ -39,7 +40,7 @@ export const FLOW_UI: Record<
     itemsPlural: 'spese',
     noneLabel: 'Nessuna spesa.',
     emptyChart: 'Nessuna spesa nel periodo',
-    selected: 'outline outline-1 outline-offset-0 outline-[hsl(var(--neg))] !bg-[hsl(var(--neg-soft)/0.75)]',
+    selected: 'outline outline-[1.5px] -outline-offset-[1.5px] outline-[hsl(var(--neg))]',
     selectedTint: 'bg-[hsl(var(--neg-soft))]',
   },
   income: {
@@ -48,7 +49,7 @@ export const FLOW_UI: Record<
     itemsPlural: 'entrate',
     noneLabel: 'Nessuna entrata.',
     emptyChart: 'Nessuna entrata nel periodo',
-    selected: 'outline outline-1 outline-offset-0 outline-[hsl(var(--pos))] !bg-[hsl(var(--pos-soft)/0.75)]',
+    selected: 'outline outline-[1.5px] -outline-offset-[1.5px] outline-[hsl(var(--pos))]',
     selectedTint: 'bg-[hsl(var(--pos-soft))]',
   },
 };

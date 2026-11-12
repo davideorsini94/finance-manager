@@ -1,30 +1,16 @@
 import { useMemo, useRef, useState } from 'react';
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
-import { ChevronRight, Loader2 } from 'lucide-react';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Segmented } from '@/components/ui/segmented';
 import { AccountMultiSelect } from '@/components/shared/AccountMultiSelect';
+import { PeriodSummary } from '@/components/shared/PeriodSummary';
+import { DateRangeChip } from '@/components/shared/DateRangeChip';
+import { Skeleton } from '@/components/shared/animated/Skeleton';
+import { IncomeExpenseBar } from '@/features/dashboard/charts/IncomeExpenseBar';
+import { CategoryPieChart, FALLBACK_PALETTE, pieSlices } from '@/features/dashboard/charts/CategoryPieChart';
+import { AXIS_PROPS, ChartTooltip, compactEuro } from '@/features/dashboard/charts/ChartTooltip';
 import { accountsApi } from '@/features/accounts/accountsApi';
 import { sortByName } from '@/lib/utils/sort';
 import {
@@ -32,16 +18,10 @@ import {
   type CategoryBreakdownItem,
   type CategoryNode,
 } from '@/features/dashboard/dashboardApi';
-import {
-  FLOW_UI,
-  FlowHint,
-  flowSelectProps,
-  type Flow,
-} from '@/features/dashboard/flow';
+import { FLOW_UI, type Flow } from '@/features/dashboard/flow';
 import { transactionsApi } from '@/features/transactions/transactionsApi';
 import { LlmReportCard } from './LlmReportCard';
 import { formatCents } from '@/lib/utils/currency';
-import { MoneyAmount } from '@/components/shared/MoneyAmount';
 import { cn } from '@/lib/utils/cn';
 import { revealIfOffscreen } from '@/lib/utils/reveal';
 import type { PageResult, Transaction } from '@/types/domain';
@@ -58,12 +38,10 @@ interface DrillContext {
   flow: Flow;
 }
 
-const PALETTE = [
-  'hsl(var(--chart-1))',
-  'hsl(var(--chart-2))',
-  'hsl(var(--chart-3))',
-  'hsl(var(--chart-4))',
-  'hsl(var(--chart-5))',
+const MODES: { value: Mode; label: string }[] = [
+  { value: 'monthly', label: 'Mese' },
+  { value: 'annual', label: 'Anno' },
+  { value: 'compare', label: 'Confronto' },
 ];
 
 export function ReportsPage() {
@@ -81,12 +59,6 @@ export function ReportsPage() {
     setFlow(next);
     revealIfOffscreen(breakdownRef.current);
   };
-  /** Props delle due card KPI cliccabili, uguali in tutte le modalità. */
-  const kpiSelect = (target: Flow) => ({
-    active: flow === target,
-    onSelect: () => selectFlow(target),
-    hint: `Mostra le ${FLOW_UI[target].name} per categoria`,
-  });
 
   const today = new Date().toISOString().slice(0, 10);
   const monthAgo = new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10);
@@ -122,6 +94,43 @@ export function ReportsPage() {
     enabled: mode === 'monthly',
   });
 
+  // Periodo precedente (anno prima / mese prima) per la variazione del netto.
+  const prevMonth = month === 1 ? { y: year - 1, m: 12 } : { y: year, m: month - 1 };
+  const now = new Date();
+  const isCurrentYear = year >= now.getFullYear();
+  const isCurrentMonth = year > now.getFullYear() || (year === now.getFullYear() && month >= now.getMonth() + 1);
+  // Periodo in corso: il precedente si ferma allo stesso giorno (da inizio
+  // anno/mese a oggi contro lo stesso tratto dell'anno/mese prima), altrimenti
+  // il confronto metterebbe un periodo parziale contro uno intero.
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const prevRange =
+    mode === 'annual'
+      ? {
+          from: `${year - 1}-01-01`,
+          to: isCurrentYear
+            ? `${year - 1}-${pad(now.getMonth() + 1)}-${pad(Math.min(now.getDate(), Number(lastDayOfMonth(year - 1, now.getMonth() + 1).slice(8))))}`
+            : `${year - 1}-12-31`,
+        }
+      : {
+          from: `${prevMonth.y}-${pad(prevMonth.m)}-01`,
+          to: isCurrentMonth
+            ? `${prevMonth.y}-${pad(prevMonth.m)}-${pad(Math.min(now.getDate(), Number(lastDayOfMonth(prevMonth.y, prevMonth.m).slice(8))))}`
+            : lastDayOfMonth(prevMonth.y, prevMonth.m),
+        };
+  const partialPrevious = mode === 'annual' ? isCurrentYear : isCurrentMonth;
+  const previousQuery = useQuery({
+    queryKey: ['report', 'previous', prevRange.from, prevRange.to, accountIdsKey],
+    queryFn: () =>
+      reportsApi.custom(prevRange.from, prevRange.to, accountIds.length > 0 ? accountIds : undefined),
+    enabled:
+      (mode === 'annual' && !!annualQuery.data) || (mode === 'monthly' && !!monthlyQuery.data),
+  });
+  const stepMonth = (delta: number) => {
+    const d = new Date(year, month - 1 + delta, 1);
+    setYear(d.getFullYear());
+    setMonth(d.getMonth() + 1);
+  };
+
   // Periodo/conti propagati ai drill-down per filtrare le singole transazioni.
   const annualCtx: DrillContext = {
     from: `${year}-01-01`,
@@ -153,60 +162,43 @@ export function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className="flex flex-col gap-3">
         <h1 className="fm-large-title">Report</h1>
+        <Segmented
+          ariaLabel="Tipo di report"
+          options={MODES}
+          value={mode}
+          onChange={setMode}
+          className="w-full sm:w-auto sm:self-start"
+        />
         <div className="flex flex-wrap items-center gap-2">
-          <AccountMultiSelect
-            accounts={accounts}
-            value={accountIds}
-            onChange={setAccountIds}
-          />
-          <Select value={mode} onValueChange={(v) => setMode(v as Mode)}>
-            <SelectTrigger className="w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="annual">Riepilogo annuale</SelectItem>
-              <SelectItem value="monthly">Riepilogo mensile</SelectItem>
-              <SelectItem value="compare">Confronto periodi</SelectItem>
-            </SelectContent>
-          </Select>
+          {mode !== 'compare' && (
+            <PeriodStepper
+              label={mode === 'annual' ? String(year) : `${monthName(month)} ${year}`}
+              onPrev={() => (mode === 'annual' ? setYear(year - 1) : stepMonth(-1))}
+              onNext={() => (mode === 'annual' ? setYear(year + 1) : stepMonth(1))}
+              nextDisabled={mode === 'annual' ? isCurrentYear : isCurrentMonth}
+            />
+          )}
+          <AccountMultiSelect accounts={accounts} value={accountIds} onChange={setAccountIds} />
         </div>
       </div>
 
       {mode === 'annual' && (
         <>
-          <div className="flex items-center gap-2">
-            <Label htmlFor="year">Anno</Label>
-            <Input
-              id="year"
-              type="number"
-              min={2000}
-              max={2100}
-              value={year}
-              onChange={(e) => setYear(Number(e.target.value) || year)}
-              className="w-32"
-            />
-          </div>
-
+          {!annualQuery.data && <SummarySkeleton />}
           {annualQuery.data && (
             <div className="space-y-4">
               {/* Entrate/Uscite selezionano il verso di "Top categorie" */}
-              <div className="grid gap-4 md:grid-cols-3">
-                <KpiCard
-                  label="Entrate"
-                  value={annualQuery.data.totals.incomeCents}
-                  tone="emerald"
-                  select={kpiSelect('income')}
-                />
-                <KpiCard
-                  label="Uscite"
-                  value={annualQuery.data.totals.expenseCents}
-                  tone="red"
-                  select={kpiSelect('expense')}
-                />
-                <KpiCard label="Netto" value={annualQuery.data.totals.netCents} tone="primary" />
-              </div>
+              <PeriodSummary
+                totals={annualQuery.data.totals}
+                previous={previousQuery.data?.totals}
+                netLabel={`Netto ${year}`}
+                previousLabel={partialPrevious ? `sullo stesso periodo del ${year - 1}` : `sul ${year - 1}`}
+                netSpark={cumulative(annualQuery.data.byMonth.map((m) => Number(m.netCents) / 100))}
+                flow={flow}
+                onSelectFlow={selectFlow}
+              />
 
               <LlmReportCard
                 scope="annual"
@@ -221,7 +213,7 @@ export function ReportsPage() {
                   <CardDescription>Entrate e uscite per ogni mese</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
+                  <ResponsiveContainer width="100%" height={260}>
                     <BarChart
                       data={annualQuery.data.byMonth.map((m) => ({
                         month: monthLabel(m.month),
@@ -230,23 +222,12 @@ export function ReportsPage() {
                         Netto: Number(m.netCents) / 100,
                       }))}
                     >
-                      <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeOpacity={0.7} />
-                      <XAxis dataKey="month" fontSize={12} stroke="hsl(var(--muted-foreground))" />
-                      <YAxis fontSize={12} stroke="hsl(var(--muted-foreground))" />
-                      <Tooltip
-                        contentStyle={{
-                          background: 'hsl(var(--popover))',
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: 'var(--radius)',
-                          color: 'hsl(var(--popover-foreground))',
-                        }}
-                        itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
-                        labelStyle={{ color: 'hsl(var(--popover-foreground))', fontWeight: 600 }}
-                        formatter={(value: number) => formatCents(value * 100)}
-                      />
-                      <Legend wrapperStyle={{ fontSize: 12 }} />
-                      <Bar dataKey="Entrate" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="Uscite" fill="hsl(var(--chart-4))" radius={[4, 4, 0, 0]} />
+                      <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeOpacity={0.6} />
+                      <XAxis dataKey="month" {...AXIS_PROPS} tickMargin={8} />
+                      <YAxis {...AXIS_PROPS} width={40} tickFormatter={compactEuro} />
+                      <Tooltip content={<ChartTooltip />} cursor={{ fill: 'hsl(var(--foreground))', fillOpacity: 0.05 }} />
+                      <Bar dataKey="Entrate" fill="hsl(var(--pos))" fillOpacity={0.85} radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="Uscite" fill="hsl(var(--neg))" fillOpacity={0.75} radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -279,49 +260,26 @@ export function ReportsPage() {
 
       {mode === 'monthly' && (
         <>
-          <div className="flex flex-wrap items-center gap-2">
-            <Label htmlFor="m-year">Anno</Label>
-            <Input
-              id="m-year"
-              type="number"
-              min={2000}
-              max={2100}
-              value={year}
-              onChange={(e) => setYear(Number(e.target.value) || year)}
-              className="w-28"
-            />
-            <Label htmlFor="m-month">Mese</Label>
-            <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
-              <SelectTrigger id="m-month" className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                  <SelectItem key={m} value={String(m)}>
-                    {monthName(m)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
+          {!monthlyQuery.data && <SummarySkeleton />}
           {monthlyQuery.data && (
             <div className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-3">
-                <KpiCard
-                  label="Entrate"
-                  value={monthlyQuery.data.totals.incomeCents}
-                  tone="emerald"
-                  select={kpiSelect('income')}
-                />
-                <KpiCard
-                  label="Uscite"
-                  value={monthlyQuery.data.totals.expenseCents}
-                  tone="red"
-                  select={kpiSelect('expense')}
-                />
-                <KpiCard label="Netto" value={monthlyQuery.data.totals.netCents} tone="primary" />
-              </div>
+              <PeriodSummary
+                totals={monthlyQuery.data.totals}
+                previous={previousQuery.data?.totals}
+                netLabel={`Netto di ${monthName(month).toLowerCase()}`}
+                previousLabel={
+                  partialPrevious
+                    ? `sugli stessi giorni di ${monthName(prevMonth.m).toLowerCase()}`
+                    : `su ${monthName(prevMonth.m).toLowerCase()}`
+                }
+                netSpark={cumulative(
+                  monthlyQuery.data.daily.map(
+                    (d) => (Number(d.incomeCents) - Number(d.expenseCents)) / 100,
+                  ),
+                )}
+                flow={flow}
+                onSelectFlow={selectFlow}
+              />
 
               <LlmReportCard
                 scope="monthly"
@@ -337,33 +295,7 @@ export function ReportsPage() {
                   <CardDescription>Entrate e uscite per ogni giorno del mese</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ResponsiveContainer width="100%" height={260}>
-                    <BarChart
-                      data={monthlyQuery.data.daily.map((d) => ({
-                        day: d.date.slice(8, 10),
-                        Entrate: Number(d.incomeCents) / 100,
-                        Uscite: Number(d.expenseCents) / 100,
-                      }))}
-                    >
-                      <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeOpacity={0.7} />
-                      <XAxis dataKey="day" fontSize={12} stroke="hsl(var(--muted-foreground))" />
-                      <YAxis fontSize={12} stroke="hsl(var(--muted-foreground))" />
-                      <Tooltip
-                        contentStyle={{
-                          background: 'hsl(var(--popover))',
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: 'var(--radius)',
-                          color: 'hsl(var(--popover-foreground))',
-                        }}
-                        itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
-                        labelStyle={{ color: 'hsl(var(--popover-foreground))', fontWeight: 600 }}
-                        formatter={(value: number) => formatCents(value * 100)}
-                      />
-                      <Legend wrapperStyle={{ fontSize: 12 }} />
-                      <Bar dataKey="Entrate" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="Uscite" fill="hsl(var(--chart-4))" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <IncomeExpenseBar data={monthlyQuery.data.daily} />
                 </CardContent>
               </Card>
 
@@ -394,25 +326,25 @@ export function ReportsPage() {
 
       {mode === 'compare' && (
         <>
-          <div className="grid gap-3 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Periodo 1</CardTitle>
-              </CardHeader>
-              <CardContent className="grid grid-cols-2 gap-2">
-                <Input type="date" value={p1From} onChange={(e) => setP1From(e.target.value)} />
-                <Input type="date" value={p1To} onChange={(e) => setP1To(e.target.value)} />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Periodo 2</CardTitle>
-              </CardHeader>
-              <CardContent className="grid grid-cols-2 gap-2">
-                <Input type="date" value={p2From} onChange={(e) => setP2From(e.target.value)} />
-                <Input type="date" value={p2To} onChange={(e) => setP2To(e.target.value)} />
-              </CardContent>
-            </Card>
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-muted-foreground">Confronta</span>
+            <DateRangeChip
+              from={p1From}
+              to={p1To}
+              onChange={(r) => {
+                if (r.from) setP1From(r.from);
+                if (r.to) setP1To(r.to);
+              }}
+            />
+            <span className="text-muted-foreground">con</span>
+            <DateRangeChip
+              from={p2From}
+              to={p2To}
+              onChange={(r) => {
+                if (r.from) setP2From(r.from);
+                if (r.to) setP2To(r.to);
+              }}
+            />
           </div>
 
           {compareQuery.data && (
@@ -473,51 +405,6 @@ export function ReportsPage() {
   );
 }
 
-/**
- * Card KPI del report. Con `select` diventa cliccabile (e raggiungibile da
- * tastiera): Entrate/Uscite scelgono il verso di "Top categorie", come sulla
- * dashboard.
- */
-function KpiCard({
-  label,
-  value,
-  tone,
-  select,
-}: {
-  label: string;
-  value: string;
-  tone: 'emerald' | 'red' | 'primary';
-  select?: { active: boolean; hint: string; onSelect: () => void };
-}) {
-  const cls =
-    tone === 'emerald'
-      ? 'text-[hsl(var(--pos))]'
-      : tone === 'red'
-        ? 'text-[hsl(var(--neg))]'
-        : '';
-  return (
-    <Card
-      className={cn(
-        select && 'cursor-pointer transition-shadow hover:shadow-md',
-        // Outline e non ring: nel tema glass `fm-glass` sovrascrive il box-shadow.
-        select?.active &&
-          (tone === 'emerald' ? FLOW_UI.income.selected : FLOW_UI.expense.selected),
-      )}
-      {...(select ? flowSelectProps(select) : {})}
-    >
-      <CardHeader className="pb-2">
-        <CardDescription className="flex items-center gap-1.5 text-[13px] font-medium">
-          {label}
-          {select && <FlowHint active={select.active} />}
-        </CardDescription>
-        <CardTitle className={`text-2xl ${cls}`}>
-          <MoneyAmount cents={value} size="kpi" />
-        </CardTitle>
-      </CardHeader>
-    </Card>
-  );
-}
-
 function ComparisonColumn({
   title,
   totals,
@@ -562,43 +449,29 @@ function ComparisonColumn({
           />
           <TotalCell label="Netto" value={totals.netCents} />
         </div>
-        <div className="h-[200px]">
-          {categories.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center pt-12">
-              {FLOW_UI[flow].emptyChart}
-            </p>
-          ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={categories.slice(0, 6).map((c) => ({
-                    name: c.categoryName,
-                    value: Number(c.amountCents) / 100,
-                    color: c.color,
-                  }))}
-                  dataKey="value"
-                  innerRadius={40}
-                  outerRadius={75}
-                >
-                  {categories.slice(0, 6).map((c, i) => (
-                    <Cell key={i} fill={c.color ?? PALETTE[i % PALETTE.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    background: 'hsl(var(--popover))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: 'var(--radius)',
-                    color: 'hsl(var(--popover-foreground))',
-                  }}
-                  itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
-                  labelStyle={{ color: 'hsl(var(--popover-foreground))', fontWeight: 600 }}
-                  formatter={(value: number) => formatCents(value * 100)}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          )}
-        </div>
+        <CategoryPieChart
+          data={categories}
+          maxSlices={6}
+          size={160}
+          emptyLabel={FLOW_UI[flow].emptyChart}
+          centerLabel={flow === 'income' ? 'Entrate' : 'Uscite'}
+        />
+        {categories.length > 0 && (
+          <ul className="space-y-1.5 text-sm">
+            {pieSlices(categories, 6).map((c, i) => (
+              <li key={`${c.name}-${i}`} className="flex items-center justify-between gap-3">
+                <span className="flex min-w-0 items-center gap-2">
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{ background: c.color ?? FALLBACK_PALETTE[i % FALLBACK_PALETTE.length] }}
+                  />
+                  <span className="truncate">{c.name}</span>
+                </span>
+                <span className="shrink-0 tabular-nums text-muted-foreground">{formatCents(c.cents)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </CardContent>
     </Card>
   );
@@ -814,6 +687,57 @@ function DeltaRow({ label, a, b }: { label: string; a: string; b: string }) {
         {diff >= 0 ? '+' : ''}
         {formatCents(diff)} ({pct.toFixed(1)}%)
       </span>
+    </div>
+  );
+}
+
+/** Somma progressiva: la linea del netto finisce sul netto del periodo. */
+function cumulative(values: number[]): number[] {
+  let acc = 0;
+  return values.map((v) => (acc += v));
+}
+
+function SummarySkeleton() {
+  return (
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+      <Skeleton height={148} rounded="lg" className="col-span-2" />
+      <Skeleton height={148} rounded="lg" />
+      <Skeleton height={148} rounded="lg" />
+    </div>
+  );
+}
+
+/** "‹ 2026 ›" / "‹ novembre 2026 ›": capsula di vetro per scorrere i periodi. */
+function PeriodStepper({
+  label,
+  onPrev,
+  onNext,
+  nextDisabled,
+}: {
+  label: string;
+  onPrev: () => void;
+  onNext: () => void;
+  nextDisabled: boolean;
+}) {
+  const btn =
+    'fm-glass-press inline-flex h-8 w-8 items-center justify-center rounded-full text-foreground hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-30';
+  return (
+    <div className="fm-material inline-flex items-center gap-1 rounded-full border p-1">
+      <button type="button" className={btn} onClick={onPrev} aria-label="Periodo precedente">
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+      <span className="min-w-[4.5rem] px-1 text-center text-sm font-semibold capitalize tabular-nums" aria-live="polite">
+        {label}
+      </span>
+      <button
+        type="button"
+        className={btn}
+        onClick={onNext}
+        disabled={nextDisabled}
+        aria-label="Periodo successivo"
+      >
+        <ChevronRight className="h-4 w-4" />
+      </button>
     </div>
   );
 }

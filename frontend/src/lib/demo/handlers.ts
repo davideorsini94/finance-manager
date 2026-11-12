@@ -1113,6 +1113,7 @@ function demoConnectionDto(conn: DemoBankConnection) {
     status: c.status,
     consentExpiresAt: c.consentExpiresAt,
     createdAt: c.createdAt,
+    pendingSince: c.status === 'pending' ? new Date(c.pendingSince).toISOString() : null,
     links: c.links,
   };
 }

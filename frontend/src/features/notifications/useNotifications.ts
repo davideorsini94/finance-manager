@@ -70,8 +70,21 @@ export function useNotifications() {
 
   const remove = useCallback(async (id: string) => {
     setItems((prev) => prev.filter((n) => n.id !== id));
+    setTotal((t) => Math.max(0, t - 1));
     await api.delete(`notifications/${id}`);
   }, []);
+
+  const removeAll = useCallback(async () => {
+    setItems([]);
+    setUnread(0);
+    setTotal(0);
+    try {
+      await api.delete('notifications');
+    } catch {
+      // Non riuscita: si torna a ciò che c'è davvero sul server.
+      await refetch().catch(() => undefined);
+    }
+  }, [refetch]);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,8 +99,12 @@ export function useNotifications() {
           const msg = JSON.parse(ev.data) as
             | { event: 'created'; notification: Notification }
             | { event: 'read'; ids: string[] }
-            | { event: 'unread_count'; count: number };
-          if (msg.event === 'created') {
+            | { event: 'unread_count'; count: number }
+            | { event: 'cleared' };
+          if (msg.event === 'cleared') {
+            setItems([]);
+            setTotal(0);
+          } else if (msg.event === 'created') {
             setItems((prev) => [msg.notification, ...prev].slice(0, 50));
           } else if (msg.event === 'unread_count') {
             setUnread(msg.count);
@@ -123,5 +140,5 @@ export function useNotifications() {
     };
   }, [refetch]);
 
-  return { items, unread, total, loading, refetch, markRead, markAllRead, remove };
+  return { items, unread, total, loading, refetch, markRead, markAllRead, remove, removeAll };
 }

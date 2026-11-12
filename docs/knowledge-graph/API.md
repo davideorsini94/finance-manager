@@ -23,5 +23,5 @@ Tutte le rotte sono servite dal [[Backend]] e proxate da nginx sotto `/api/` (es
 - **Bollette** — `GET /utility-bills`, `GET /utility-bills/:id`, `POST /utility-bills` (a mano), `POST /utility-bills/upload` (multipart, PDF ≤ 10 MB, avvia la lettura), `POST /utility-bills/:id/extract`, `PUT /utility-bills/:id` (salva e conferma), `DELETE /utility-bills/:id`, `GET /utility-bills/:id/file`; abitazioni `GET /households`, `PATCH /households/:id`, `POST /households/:id/merge`, `DELETE /households/:id`, condivisione `POST /households/:id/members` e `DELETE /households/:id/members/:userId` → [[Bollette]]. (Le rotte `/imports/*` sono state rimosse in v0.20.0)
 - **Attachments** — `POST /attachments`, `DELETE /attachments/:id`
 - **Backup** — `GET /backup/export`, `POST /backup/restore` (distruttivo)
-- **Notifications** — `GET /notifications`, `PATCH /notifications/:id`
+- **Notifications** — `GET /notifications`, `PATCH /notifications/:id`, `DELETE /notifications/:id`, `DELETE /notifications` (tutte, v0.23.0: evento SSE `cleared` agli altri dispositivi)
 - **Health** — `GET /health`

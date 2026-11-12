@@ -87,6 +87,8 @@ export interface BankConnection {
   status: BankConnectionStatus;
   consentExpiresAt: string | null;
   createdAt: string;
+  /** Da quando l'autorizzazione è in attesa (solo `pending`). */
+  pendingSince: string | null;
   links: BankAccountLink[];
 }
 

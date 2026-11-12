@@ -4,14 +4,17 @@ Route `/transactions` — file `frontend/src/features/transactions/TransactionsP
 
 ## Struttura
 
-1. **Card riepilogo conti** in alto (scroll orizzontale con snap): una `AccountSummaryCard` per conto con icona, tipo e saldo
-2. **Filtri**: ricerca testo, conto, categoria, date da/a — stato locale `filters` (`ListTransactionsParams`), ogni cambio filtro riporta a pagina 1
-3. **Lista movimenti** paginata (10/25/50/100 per pagina) con anteprima allegati/edit/delete per riga
-4. **`TransactionForm`** (modale) per creazione/modifica
+1. **Intestazione** (`PageHeader`): su PC pulsante "Nuovo movimento", su telefono/tablet cerchio di vetro col +
+2. **Chip dei conti** (pallino del colore, nome, saldo): tocco = filtro per conto, secondo tocco lo toglie
+3. **Barra di vetro dei filtri**: ricerca sempre visibile; conto, categoria e periodo (`DateRangeChip`, facoltativo) in linea da `sm`, dietro il pulsante filtri su telefono; riga "Filtri: … Togli tutti" quando ce n'è almeno uno. Stato locale `filters` (`ListTransactionsParams`), ogni cambio filtro riporta a pagina 1
+4. **Lista raggruppata per giorno** ("Oggi · mar 11 nov", "Ieri", `dayLabel`) col netto della giornata (giroconti esclusi), paginata 10/25/50/100; stato vuoto con azione (`EmptyState`)
+5. **`TransactionForm`** (modale) per creazione/modifica
 
-## Layout della riga (2026-10-16)
+## Layout della riga (v0.23.0)
 
-Due linee: descrizione e importo sulla stessa linea di base, sotto categoria (pallino col suo colore, non più pillola contornata) · data · conto (solo da `sm`) · allegati. Su mobile l'icona di verso è nascosta (segno e colore dell'importo bastano). Quando non ci sono allegati resta uno slot vuoto largo quanto il bottone "occhio", così gli importi restano incolonnati. Su mobile i filtri conto/categoria/date stanno dietro un bottone accanto alla ricerca, con contatore dei filtri attivi; da `sm` sono sempre visibili.
+`TxRowContent` (`features/transactions/TxRowContent.tsx`): tassello con icona e colore della categoria (`findIcon`; senza icona nota, freccia di verso), descrizione, "categoria · conto" + allegati + "In attesa", importo a destra. La spina sinistra col colore del conto resta. **Azioni con `SwipeRow`** (`components/shared/SwipeRow.tsx`): col dito si scorre a sinistra per Allegati/Modifica/Elimina, col mouse le stesse azioni compaiono al passaggio o col focus; tocco sulla riga = modifica. Sostituisce le tre icone fisse che tagliavano le descrizioni.
+
+Storico (2026-10-16) — due linee: descrizione e importo sulla stessa linea di base, sotto categoria (pallino col suo colore, non più pillola contornata) · data · conto (solo da `sm`) · allegati. Su mobile l'icona di verso è nascosta (segno e colore dell'importo bastano). Quando non ci sono allegati resta uno slot vuoto largo quanto il bottone "occhio", così gli importi restano incolonnati. Su mobile i filtri conto/categoria/date stanno dietro un bottone accanto alla ricerca, con contatore dei filtri attivi; da `sm` sono sempre visibili.
 
 ## Comportamenti chiave
 

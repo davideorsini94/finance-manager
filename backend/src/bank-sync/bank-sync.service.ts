@@ -46,6 +46,13 @@ import type { CreateConnectionDto, CreateLinkDto } from './dto/bank-sync.dto';
  */
 const STATE_TTL_MS = 15 * 60 * 1000;
 
+/**
+ * Dopo quanto un'autorizzazione `pending` si considera abbandonata (pagina
+ * della banca chiusa, SCA non completata) e si può rifare il rinnovo. Stesso
+ * valore del timeout del polling nel frontend.
+ */
+export const PENDING_RETRY_MS = 5 * 60 * 1000;
+
 /** Percorso della pagina pubblica di callback nel frontend. */
 const CALLBACK_PATH = '/bank-sync/callback';
 
@@ -103,6 +110,8 @@ export interface BankConnectionView {
   status: BankConnectionStatus;
   consentExpiresAt: Date | null;
   createdAt: Date;
+  /** Da quando l'autorizzazione è in attesa (solo per `pending`): dopo `PENDING_RETRY_MS` si può rifare. */
+  pendingSince: Date | null;
   links: BankLinkView[];
 }
 
@@ -254,10 +263,15 @@ export class BankSyncService {
     id: string,
   ): Promise<{ connectionId: string; authUrl: string }> {
     const connection = await this.findOwnedConnection(userId, id);
-    if (!RENEWABLE_STATUSES.includes(connection.status)) {
+    // Un `pending` fermo da qualche minuto è un'autorizzazione abbandonata: si
+    // può rifare. Il nuovo `state` invalida comunque un callback ritardatario.
+    const stalePending =
+      connection.status === BankConnectionStatus.pending &&
+      Date.now() - connection.updatedAt.getTime() >= PENDING_RETRY_MS;
+    if (!RENEWABLE_STATUSES.includes(connection.status) && !stalePending) {
       throw new BadRequestException(
         connection.status === BankConnectionStatus.pending
-          ? 'C’è già un’autorizzazione in corso per questo collegamento: completala in banca oppure eliminalo e ricrealo.'
+          ? 'C’è già un’autorizzazione in corso per questo collegamento: completala in banca oppure riprova tra qualche minuto.'
           : 'Questo collegamento non può essere rinnovato: eliminalo e collega di nuovo la banca.',
       );
     }
@@ -282,6 +296,27 @@ export class BankSyncService {
     }
     const validUntil = computeConsentValidUntil(institution?.maximumConsentValidity ?? null);
 
+    // Come nella creazione: lo state deve essere già in DB quando la banca
+    // rimanda l'utente sul callback. Scrittura condizionale sulla riga letta:
+    // un callback arrivato nel frattempo (o un rinnovo da un altro
+    // dispositivo) ha cambiato stato/state/updatedAt e qui si perde, invece di
+    // riportare a `pending` un collegamento appena riuscito.
+    const state = randomBytes(16).toString('hex');
+    const claimed = await this.prisma.bankConnection.updateMany({
+      where: {
+        id: connection.id,
+        status: connection.status,
+        reference: connection.reference,
+        updatedAt: connection.updatedAt,
+      },
+      data: { reference: state, status: BankConnectionStatus.pending },
+    });
+    if (claimed.count === 0) {
+      throw new ConflictException(
+        'Il collegamento è cambiato nel frattempo: ricarica la pagina e riprova.',
+      );
+    }
+
     // Vecchia sessione: chiusa best-effort. Molte banche IT ammettono un solo
     // consenso attivo per TPP, quindi lasciarla aperta non aiuta comunque.
     if (connection.providerConsentId) {
@@ -294,14 +329,7 @@ export class BankSyncService {
       }
     }
 
-    // Come nella creazione: lo state deve essere già in DB quando la banca
-    // rimanda l'utente sul callback.
-    const state = randomBytes(16).toString('hex');
     const previous = { status: connection.status, reference: connection.reference };
-    await this.prisma.bankConnection.update({
-      where: { id: connection.id },
-      data: { reference: state, status: BankConnectionStatus.pending },
-    });
 
     try {
       const result = await this.remote(() =>
@@ -320,9 +348,16 @@ export class BankSyncService {
       return { connectionId: connection.id, authUrl: result.authUrl };
     } catch (e) {
       // Rinnovo mai partito: si torna allo stato di prima, altrimenti la
-      // connessione resterebbe `pending` e non sarebbe più rinnovabile.
+      // connessione resterebbe `pending` e non sarebbe più rinnovabile. Anche
+      // `updatedAt` torna quello di prima: se la riga era un `pending` fermo,
+      // un tentativo fallito non deve far ripartire l'attesa di 5 minuti né
+      // ridare 15 minuti di vita al vecchio state. Solo se nessuno l'ha
+      // toccata nel frattempo (state ancora il nostro).
       await this.prisma.bankConnection
-        .update({ where: { id: connection.id }, data: previous })
+        .updateMany({
+          where: { id: connection.id, reference: state },
+          data: { ...previous, updatedAt: connection.updatedAt },
+        })
         .catch(() => undefined);
       throw e;
     }
@@ -643,7 +678,9 @@ export class BankSyncService {
     try {
       // Transizione atomica: due callback concorrenti, uno solo vince.
       const res = await this.prisma.bankConnection.updateMany({
-        where: { id: connection.id, status: BankConnectionStatus.pending },
+        // Anche lo state deve essere ancora quello: un rinnovo partito nel
+        // frattempo l'ha sostituito e questo callback non vale più.
+        where: { id: connection.id, status: BankConnectionStatus.pending, reference: state },
         data: {
           status: BankConnectionStatus.linked,
           providerConsentId: session.consentId,
@@ -857,6 +894,7 @@ function toConnectionView(row: ConnectionWithLinks): BankConnectionView {
     status: row.status,
     consentExpiresAt: row.consentExpiresAt,
     createdAt: row.createdAt,
+    pendingSince: row.status === BankConnectionStatus.pending ? row.updatedAt : null,
     links: row.links.map((l) => toLinkView(l, l.account.name)),
   };
 }

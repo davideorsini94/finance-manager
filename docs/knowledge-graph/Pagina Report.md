@@ -2,15 +2,17 @@
 
 Route `/reports` — file `frontend/src/features/reports/ReportsPage.tsx` (la pagina `/reports/advanced` è separata). Usa il client API `features/dashboard/dashboardApi.ts`. Vedi [[Frontend]] per il contesto.
 
-## Tre modalità (Select in alto) + filtro conti
+## Tre modalità (controllo segmentato Mese · Anno · Confronto, v0.23.0) + filtro conti
 
 1. **Riepilogo annuale** (`GET reports/annual`): card KPI, bar chart dei 12 mesi, card **Top categorie**
 2. **Riepilogo mensile** (`GET reports/monthly`): card KPI, bar chart giornaliero, card **Top categorie**
 3. **Confronto periodi** (`GET reports/compare`): due colonne con totali + torta per categoria, più la card "Delta totali"
 
+Dalla v0.23.0: il periodo si scorre con lo stepper di vetro "‹ 2026 ›" / "‹ novembre 2026 ›" (avanti disabilitato sul periodo corrente) al posto del campo anno e del menu del mese; i totali usano `PeriodSummary` (come la [[Pagina Dashboard]]) con la variazione sull'anno/mese precedente (query `report annual/monthly` del periodo prima); il confronto sceglie i due periodi con due `DateRangeChip` e mostra ciambelle col totale.
+
 ## Comportamenti chiave
 
-- **Card KPI come selettore del flusso (2026-08-17)**: come sulla [[Pagina Dashboard]], click su **Entrate**/**Uscite** cambia il verso degli aggregati per categoria. Nell'annuale e nel mensile cambia la card **Top categorie** (titolo "Top categorie · uscite/entrate" e albero mostrato); nel confronto periodi i **totali Entrate/Uscite sono cliccabili** (lì non ci sono card KPI grandi) e cambiano la torta di **entrambe** le colonne, così il confronto resta omogeneo. Default uscite; Netto non cliccabile. Nessun refetch: annual/monthly restituiscono `byCategoryTree` + `byCategoryTreeIncome`, compare `categories` + `categoriesIncome`.
+- **Card KPI come selettore del flusso (2026-08-17; riquadri di `PeriodSummary` dalla v0.23.0)**: come sulla [[Pagina Dashboard]], click su **Entrate**/**Uscite** cambia il verso degli aggregati per categoria. Nell'annuale e nel mensile cambia la card **Top categorie** (titolo "Top categorie · uscite/entrate" e albero mostrato); nel confronto periodi i **totali Entrate/Uscite sono cliccabili** (lì non ci sono card KPI grandi) e cambiano la torta di **entrambe** le colonne, così il confronto resta omogeneo. Default uscite; Netto non cliccabile. Nessun refetch: annual/monthly restituiscono `byCategoryTree` + `byCategoryTreeIncome`, compare `categories` + `categoriesIncome`.
 - **Drill-down**: `CategoryTree` → `CategoryRow` espande padre → sottocategorie → singoli movimenti (`GET transactions`). Il `DrillContext` porta periodo, conti **e flusso**: il `type` della query segue il flusso e il `queryKey` lo include (altrimenti uscite ed entrate della stessa categoria condividerebbero la cache). Anche i testi ("Caricamento spese/entrate…", "Nessuna spesa/entrata.") seguono il flusso.
 - **Vocabolario condiviso col dashboard**: tipo `Flow`, etichette `FLOW_UI`, props di selezione `flowSelectProps()` e hint `FlowHint` stanno in `frontend/src/features/dashboard/flow.tsx`; lo scroll assistito su mobile è `revealIfOffscreen()` in `frontend/src/lib/utils/reveal.ts`.
 - **Nodo "Senza categoria"** senza figli non è drillabile (non è filtrabile per categoria nulla).

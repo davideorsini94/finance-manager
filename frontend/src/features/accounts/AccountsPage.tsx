@@ -1,20 +1,15 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  CreditCard,
-  Wallet,
-  Banknote,
-  Plus,
-  Pencil,
-  Share2,
-  Archive,
-  Star,
-} from 'lucide-react';
+import { CreditCard, Wallet, Banknote, Pencil, Share2, Archive, Star, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils/cn';
+import { Card } from '@/components/ui/card';
 import { MoneyAmount } from '@/components/shared/MoneyAmount';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { SwipeRow, type SwipeAction } from '@/components/shared/SwipeRow';
+import { GroupHeader } from '@/components/shared/GroupHeader';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { Skeleton } from '@/components/shared/animated/Skeleton';
+import { AnimatedNumber } from '@/components/shared/animated/AnimatedNumber';
 import { useAuth } from '@/features/auth/useAuth';
 import { getIcon } from '@/components/shared/icon-pool';
 import type { Account, AccountType } from '@/types/domain';
@@ -28,6 +23,13 @@ const TYPE_LABEL: Record<AccountType, string> = {
   credit_card: 'Carta di credito',
   cash: 'Contanti',
 };
+
+/** Ordine e titolo dei gruppi nell'elenco. */
+const GROUPS: { type: AccountType; title: string }[] = [
+  { type: 'checking', title: 'Conti correnti' },
+  { type: 'cash', title: 'Contanti' },
+  { type: 'credit_card', title: 'Carte di credito' },
+];
 
 /** Icona di fallback in base al tipo, se l'utente non ne ha scelta una */
 const TYPE_FALLBACK_ICON: Record<AccountType, typeof Wallet> = {
@@ -72,140 +74,206 @@ export function AccountsPage() {
   const accounts = accountsQuery.data ?? [];
   const paymentCandidates = accounts.filter((a) => a.type !== 'credit_card');
 
+  const openNew = () => {
+    setEditing(null);
+    setFormOpen(true);
+  };
+  const totalCents = accounts.reduce((acc, a) => acc + Number(a.balanceCents), 0);
+  const positive = accounts.filter((a) => Number(a.balanceCents) > 0);
+  const positiveTotal = positive.reduce((acc, a) => acc + Number(a.balanceCents), 0) || 1;
+
+  const actionsFor = (account: Account): SwipeAction[] => {
+    const isOwner = account.ownerId === currentUser?.id;
+    const isFav = currentUser?.favoriteAccountId === account.id;
+    return [
+      {
+        key: 'fav',
+        label: isFav ? 'Togli' : 'Preferito',
+        icon: Star,
+        onAction: () => setFavorite.mutate(isFav ? null : account.id),
+      },
+      {
+        key: 'edit',
+        label: 'Modifica',
+        icon: Pencil,
+        tone: 'primary',
+        onAction: () => {
+          setEditing(account);
+          setFormOpen(true);
+        },
+      },
+      ...(isOwner
+        ? [
+            { key: 'share', label: 'Condividi', icon: Share2, onAction: () => setShareTarget(account) },
+            {
+              key: 'archive',
+              label: 'Archivia',
+              icon: Archive,
+              tone: 'destructive' as const,
+              onAction: async () => {
+                const ok = await confirm({
+                  title: `Archiviare "${account.name}"?`,
+                  // Il ripristino NON è esposto da nessuna schermata
+                  // (soft-delete `archivedAt` senza UI di gestione):
+                  // il testo non deve promettere il contrario.
+                  description:
+                    'Il conto sparirà dalla lista e dai selettori. I movimenti restano nel database, ma dall’app non c’è modo di ripristinare un conto archiviato.',
+                  confirmLabel: 'Archivia',
+                  destructive: true,
+                });
+                if (ok) archive.mutate(account.id);
+              },
+            },
+          ]
+        : []),
+    ];
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="fm-large-title">Conti</h1>
-        <Button
-          onClick={() => {
-            setEditing(null);
-            setFormOpen(true);
-          }}
-        >
-          <Plus className="h-4 w-4 mr-2" /> Nuovo conto
-        </Button>
-      </div>
+    <div className="space-y-5">
+      <PageHeader title="Conti" action={{ label: 'Nuovo conto', onClick: openNew }} />
 
       {accountsQuery.isLoading ? (
-        <p className="text-sm text-muted-foreground">Caricamento…</p>
+        <div className="space-y-3">
+          <Skeleton height={132} rounded="lg" />
+          <Skeleton height={180} rounded="lg" />
+        </div>
       ) : accounts.length === 0 ? (
         <Card>
-          <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            Nessun conto ancora. Crea il primo per iniziare a registrare i movimenti.
-          </CardContent>
+          <EmptyState
+            icon={Wallet}
+            title="Nessun conto ancora"
+            description="Crea il primo conto per iniziare a registrare i movimenti."
+            action={
+              <Button size="sm" onClick={openNew}>
+                Nuovo conto
+              </Button>
+            }
+          />
         </Card>
       ) : (
-        <div className="fm-stagger grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {accounts.map((account) => {
-            const Icon = account.icon ? getIcon(account.icon) : TYPE_FALLBACK_ICON[account.type];
-            const tint = account.color ?? undefined;
-            const isOwner = account.ownerId === currentUser?.id;
-            const shared = account.members.length > 0;
-            // Foglio piatto come il resto del Registro: la tinta del conto vive
-            // solo nella spina sinistra e nel tassello dell'icona. Il fondo
-            // tinto pieno faceva sembrare ogni conto uno stato (selezione/errore).
-            return (
-              <Card
-                key={account.id}
-                className="fm-card-in border-l-4"
-                style={tint ? { borderLeftColor: tint } : undefined}
-              >
-                <CardHeader className="flex flex-row items-start justify-between space-y-0">
-                  <div className="flex items-start gap-3 min-w-0">
-                    <div
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+        <>
+          {/* Patrimonio: la somma dei saldi (le carte pesano in negativo) e
+              una barra con la quota di ogni conto in attivo. */}
+          <Card className="fm-card-in p-4 sm:p-5">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <span className="text-[13px] font-medium text-muted-foreground">
+                Patrimonio · {accounts.length} {accounts.length === 1 ? 'conto' : 'conti'}
+              </span>
+            </div>
+            <div className="mt-1 text-[2.25rem] leading-none sm:text-[2.5rem]">
+              <AnimatedNumber
+                value={totalCents / 100}
+                render={(n) => <MoneyAmount cents={Math.round(n * 100)} size="hero" />}
+              />
+            </div>
+            {positive.length > 1 && (
+              <>
+                <div className="mt-4 flex h-2 gap-0.5 overflow-hidden rounded-full" aria-hidden>
+                  {positive.map((a) => (
+                    <span
+                      key={a.id}
+                      className="h-full first:rounded-l-full last:rounded-r-full"
                       style={{
-                        backgroundColor: tint ? `${tint}1f` : 'hsl(var(--muted))',
-                        color: tint ?? 'hsl(var(--foreground))',
+                        flexGrow: Number(a.balanceCents) / positiveTotal,
+                        flexBasis: 0,
+                        backgroundColor: a.color ?? 'hsl(var(--chart-1))',
                       }}
-                    >
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <div className="space-y-1 min-w-0">
-                      <CardTitle className="text-base truncate">{account.name}</CardTitle>
-                      <p className="text-xs text-muted-foreground">{TYPE_LABEL[account.type]}</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7 -mt-1 -mr-1"
-                      aria-label={
-                        currentUser?.favoriteAccountId === account.id
-                          ? 'Rimuovi dai preferiti'
-                          : 'Imposta come preferito'
-                      }
-                      title={
-                        currentUser?.favoriteAccountId === account.id
-                          ? 'Conto preferito (pre-selezionato nei nuovi movimenti). Clic per rimuovere.'
-                          : 'Imposta come preferito — verrà pre-selezionato nei nuovi movimenti.'
-                      }
-                      onClick={() => {
-                        const isFav = currentUser?.favoriteAccountId === account.id;
-                        setFavorite.mutate(isFav ? null : account.id);
-                      }}
-                    >
-                      <Star
-                        className={cn(
-                          'h-4 w-4 transition-colors',
-                          currentUser?.favoriteAccountId === account.id
-                            ? 'fill-amber-400 text-amber-500'
-                            : 'text-muted-foreground hover:text-amber-500',
-                        )}
+                    />
+                  ))}
+                </div>
+                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                  {positive.map((a) => (
+                    <span key={a.id} className="inline-flex items-center gap-1.5">
+                      <span
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: a.color ?? 'hsl(var(--chart-1))' }}
                       />
-                    </Button>
-                    {!isOwner && <Badge variant="secondary">Condiviso</Badge>}
-                    {shared && isOwner && <Badge variant="outline">{account.members.length + 1} membri</Badge>}
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-[1.75rem] font-semibold leading-none tracking-tight tabular-nums">
-                    <MoneyAmount cents={account.balanceCents} size="row" />
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setEditing(account);
-                        setFormOpen(true);
-                      }}
-                    >
-                      <Pencil className="h-3.5 w-3.5 mr-1.5" /> Modifica
-                    </Button>
-                    {isOwner && (
-                      <Button size="sm" variant="outline" onClick={() => setShareTarget(account)}>
-                        <Share2 className="h-3.5 w-3.5 mr-1.5" /> Condividi
-                      </Button>
-                    )}
-                    {isOwner && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={async () => {
-                          const ok = await confirm({
-                            title: `Archiviare "${account.name}"?`,
-                            // Il ripristino NON è esposto da nessuna schermata
-                            // (soft-delete `archivedAt` senza UI di gestione):
-                            // il testo non deve promettere il contrario.
-                            description:
-                              'Il conto sparirà dalla lista e dai selettori. I movimenti restano nel database, ma dall’app non c’è modo di ripristinare un conto archiviato.',
-                            confirmLabel: 'Archivia',
-                            destructive: true,
-                          });
-                          if (ok) archive.mutate(account.id);
-                        }}
-                      >
-                        <Archive className="h-3.5 w-3.5 mr-1.5" /> Archivia
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                      {a.name} {Math.round((Number(a.balanceCents) / positiveTotal) * 100)}%
+                    </span>
+                  ))}
+                </div>
+              </>
+            )}
+          </Card>
+
+          <div className="space-y-4">
+            {GROUPS.map((g) => {
+              const list = accounts.filter((a) => a.type === g.type);
+              if (list.length === 0) return null;
+              return (
+                <div key={g.type}>
+                  <GroupHeader label={g.title} />
+                  <Card className="overflow-hidden">
+                    <ul className="divide-y">
+                      {list.map((account) => {
+                        const Icon = account.icon
+                          ? getIcon(account.icon)
+                          : TYPE_FALLBACK_ICON[account.type];
+                        const tint = account.color ?? undefined;
+                        const people = account.members.length + 1;
+                        const isFav = currentUser?.favoriteAccountId === account.id;
+                        return (
+                          <li key={account.id}>
+                            <SwipeRow
+                              actions={actionsFor(account)}
+                              slots={4}
+                              onActivate={() => {
+                                setEditing(account);
+                                setFormOpen(true);
+                              }}
+                              contentClassName="border-l-[3px] py-3 pl-3 pr-3 sm:pl-4"
+                              contentStyle={{ borderLeftColor: tint ?? 'transparent' }}
+                            >
+                              <span
+                                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px]"
+                                style={{
+                                  backgroundColor: tint ? `${tint}1f` : 'hsl(var(--muted))',
+                                  color: tint ?? 'hsl(var(--foreground))',
+                                }}
+                                aria-hidden
+                              >
+                                <Icon className="h-[18px] w-[18px]" />
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="flex items-center gap-1.5">
+                                  <span className="truncate text-[15px] font-medium">{account.name}</span>
+                                  {isFav && (
+                                    <Star
+                                      className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-500"
+                                      aria-label="Preferito"
+                                    />
+                                  )}
+                                  {people > 1 && (
+                                    <span
+                                      className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-muted px-1.5 text-[11px] text-muted-foreground"
+                                      title={`Condiviso tra ${people} persone`}
+                                    >
+                                      <Users className="h-3 w-3" aria-hidden />
+                                      {people}
+                                    </span>
+                                  )}
+                                </span>
+                                <span className="block truncate text-xs text-muted-foreground">
+                                  {TYPE_LABEL[account.type]}
+                                </span>
+                              </span>
+                              <MoneyAmount
+                                cents={account.balanceCents}
+                                size="row"
+                                className="shrink-0 text-[15px] font-semibold"
+                              />
+                            </SwipeRow>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </Card>
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
 
       <AccountForm
