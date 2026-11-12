@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma, TransactionType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccountPolicyService } from '../common/services/account-policy.service';
-import { CATEGORIZED_TRANSFER_WHERE, NOT_CATEGORIZED_TRANSFER_WHERE } from './transfer-category';
+import { FLOW_ONLY_WHERE, NON_FLOW_WHERE } from './transfer-category';
 
 export interface PeriodTotals {
   incomeCents: string;
@@ -130,7 +130,8 @@ export class ReportsService {
 
   /**
    * Come `accessibleTxWhere`, per gli aggregati di entrate/uscite: esclude anche
-   * i movimenti con categoria "Giroconto", che sono spostamenti tra conti.
+   * i movimenti con categoria "Giroconto" o di investimento, che spostano soldi
+   * senza essere spese o guadagni.
    */
   private flowTxWhere(
     userId: string,
@@ -140,14 +141,14 @@ export class ReportsService {
   ): Prisma.TransactionWhereInput {
     return {
       ...this.accessibleTxWhere(userId, extra, accountIds, categoryIds),
-      AND: [NOT_CATEGORIZED_TRANSFER_WHERE],
+      AND: [FLOW_ONLY_WHERE],
     };
   }
 
   /**
    * Totali entrata/uscita/netto in un periodo.
    * I giroconti vengono esclusi (sono interni e non rappresentano denaro entrante/uscente reale),
-   * compresi i movimenti con categoria "Giroconto".
+   * compresi i movimenti con categoria "Giroconto" o di investimento.
    * `accountIds` (opz.) restringe a un sottoinsieme di conti.
    */
   async periodTotals(
@@ -446,8 +447,8 @@ export class ReportsService {
       select: { amountCents: true, type: true, transactionDate: true },
       orderBy: { transactionDate: 'asc' },
     });
-    // I movimenti con categoria "Giroconto" non sono né entrate né uscite, ma
-    // spostano comunque il saldo dei conti selezionati.
+    // Giroconti e investimenti non sono né entrate né uscite, ma spostano
+    // comunque il saldo dei conti selezionati.
     const moved = await this.prisma.transaction.findMany({
       where: {
         ...this.accessibleTxWhere(
@@ -456,7 +457,7 @@ export class ReportsService {
           accountIds,
           categoryIds,
         ),
-        AND: [CATEGORIZED_TRANSFER_WHERE],
+        AND: [NON_FLOW_WHERE],
       },
       select: { amountCents: true, transactionDate: true },
     });

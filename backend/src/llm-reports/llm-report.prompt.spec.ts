@@ -57,6 +57,7 @@ const snapshot: ReportSnapshot = {
       expenseCents: '180000',
       transfersInCents: '0',
       transfersOutCents: '30000',
+      investmentsCents: '-500000',
       txCount: 40,
     },
     {
@@ -70,6 +71,7 @@ const snapshot: ReportSnapshot = {
       expenseCents: '0',
       transfersInCents: '30000',
       transfersOutCents: '0',
+      investmentsCents: '0',
       txCount: 2,
     },
   ],
@@ -87,6 +89,15 @@ const snapshot: ReportSnapshot = {
     items: [{ date: '2026-07-09', description: 'Pagamento X', amountCents: '-1800', accountName: 'Fineco' }],
     total: 3,
   },
+  investments: [
+    {
+      date: '2026-07-16',
+      accountName: 'Trade Republic',
+      description: null,
+      categoryName: 'Investimento fondi',
+      amountCents: '-500000',
+    },
+  ],
   recurring: [
     {
       description: 'Affitto',
@@ -209,7 +220,9 @@ describe('buildReportPrompt: dati per conto', () => {
     expect(prompt).toContain(
       '2026-07-20 · Fineco → altro conto · 500.00 € (categoria Giroconto, altra gamba non abbinata)',
     );
-    expect(prompt).toContain('non sommarli mai a entrate, uscite o categorie');
+    expect(prompt).toContain('I giroconti e gli investimenti non sono entrate né uscite');
+    expect(prompt).toContain('2026-07-16 · Trade Republic · investiti 5000.00 € · Investimento fondi');
+    expect(prompt).toContain('investimenti versati 5000.00 €');
     expect(prompt).toContain('3 in totale');
     expect(prompt).toContain('… e altri 2');
     expect(prompt).toContain('Affitto · 800.00 € · mensile · Fineco · Casa');
