@@ -375,6 +375,7 @@ export class LlmReportsService {
       transfers,
       toVerify,
       recurring,
+      investments,
     ] = await Promise.all(
       [
         this.reports.periodTotals(userId, from, to, accountIds),
@@ -402,6 +403,7 @@ export class LlmReportsService {
         this.reportContext.transfers(userId, from, to, accountIds),
         this.reportContext.toVerify(userId, from, to, accountIds),
         this.reportContext.recurringRules(userId, accountIds),
+        this.reportContext.investments(userId, from, to, accountIds),
       ],
     );
 
@@ -427,6 +429,7 @@ export class LlmReportsService {
       transfers,
       toVerify,
       recurring,
+      investments,
     };
   }
 }

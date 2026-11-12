@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma, TransactionType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccountPolicyService } from '../common/services/account-policy.service';
-import { CATEGORIZED_TRANSFER_WHERE, NOT_CATEGORIZED_TRANSFER_WHERE } from './transfer-category';
+import { CATEGORIZED_INVESTMENT_WHERE, CATEGORIZED_TRANSFER_WHERE, FLOW_ONLY_WHERE } from './transfer-category';
 
 export interface AccountOverview {
   name: string;
@@ -15,6 +15,8 @@ export interface AccountOverview {
   expenseCents: string;
   transfersInCents: string;
   transfersOutCents: string;
+  /** Investimenti netti del periodo (negativo = soldi investiti, positivo = disinvestiti). */
+  investmentsCents: string;
   txCount: number;
 }
 
@@ -25,6 +27,15 @@ export interface TransferItem {
   amountCents: string;
   /** Movimento con categoria "Giroconto" senza la gamba opposta abbinata. */
   unmatched?: boolean;
+}
+
+export interface InvestmentItem {
+  date: string;
+  accountName: string;
+  description: string | null;
+  categoryName: string | null;
+  /** Col segno: negativo = investito, positivo = disinvestito. */
+  amountCents: string;
 }
 
 export interface ToVerifyItem {
@@ -68,7 +79,8 @@ export class ReportContextService {
    * (storico importato parziale): saldo finale = attuale − movimenti successivi
    * al periodo; saldo iniziale = finale − movimenti del periodo (giroconti
    * compresi). Le entrate/uscite con categoria "Giroconto" contano come
-   * giroconti in entrata/uscita, non come entrate/uscite.
+   * giroconti in entrata/uscita, quelle di investimento come investimenti:
+   * nessuna delle due come entrata/uscita.
    */
   async accountsOverview(
     userId: string,
@@ -92,7 +104,7 @@ export class ReportContextService {
     const inPeriod = { accountId: { in: ids }, transactionDate: { gte: from, lte: to } };
     const transferLike = { OR: [{ type: TransactionType.transfer }, CATEGORIZED_TRANSFER_WHERE] };
 
-    const [after, byType, trIn, trOut] = await Promise.all([
+    const [after, byType, trIn, trOut, inv] = await Promise.all([
       this.prisma.transaction.groupBy({
         by: ['accountId'],
         where: { accountId: { in: ids }, transactionDate: { gt: to } },
@@ -100,7 +112,7 @@ export class ReportContextService {
       }),
       this.prisma.transaction.groupBy({
         by: ['accountId', 'type'],
-        where: { ...inPeriod, AND: [NOT_CATEGORIZED_TRANSFER_WHERE] },
+        where: { ...inPeriod, AND: [FLOW_ONLY_WHERE] },
         _sum: { amountCents: true },
         _count: { _all: true },
       }),
@@ -114,6 +126,11 @@ export class ReportContextService {
         where: { ...inPeriod, ...transferLike, amountCents: { lt: 0n } },
         _sum: { amountCents: true },
       }),
+      this.prisma.transaction.groupBy({
+        by: ['accountId'],
+        where: { ...inPeriod, ...CATEGORIZED_INVESTMENT_WHERE },
+        _sum: { amountCents: true },
+      }),
     ]);
 
     return accounts.map((a) => {
@@ -124,8 +141,9 @@ export class ReportContextService {
       const closing = a.balanceCents - afterSum;
       const tIn = trIn.find((r) => r.accountId === a.id)?._sum.amountCents ?? 0n;
       const tOut = trOut.find((r) => r.accountId === a.id)?._sum.amountCents ?? 0n;
+      const invested = inv.find((r) => r.accountId === a.id)?._sum.amountCents ?? 0n;
       const periodAll =
-        sumOf(TransactionType.income) + sumOf(TransactionType.expense) + tIn + tOut;
+        sumOf(TransactionType.income) + sumOf(TransactionType.expense) + tIn + tOut + invested;
       return {
         name: a.name,
         type: a.type,
@@ -137,6 +155,7 @@ export class ReportContextService {
         expenseCents: (-sumOf(TransactionType.expense)).toString(),
         transfersInCents: tIn.toString(),
         transfersOutCents: (-tOut).toString(),
+        investmentsCents: invested.toString(),
         txCount: rows
           .filter((r) => r.type !== TransactionType.transfer)
           .reduce((acc, r) => acc + r._count._all, 0),
@@ -222,6 +241,39 @@ export class ReportContextService {
       });
     }
     return items.sort((x, y) => x.date.localeCompare(y.date)).slice(0, limit * 2);
+  }
+
+  /** Movimenti di investimento del periodo (acquisti e vendite di fondi). */
+  async investments(
+    userId: string,
+    from: Date,
+    to: Date,
+    accountIds?: string[],
+    limit = 30,
+  ): Promise<InvestmentItem[]> {
+    const rows = await this.prisma.transaction.findMany({
+      where: {
+        ...CATEGORIZED_INVESTMENT_WHERE,
+        transactionDate: { gte: from, lte: to },
+        account: this.accountWhere(userId, accountIds),
+      },
+      orderBy: { transactionDate: 'asc' },
+      take: limit,
+      select: {
+        transactionDate: true,
+        description: true,
+        amountCents: true,
+        account: { select: { name: true } },
+        category: { select: { name: true } },
+      },
+    });
+    return rows.map((r) => ({
+      date: r.transactionDate.toISOString().slice(0, 10),
+      accountName: r.account.name,
+      description: r.description,
+      categoryName: r.category?.name ?? null,
+      amountCents: r.amountCents.toString(),
+    }));
   }
 
   /** Entrate/uscite del periodo senza categoria: il "Da verificare". */

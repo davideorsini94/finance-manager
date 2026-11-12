@@ -1,6 +1,7 @@
 import type { CategoryNode, PeriodTotals } from '../reports/reports.service';
 import type {
   AccountOverview,
+  InvestmentItem,
   RecurringItem,
   ToVerifyItem,
   TransferItem,
@@ -36,6 +37,7 @@ export interface ReportSnapshot {
   transfers: TransferItem[];
   toVerify: { items: ToVerifyItem[]; total: number };
   recurring: RecurringItem[];
+  investments: InvestmentItem[];
 }
 
 /** Quante categorie di primo livello passare per verso. Oltre è rumore. */
@@ -79,6 +81,9 @@ function formatAccounts(accounts: AccountOverview[]): string {
         `  - ${a.name} (${a.type}${shared}): saldo iniziale ${formatSignedEuro(a.openingBalanceCents)}, ` +
         `entrate ${formatEuro(a.incomeCents)}, uscite ${formatEuro(a.expenseCents)}, ` +
         `giroconti in entrata ${formatEuro(a.transfersInCents)}, in uscita ${formatEuro(a.transfersOutCents)}, ` +
+        (BigInt(a.investmentsCents) !== 0n
+          ? `investimenti ${BigInt(a.investmentsCents) < 0n ? 'versati' : 'liquidati'} ${formatEuro(a.investmentsCents)}, `
+          : '') +
         `saldo finale ${formatSignedEuro(a.closingBalanceCents)}, ${a.txCount} movimenti ` +
         `(saldo attuale ${formatSignedEuro(a.currentBalanceCents)})`
       );
@@ -93,6 +98,17 @@ function formatTransfers(items: TransferItem[]): string {
       (t) =>
         `  - ${t.date} · ${t.fromAccount} → ${t.toAccount} · ${formatEuro(t.amountCents)}` +
         `${t.unmatched ? ' (categoria Giroconto, altra gamba non abbinata)' : ''}`,
+    )
+    .join('\n');
+}
+
+function formatInvestments(items: InvestmentItem[]): string {
+  if (items.length === 0) return '  (nessun movimento di investimento)';
+  return items
+    .map(
+      (i) =>
+        `  - ${i.date} · ${i.accountName} · ${BigInt(i.amountCents) < 0n ? 'investiti' : 'liquidati'} ${formatEuro(i.amountCents)}` +
+        `${i.categoryName ? ` · ${i.categoryName}` : ''}${i.description?.trim() ? ` · ${i.description.trim()}` : ''}`,
     )
     .join('\n');
 }
@@ -209,6 +225,9 @@ ${top || '  (nessun movimento)'}
 Giroconti tra i conti (non sono entrate né uscite e sono già esclusi da totali, categorie, andamento e movimenti più grandi; nei conti sono i giroconti in entrata/uscita):
 ${formatTransfers(s.transfers)}
 
+Investimenti (acquisti e vendite di fondi: non sono entrate né uscite e sono già esclusi da totali, categorie, andamento e movimenti più grandi):
+${formatInvestments(s.investments)}
+
 Movimenti senza categoria (da verificare, ${s.toVerify.total} in totale):
 ${formatToVerify(s.toVerify)}
 
@@ -219,6 +238,6 @@ REGOLE
 - Rispondi in italiano, in **markdown**.
 - Usa solo i dati qui sopra: non inventare cifre, categorie o movimenti che non compaiono. Se un dato non c'è, dillo.
 - Cita gli importi in euro come sono scritti sopra.
-- I giroconti non sono entrate né uscite: non sommarli mai a entrate, uscite o categorie.
+- I giroconti e gli investimenti non sono entrate né uscite: non sommarli mai a entrate, uscite o categorie.
 - Niente titolo di primo livello, nessun link, nessuna immagine, nessun blocco di codice.`;
 }
