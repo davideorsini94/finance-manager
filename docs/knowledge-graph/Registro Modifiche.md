@@ -2,6 +2,10 @@
 
 Log cronologico (più recente in alto) delle modifiche al progetto. Una riga per intervento: data, cosa, file principali. Le note di dettaglio vivono nelle pagine collegate.
 
+## 2026-11-12
+
+- **Dati: rinnovo Banco Desio sbloccato**. Il rinnovo del consenso avviato alle 17:38 non era mai tornato dal callback e la connessione era rimasta `pending`, stato da cui `renewConnection` non permette di ripartire. Rimessa a `expired` a DB (update condizionale su `status = 'pending'`) per far rifare il rinnovo all'utente. Nessuna modifica al codice. Vedi [[Sync Bancario]].
+
 ## 2026-11-01
 
 - **Accesso da fuori (Tailscale Funnel)**: dall'Italia gli ingressi europei del Funnel non inoltravano le connessioni (TCP aperto, TLS muta), dagli USA sì. Risolto col riavvio di `tailscaled` (fatto dall'utente con sudo) + Funnel 443 riattivato, poi modalità aereo sull'iPhone. Procedura di prova per singolo ingresso aggiunta in [[Tailscale e Accesso]]. Nessuna modifica al codice.
