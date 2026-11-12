@@ -155,6 +155,15 @@ export class NotificationsService {
     this.events$.next({ userId, event: 'unread_count', count: unread });
   }
 
+  /** Elimina tutte le notifiche dell'utente ("Elimina tutte" della campanella). */
+  async removeAll(userId: string): Promise<number> {
+    const { count } = await this.prisma.notification.deleteMany({ where: { userId } });
+    // `cleared` svuota la lista anche sugli altri dispositivi aperti.
+    this.events$.next({ userId, event: 'cleared' });
+    this.events$.next({ userId, event: 'unread_count', count: 0 });
+    return count;
+  }
+
   // ============================================================
   // Preferences
   // ============================================================

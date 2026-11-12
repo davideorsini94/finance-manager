@@ -1095,8 +1095,10 @@
     stroke-width: 2;
     stroke-linecap: round;
     stroke-linejoin: round;
-    stroke-dasharray: 200;
-    stroke-dashoffset: 200;
+    /* Lunghezza normalizzata (`pathLength="1"` sul path): vale per qualsiasi
+       larghezza, anche le linee allargate al contenitore. */
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
     animation: fm-draw 1400ms cubic-bezier(0.4, 0, 0.2, 1) 200ms forwards;
   }
   @keyframes fm-draw { to { stroke-dashoffset: 0; } }
@@ -1116,6 +1118,7 @@
     .fm-shimmer::after,
     .fm-spark-path {
       animation: none !important;
+      stroke-dashoffset: 0;
     }
     .fm-press:active,
     .fm-glass-press:active {

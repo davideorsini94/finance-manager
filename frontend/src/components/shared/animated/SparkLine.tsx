@@ -14,6 +14,8 @@ interface Props {
   /** Disabilita draw-in */
   disableMotion?: boolean;
   strokeWidth?: number;
+  /** Si allarga a tutto il contenitore (larghezza da CSS) senza ingrossare il tratto. */
+  stretch?: boolean;
 }
 
 /**
@@ -29,6 +31,7 @@ export function SparkLine({
   className,
   disableMotion,
   strokeWidth = 2,
+  stretch = false,
 }: Props) {
   const gradId = useId();
   if (!data.length) return <svg width={width} height={height} className={className} />;
@@ -57,13 +60,16 @@ export function SparkLine({
   const areaPath = `${path} L${width},${height} L0,${height} Z`;
 
   const stroke = color ?? 'hsl(var(--primary))';
-  const animClass = disableMotion ? '' : 'fm-spark-path';
+  // La linea allargata (tratto non scalato) non si anima: il disegno a
+  // tratteggio verrebbe misurato in un altro spazio e lascerebbe dei buchi.
+  const animClass = disableMotion || stretch ? '' : 'fm-spark-path';
 
   return (
     <svg
       width={width}
       height={height}
       viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio={stretch ? 'none' : undefined}
       className={cn('overflow-visible', className)}
       aria-hidden
     >
@@ -85,6 +91,8 @@ export function SparkLine({
         strokeWidth={strokeWidth}
         strokeLinecap="round"
         strokeLinejoin="round"
+        vectorEffect={stretch ? 'non-scaling-stroke' : undefined}
+        pathLength={1}
         className={animClass}
       />
     </svg>

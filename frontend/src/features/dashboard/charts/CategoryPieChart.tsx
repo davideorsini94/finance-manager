@@ -1,8 +1,8 @@
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-import { formatCents } from '@/lib/utils/currency';
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import type { CategoryBreakdownItem } from '../dashboardApi';
+import { ChartTooltip } from './ChartTooltip';
 
-const FALLBACK_PALETTE = [
+export const FALLBACK_PALETTE = [
   'hsl(var(--chart-1))',
   'hsl(var(--chart-2))',
   'hsl(var(--chart-3))',
@@ -13,69 +13,95 @@ const FALLBACK_PALETTE = [
   '#22c55e',
 ];
 
+const WHOLE_EURO = new Intl.NumberFormat('it-IT', {
+  style: 'currency',
+  currency: 'EUR',
+  maximumFractionDigits: 0,
+});
+
+/**
+ * Fette della ciambella: le prime `max` categorie per importo più "Altro".
+ * La usa anche la legenda, così voci e colori coincidono con le fette.
+ */
+export function pieSlices(
+  data: CategoryBreakdownItem[],
+  max = 8,
+): { name: string; cents: number; color: string | null }[] {
+  const sorted = [...data].sort((a, b) => Number(BigInt(b.amountCents) - BigInt(a.amountCents)));
+  const top = sorted.slice(0, max).map((c) => ({
+    name: c.categoryName,
+    cents: Number(c.amountCents),
+    color: c.color,
+  }));
+  const others = sorted.slice(max).reduce((acc, c) => acc + Number(c.amountCents), 0);
+  return others > 0 ? [...top, { name: 'Altro', cents: others, color: null }] : top;
+}
+
 interface Props {
   data: CategoryBreakdownItem[];
   maxSlices?: number;
-  /** Messaggio a dati vuoti: la torta serve sia alle uscite sia alle entrate. */
+  /** Messaggio a dati vuoti: la ciambella serve sia alle uscite sia alle entrate. */
   emptyLabel?: string;
+  /** Etichetta sopra il totale al centro ("Uscite", "Entrate"). */
+  centerLabel?: string;
+  size?: number;
 }
 
+/**
+ * Ciambella con il **totale al centro**: la torta di prima non diceva quanto
+ * si era speso. La legenda con importi e percentuali sta accanto (lista della
+ * pagina), non sotto il grafico.
+ */
 export function CategoryPieChart({
   data,
   maxSlices = 8,
   emptyLabel = 'Nessuna spesa nel periodo',
+  centerLabel = 'Totale',
+  size = 180,
 }: Props) {
-  const sorted = [...data].sort((a, b) => Number(BigInt(b.amountCents) - BigInt(a.amountCents)));
-  const top = sorted.slice(0, maxSlices);
-  const others = sorted.slice(maxSlices);
-  const othersTotal = others.reduce((acc, c) => acc + Number(c.amountCents), 0);
-  const slices = [
-    ...top.map((c) => ({
-      name: c.categoryName,
-      value: Number(c.amountCents) / 100,
-      color: c.color,
-    })),
-    ...(othersTotal > 0
-      ? [{ name: 'Altro', value: othersTotal / 100, color: null as string | null }]
-      : []),
-  ];
+  const slices = pieSlices(data, maxSlices).map((c) => ({
+    name: c.name,
+    value: c.cents / 100,
+    color: c.color,
+  }));
+  const total = slices.reduce((acc, c) => acc + c.value * 100, 0);
 
   if (slices.length === 0) {
     return (
-      <p className="flex h-[260px] items-center justify-center text-sm text-muted-foreground">
+      <p className="flex h-[180px] items-center justify-center text-sm text-muted-foreground">
         {emptyLabel}
       </p>
     );
   }
 
   return (
-    <ResponsiveContainer width="100%" height={260}>
-      <PieChart>
-        <Pie
-          data={slices}
-          dataKey="value"
-          nameKey="name"
-          innerRadius={50}
-          outerRadius={90}
-          paddingAngle={2}
-        >
-          {slices.map((s, i) => (
-            <Cell key={i} fill={s.color ?? FALLBACK_PALETTE[i % FALLBACK_PALETTE.length]} />
-          ))}
-        </Pie>
-        <Tooltip
-          contentStyle={{
-            background: 'hsl(var(--popover))',
-            border: '1px solid hsl(var(--border))',
-            borderRadius: 'var(--radius)',
-            color: 'hsl(var(--popover-foreground))',
-          }}
-          itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
-          labelStyle={{ color: 'hsl(var(--popover-foreground))', fontWeight: 600 }}
-          formatter={(value: number) => formatCents(value * 100)}
-        />
-        <Legend wrapperStyle={{ fontSize: 12 }} />
-      </PieChart>
-    </ResponsiveContainer>
+    <div className="relative mx-auto" style={{ width: size, height: size }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Pie
+            data={slices}
+            dataKey="value"
+            nameKey="name"
+            innerRadius="68%"
+            outerRadius="100%"
+            paddingAngle={1.5}
+            stroke="none"
+            startAngle={90}
+            endAngle={-270}
+          >
+            {slices.map((s, i) => (
+              <Cell key={i} fill={s.color ?? FALLBACK_PALETTE[i % FALLBACK_PALETTE.length]} />
+            ))}
+          </Pie>
+          <Tooltip content={<ChartTooltip />} />
+        </PieChart>
+      </ResponsiveContainer>
+      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+        <span className="text-[11px] text-muted-foreground">{centerLabel}</span>
+        <span className="text-base font-bold tabular-nums tracking-tight">
+          {WHOLE_EURO.format(total / 100)}
+        </span>
+      </div>
+    </div>
   );
 }

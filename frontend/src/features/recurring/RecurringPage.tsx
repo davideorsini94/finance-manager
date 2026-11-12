@@ -4,7 +4,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
-  Plus,
   Play,
   Pause,
   Trash2,
@@ -43,6 +42,7 @@ import { accountsApi } from '@/features/accounts/accountsApi';
 import { categoriesApi } from '@/features/categories/categoriesApi';
 import { recurringApi, type RecurrenceFreq, type RecurringRule } from './recurringApi';
 import { useConfirm } from '@/components/shared/confirm';
+import { AddButton } from '@/components/shared/PageHeader';
 
 const FREQUENCIES: { value: RecurrenceFreq; label: string }[] = [
   { value: 'daily', label: 'Giornaliera' },
@@ -275,9 +275,7 @@ export function RecurringPage() {
           >
             <Repeat className="h-4 w-4 mr-2" /> Esegui ora
           </Button>
-          <Button onClick={openNew}>
-            <Plus className="h-4 w-4 mr-2" /> Nuova
-          </Button>
+          <AddButton label="Nuova ricorrenza" onClick={openNew} />
         </div>
       </div>
 

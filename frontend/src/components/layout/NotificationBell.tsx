@@ -20,6 +20,8 @@ import { Link, useNavigate } from '@tanstack/react-router';
 import { useNotificationsCtx } from '@/features/notifications/NotificationsProvider';
 import type { Notification, NotificationType } from '@/features/notifications/useNotifications';
 import { cn } from '@/lib/utils/cn';
+import { useConfirm } from '@/components/shared/confirm';
+import { SwipeRow } from '@/components/shared/SwipeRow';
 
 const ICONS: Record<NotificationType, LucideIcon> = {
   budget_threshold: AlertTriangle,
@@ -55,7 +57,8 @@ const TYPE_HUE: Record<NotificationType, string> = {
 };
 
 export function NotificationBell() {
-  const { items, unread, markRead, markAllRead, remove } = useNotificationsCtx();
+  const { items, unread, total, markRead, markAllRead, remove, removeAll } = useNotificationsCtx();
+  const confirm = useConfirm();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -111,7 +114,7 @@ export function NotificationBell() {
             <div className="flex items-baseline gap-2">
               <span className="font-medium">Notifiche</span>
               {unread > 0 && (
-                <span className="text-xs text-muted-foreground">{unread} non lette</span>
+                <span className="hidden text-xs text-muted-foreground sm:inline">{unread} non lette</span>
               )}
             </div>
             <div className="flex items-center gap-1">
@@ -122,7 +125,31 @@ export function NotificationBell() {
                 className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-accent disabled:opacity-40"
                 title="Segna tutte come lette"
               >
-                <CheckCheck className="h-3.5 w-3.5" /> Tutte lette
+                <CheckCheck className="h-3.5 w-3.5" />
+                <span className="max-[359px]:sr-only">Tutte lette</span>
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  // La modale sta fuori dal pannello: chiudendolo prima evito
+                  // che il click sulla modale lo chiuda a metà conferma.
+                  setOpen(false);
+                  // `items` sono solo le ultime caricate: il conteggio vero è `total`.
+                  const count = Math.max(total, items.length);
+                  const ok = await confirm({
+                    title: 'Eliminare tutte le notifiche?',
+                    description: `${count === 1 ? 'La notifica verrà eliminata' : `Le ${count} notifiche verranno eliminate`} da tutti i tuoi dispositivi. Non si può annullare.`,
+                    confirmLabel: 'Elimina tutte',
+                    destructive: true,
+                  });
+                  if (ok) void removeAll();
+                }}
+                disabled={items.length === 0}
+                className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-[hsl(var(--neg))] disabled:opacity-40"
+                title="Elimina tutte le notifiche"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span className="max-[359px]:sr-only">Elimina tutte</span>
               </button>
               <Link
                 to="/settings"
@@ -147,8 +174,14 @@ export function NotificationBell() {
                 </div>
               </div>
             ) : (
-              <ul className="divide-y">
-                {items.map((n) => (
+              <div className="pb-1">
+                {groupByAge(items).map((g) => (
+                  <section key={g.label}>
+                    <h3 className="px-4 pb-1 pt-3 text-[11px] font-semibold text-muted-foreground">
+                      {g.label}
+                    </h3>
+                    <ul className="divide-y divide-border/60">
+                {g.items.map((n) => (
                   <NotificationRow
                     key={n.id}
                     n={n}
@@ -169,13 +202,33 @@ export function NotificationBell() {
                     onDelete={() => remove(n.id)}
                   />
                 ))}
-              </ul>
+                    </ul>
+                  </section>
+                ))}
+              </div>
             )}
           </div>
         </div>
       )}
     </div>
   );
+}
+
+/** Gruppi per data come nel Centro notifiche: Oggi, Questa settimana, Prima. */
+function groupByAge(items: Notification[]): { label: string; items: Notification[] }[] {
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const weekAgo = startOfToday.getTime() - 6 * 86_400_000;
+  const groups = [
+    { label: 'Oggi', items: [] as Notification[] },
+    { label: 'Questa settimana', items: [] as Notification[] },
+    { label: 'Prima', items: [] as Notification[] },
+  ];
+  for (const n of items) {
+    const t = new Date(n.createdAt).getTime();
+    groups[t >= startOfToday.getTime() ? 0 : t >= weekAgo ? 1 : 2].items.push(n);
+  }
+  return groups.filter((g) => g.items.length > 0);
 }
 
 function NotificationRow({
@@ -185,7 +238,7 @@ function NotificationRow({
   onDelete,
 }: {
   n: Notification;
-  /** Segna come letta senza navigare (bottone "segna letta"). */
+  /** Segna come letta senza navigare. */
   onRead: () => void;
   /** Tap sulla riga: segna come letta e, se il tipo ha una pagina, ci porta. */
   onActivate: () => void;
@@ -193,61 +246,41 @@ function NotificationRow({
 }) {
   const Icon = ICONS[n.type] ?? Info;
   const hue = TYPE_HUE[n.type] ?? TYPE_HUE.system;
-  const navigable = !!TYPE_HREF[n.type];
 
   return (
-    <li
-      className={cn(
-        'group relative flex gap-3 px-4 py-3 hover:bg-accent/50',
-        !n.readAt && 'bg-blue-50/40 dark:bg-blue-950/20',
-        navigable && 'cursor-pointer',
-      )}
-      onClick={onActivate}
-    >
-      <div className={cn('flex h-9 w-9 flex-none items-center justify-center rounded-full', hue)}>
-        <Icon className="h-4 w-4" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start justify-between gap-2">
-          <div className="text-sm font-medium leading-tight">{n.title}</div>
-          {!n.readAt && (
-            <span
-              aria-hidden
-              className="mt-1.5 h-2 w-2 flex-none rounded-full bg-blue-500"
-            />
+    <li>
+      {/* Dito: scorri a sinistra per segnare letta o eliminare. Mouse: le
+          stesse azioni compaiono al passaggio. */}
+      <SwipeRow
+        actions={[
+          ...(!n.readAt
+            ? [{ key: 'read', label: 'Letta', icon: Check, onAction: onRead }]
+            : []),
+          { key: 'delete', label: 'Elimina', icon: Trash2, tone: 'destructive' as const, onAction: onDelete },
+        ]}
+        onActivate={onActivate}
+        contentClassName="items-start bg-popover px-4 py-3"
+      >
+        <span className={cn('flex h-8 w-8 flex-none items-center justify-center rounded-[10px]', hue)}>
+          <Icon className="h-4 w-4" aria-hidden />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-start justify-between gap-2">
+            <span className={cn('text-sm leading-tight', n.readAt ? 'font-medium' : 'font-semibold')}>
+              {n.title}
+            </span>
+            {!n.readAt && (
+              <span aria-label="Non letta" className="mt-1 h-2 w-2 flex-none rounded-full bg-primary" />
+            )}
+          </span>
+          {n.body && (
+            <span className="mt-0.5 line-clamp-2 block text-xs text-muted-foreground">{n.body}</span>
           )}
-        </div>
-        {n.body && (
-          <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-            {n.body}
-          </div>
-        )}
-        <div className="mt-1 flex items-center gap-3 text-[11px] text-muted-foreground">
-          <time dateTime={n.createdAt}>{formatRelative(n.createdAt)}</time>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-            className="invisible inline-flex items-center gap-1 hover:text-[hsl(var(--neg))] group-hover:visible"
-          >
-            <Trash2 className="h-3 w-3" /> elimina
-          </button>
-          {!n.readAt && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onRead();
-              }}
-              className="invisible inline-flex items-center gap-1 hover:text-blue-600 group-hover:visible"
-            >
-              <Check className="h-3 w-3" /> segna letta
-            </button>
-          )}
-        </div>
-      </div>
+          <time dateTime={n.createdAt} className="mt-1 block text-[11px] text-muted-foreground">
+            {formatRelative(n.createdAt)}
+          </time>
+        </span>
+      </SwipeRow>
     </li>
   );
 }

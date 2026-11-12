@@ -138,6 +138,11 @@ export function BankConnectionsCard() {
   const connectionsQuery = useQuery({
     queryKey: ['bank-connections'],
     queryFn: () => bankSyncApi.listConnections(),
+    // Con un'autorizzazione in attesa la lista si rilegge ogni 30 s: così,
+    // anche riaprendo la pagina a metà, "Rinnova" ricompare da sola dopo i
+    // 5 minuti senza dover ricaricare.
+    refetchInterval: (q) =>
+      q.state.data?.items.some((c) => c.status === 'pending') ? 30_000 : false,
   });
 
   const reviewCountQuery = useQuery({
@@ -266,6 +271,8 @@ export function BankConnectionsCard() {
       () => {
         setRenewOutcome({ connectionId: renewState.connectionId, kind: 'timeout', unmapped: 0 });
         setRenewState(null);
+        // La lista rilegge `pendingSince`: il pulsante Rinnova torna disponibile.
+        invalidate();
       },
       Math.max(0, remaining),
     );
@@ -677,6 +684,18 @@ function RenewOutcomeMessage({ outcome }: { outcome: RenewOutcome }) {
 
 const RENEWABLE_STATUSES = new Set<BankConnectionStatus>(['expired', 'suspended', 'error']);
 
+/** Come `PENDING_RETRY_MS` del backend: un'autorizzazione ferma da 5 minuti si può rifare. */
+const PENDING_RETRY_MS = 5 * 60 * 1000;
+
+/** Autorizzazione rimasta in attesa (banca chiusa a metà): il rinnovo si può rifare. */
+function isStalePending(connection: BankConnection): boolean {
+  return (
+    connection.status === 'pending' &&
+    !!connection.pendingSince &&
+    Date.now() - new Date(connection.pendingSince).getTime() >= PENDING_RETRY_MS
+  );
+}
+
 function ConnectionRow({
   connection,
   busy,
@@ -711,7 +730,8 @@ function ConnectionRow({
   const expiring = connection.consentExpiresAt
     ? new Date(connection.consentExpiresAt).getTime() - Date.now() < 7 * 86_400_000
     : false;
-  const needsRenewal = RENEWABLE_STATUSES.has(connection.status) || expiring;
+  const stalePending = isStalePending(connection);
+  const needsRenewal = RENEWABLE_STATUSES.has(connection.status) || expiring || stalePending;
 
   return (
     <li className="rounded-md border p-3 space-y-3">
@@ -756,9 +776,11 @@ function ConnectionRow({
         <div className="space-y-1.5 rounded-md border border-amber-200 bg-amber-50/60 p-2 dark:border-amber-900 dark:bg-amber-950/30">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs text-amber-800 dark:text-amber-200">
-              {RENEWABLE_STATUSES.has(connection.status)
-                ? 'Il consenso non è più valido: rinnova il collegamento per riprendere la sincronizzazione.'
-                : 'Il consenso sta per scadere: rinnovalo per non interrompere la sincronizzazione.'}
+              {stalePending
+                ? 'L’autorizzazione in banca non è stata completata: puoi rifarla.'
+                : RENEWABLE_STATUSES.has(connection.status)
+                  ? 'Il consenso non è più valido: rinnova il collegamento per riprendere la sincronizzazione.'
+                  : 'Il consenso sta per scadere: rinnovalo per non interrompere la sincronizzazione.'}
             </p>
             <Button
               type="button"

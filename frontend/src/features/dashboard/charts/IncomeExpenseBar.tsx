@@ -1,14 +1,7 @@
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
-import { formatCents } from '@/lib/utils/currency';
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { shortDate } from '@/lib/utils/date';
 import type { DailyPoint } from '../dashboardApi';
+import { AXIS_PROPS, ChartTooltip, compactEuro } from './ChartTooltip';
 
 interface Props {
   data: DailyPoint[];
@@ -16,29 +9,19 @@ interface Props {
 
 export function IncomeExpenseBar({ data }: Props) {
   const chartData = data.map((d) => ({
-    date: d.date.slice(5),
+    label: shortDate(d.date),
     Entrate: Number(d.incomeCents) / 100,
     Uscite: Number(d.expenseCents) / 100,
   }));
   return (
-    <ResponsiveContainer width="100%" height={260}>
-      <BarChart data={chartData}>
-        <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeOpacity={0.7} />
-        <XAxis dataKey="date" fontSize={12} stroke="hsl(var(--muted-foreground))" />
-        <YAxis fontSize={12} stroke="hsl(var(--muted-foreground))" />
-        <Tooltip
-          contentStyle={{
-            background: 'hsl(var(--popover))',
-            border: '1px solid hsl(var(--border))',
-            borderRadius: 'var(--radius)',
-            color: 'hsl(var(--popover-foreground))',
-          }}
-          itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
-          labelStyle={{ color: 'hsl(var(--popover-foreground))', fontWeight: 600 }}
-          formatter={(value: number) => formatCents(value * 100)}
-        />
-        <Bar dataKey="Entrate" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
-        <Bar dataKey="Uscite" fill="hsl(var(--chart-4))" radius={[4, 4, 0, 0]} />
+    <ResponsiveContainer width="100%" height={240}>
+      <BarChart data={chartData} margin={{ top: 12, right: 8, bottom: 0, left: 0 }}>
+        <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeOpacity={0.6} />
+        <XAxis dataKey="label" {...AXIS_PROPS} interval="preserveStartEnd" minTickGap={40} tickMargin={8} />
+        <YAxis {...AXIS_PROPS} width={40} tickFormatter={compactEuro} />
+        <Tooltip content={<ChartTooltip />} cursor={{ fill: 'hsl(var(--foreground))', fillOpacity: 0.05 }} />
+        <Bar dataKey="Entrate" fill="hsl(var(--pos))" fillOpacity={0.85} radius={[4, 4, 0, 0]} />
+        <Bar dataKey="Uscite" fill="hsl(var(--neg))" fillOpacity={0.75} radius={[4, 4, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, Palette } from 'lucide-react';
+import { Pencil, Trash2, Palette } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getIcon } from '@/components/shared/icon-pool';
@@ -10,6 +10,7 @@ import { CategoryForm } from './CategoryForm';
 import { useConfirm } from '@/components/shared/confirm';
 import { CATEGORY_PALETTE_HEX } from '@/lib/theme/categoryPalette';
 import { sortByName } from '@/lib/utils/sort';
+import { AddButton } from '@/components/shared/PageHeader';
 
 export function CategoriesPage() {
   const queryClient = useQueryClient();
@@ -78,14 +79,13 @@ export function CategoriesPage() {
             <Palette className="h-4 w-4 mr-2" />
             {recolor.isPending ? 'Riallineo…' : 'Riallinea al tema'}
           </Button>
-          <Button
+          <AddButton
+            label="Nuova categoria"
             onClick={() => {
               setEditing(null);
               setFormOpen(true);
             }}
-          >
-            <Plus className="h-4 w-4 mr-2" /> Nuova categoria
-          </Button>
+          />
         </div>
       </div>
 
